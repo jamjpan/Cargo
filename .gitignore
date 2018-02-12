@@ -1,0 +1,8 @@
+*.swp
+*.swo
+*.swa
+*.o
+*.a
+*.gtree
+tests/all_tests
+utils/build_gtree
