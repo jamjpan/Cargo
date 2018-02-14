@@ -1,6 +1,6 @@
-libezrs
+Cargo
 =======
-A set of abstractions for building and testing ridesharing algorithms.
+Simple ridesharing server for testing matching algorithms.
 
 ### Reason:
 
