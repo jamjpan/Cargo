@@ -1,5 +1,7 @@
 // author @J.T. Hu
 
+// maybe loader class is not needed
+
 #pragma once
 
 #include <map>
@@ -12,7 +14,7 @@ namespace cargo {
   {
   public:
     Loader();
-    static void loadTrips(std::map<time_t, vector<Trip>>& trips);
+    static void loadTrips(std::map<time_t, std::vector<Trip>>& trips);
 
   private:
     std::string mRoadNetPath;

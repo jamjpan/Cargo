@@ -1,6 +1,6 @@
 // author @J.T. Hu
 
-#include <ifstream>
+#include <fstream>
 #include <iomanip>
 #include "Loader.h"
 
@@ -11,7 +11,7 @@ namespace cargo {
 
   }
 
-  static void Loader::loadTrips(std::map<time_t, vector<Trips>>& trips) {
+  static void Loader::loadTrips(std::map<time_t, std::vector<Trips>>& trips) {
     std::ifstream ifs(mTripsPath);
     int id, origin, dest;
     std::string time;
@@ -23,5 +23,6 @@ namespace cargo {
       dt = std::mktime(&tm);
       trips[time_t].push_back(Trip());
     }
+    ifs.close();
   }
 }
