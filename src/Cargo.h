@@ -3,6 +3,7 @@
 #pragma once
 
 #include <string>
+#include "Solution.h"
 
 namespace cargo {
 
@@ -11,11 +12,14 @@ namespace cargo {
   public:
     std::string GTreePath;
     std::string RoadNetPath;
+    static int NumberOfVehicles = 4000;
 
-    Cargo();
-    ~Cargo();
-    void init();
-    void run();
-    
+    Cargo(int argc, const char* argv[]);
+    RoadNet& RoadNet() { return mRoadNet; };
+    void printUsage();
+    void run(Solution* solution);
+
+  private:
+    RoadNet mRoadNet;
   };
 }

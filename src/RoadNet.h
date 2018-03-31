@@ -12,7 +12,6 @@ namespace cargo {
   {
   public:
     RoadNet(std::string roadNetPath, std::string gTreePath);
-    ~RoadNet();
     
   private:
     GTree::G_Tree mGTree;
