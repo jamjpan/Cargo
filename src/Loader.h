@@ -14,7 +14,7 @@ namespace cargo {
   {
   public:
     Loader();
-    static void loadTrips(std::map<time_t, std::vector<Trip>>& trips);
+    void loadTrips(std::map<time_t, std::vector<Trip> >& trips);
 
   private:
     std::string mRoadNetPath;

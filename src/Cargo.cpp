@@ -1,16 +1,17 @@
 // author @J.T. Hu
 
 // https://github.com/sailormoon/flags
-#include "flags.h"
+// #include "flags.h"
 #include "Cargo.h"
 #include "Loader.h"
+#include "readerwriterqueue.h"
 
 namespace cargo {
 
   Cargo::Cargo(int argc, const char* argv[]) {
-    const flags::args args(argc, argv);
+    // const flags::args args(argc, argv);
 
-    Loader loader(a, b);
+    Loader loader();
     // load trips dataset
     loader.loadTrips(mTrips);
   }
@@ -49,6 +50,30 @@ namespace cargo {
   }
 
   void Cargo::run(Solution* solution) {
-    
+    // initialize vehicles. could seperate vehicles and requests
+    int count = 0;
+    auto itr = mTrips.find(mStart);
+    while (count != NumberOfVehicles && itr != mTrips.begin()) {
+      --itr;
+    }
+
+    // The RequestQueue for storing requests Thread-safe thanks to cameron314
+    // https://github.com/cameron314/readerwriterqueue
+    moodycamel::ReaderWriterQueue<GenericTrip> requestQueue;
+    // ... and another queue for replayed requests
+    moodycamel::ReaderWriterQueue<GenericTrip> replayQueue;
+
+    time_t globalTime = mStart;
+    bool done = false;
+
+    // thread for processing requests
+    std::thread RequestProcessor([&] {
+      Trip trip;
+      while (!done) {
+        bool hasRequest = requestQueue.try_dequeue(trip);
+        if (!hasRequest)
+          continue; // or sleep for a little while
+      }
+    });
   }
 }

@@ -3,55 +3,49 @@ CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c
 LFLAGS = -Wall
 PTHREAD = -lpthread
 METIS = -L/usr/local/lib -lmetis
-OBJS = main.o \
-	   print.o io.o \
-	   routeRS.o grid.o gtree.o common.o \
-	   TShare.o Rex.o Rap.o RSAlg.o Noah.o naive.o
+SRC = ../src
+OBJS = main.o Cargo.o Customer.o Loader.o RoadNet.o Scheduel.o Solution.o \
+	TimeWindow.o Vehicle.o NearestSolution.o gtree.o
 
-routeRS: $(OBJS)
-	$(CC) $(LFLAGS) $(OBJS) $(PTHREAD) $(METIS) -o routeRS
+cargo: $(OBJS)
+	$(CC) $(LFLAGS) $(OBJS) $(PTHREAD) $(METIS) -o cargo
 
 ################################################################################
-main.o: main.cpp ../src/Cargo.h ../src/Solution.h
-	$(CC) $(CFLAGS) src/main.cc
+main.o: main.cpp $(SRC)/Cargo.h $(SRC)/Solution.h ./NearestSolution.h
+	$(CC) $(CFLAGS) main.cpp
 
-routeRS.o: src/routeRS.cc src/routeRS.h src/common.h src/readerwriterqueue.h \
-	src/print.h src/io.h src/TShare.h src/Rex.h src/Rap.h src/naive.h src/RSAlg.h
-	$(CC) $(CFLAGS) src/routeRS.cc
+Cargo.o: $(SRC)/Cargo.cpp $(SRC)/Cargo.h $(SRC)/readerwriterqueue.h $(SRC)/Loader.h
+	$(CC) $(CFLAGS) $(SRC)/Cargo.cpp
 
-Rex.o: src/Rex.cc src/Rex.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/Rex.cc
+Customer.o: $(SRC)/Customer.cpp $(SRC)/Customer.h
+	$(CC) $(CFLAGS) $(SRC)/Customer.cpp
 
-Rap.o: src/Rap.cc src/Rap.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/Rap.cc
+# grid.o: $(SRC)/grid.cpp $(SRC)/common.h
+ 	# $(CC) $(CFLAGS) $(SRC)/grid.cpp
 
-grid.o: src/grid.cc src/common.h
-	$(CC) $(CFLAGS) src/grid.cc
+gtree.o: $(SRC)/gtree.cpp $(SRC)/gtree.h
+	$(CC) $(CFLAGS) $(SRC)/gtree.cpp
 
-gtree.o: src/gtree.cc src/gtree.h
-	$(CC) $(CFLAGS) src/gtree.cc
+# TShare.o: $(SRC)/TShare.cpp $(SRC)/TShare.h $(SRC)/common.h $(SRC)/print.h
+	# $(CC) $(CFLAGS) $(SRC)/TShare.cpp
 
-TShare.o: src/TShare.cc src/TShare.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/TShare.cc
+# Noah.o: $(SRC)/Noah.cpp $(SRC)/Noah.h $(SRC)/common.h $(SRC)/print.h
+	# $(CC) $(CFLAGS) $(SRC)/Noah.cpp
 
-Noah.o: src/Noah.cc src/Noah.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/Noah.cc
+# naive.o: $(SRC)/naive.cpp $(SRC)/naive.h $(SRC)/common.h $(SRC)/print.h
+	# $(CC) $(CFLAGS) $(SRC)/naive.cpp
 
-naive.o: src/naive.cc src/naive.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/naive.cc
+# Solution.o: $(SRC)/Solution.cpp $(SRC)/RSAlg.h $(SRC)/common.h $(SRC)/print.h
+	# $(CC) $(CFLAGS) $(SRC)/Solution.cpp
 
-RSAlg.o: src/RSAlg.cc src/RSAlg.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/RSAlg.cc
+# common.o: $(SRC)/common.cpp $(SRC)/common.h $(SRC)/print.h
+	# $(CC) $(CFLAGS) $(SRC)/common.cpp
 
-common.o: src/common.cc src/common.h src/print.h
-	$(CC) $(CFLAGS) src/common.cc
+# print.o: $(SRC)/print.cpp $(SRC)/print.h $(SRC)/colors.h $(SRC)/common.h
+	# $(CC) $(CFLAGS) $(SRC)/print.cpp
 
-print.o: src/print.cc src/print.h src/colors.h src/common.h
-	$(CC) $(CFLAGS) src/print.cc
-
-io.o: src/io.cc src/io.h src/common.h src/print.h
-	$(CC) $(CFLAGS) src/io.cc
+# io.o: $(SRC)/io.cpp $(SRC)/io.h $(SRC)/common.h $(SRC)/print.h
+	# $(CC) $(CFLAGS) $(SRC)/io.cpp
 
 clean:
-	rm -rf *.o *~ routeRS test/test
-
+	rm -rf *.o *~ cargo test/test

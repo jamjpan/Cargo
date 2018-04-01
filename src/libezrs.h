@@ -9,7 +9,7 @@
 #include <ctime> // for time_t
 #include "gtree/GTree.h"
 
-namespace cargo {
+namespace ezrs {
 
 typedef struct {
   int Id;

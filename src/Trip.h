@@ -7,6 +7,6 @@ namespace cargo {
   class Trip
   {
   public:
-    Trips();
+    Trip();
   };
 }

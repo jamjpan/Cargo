@@ -3,6 +3,7 @@
 #pragma once
 
 #include "TimeWindow.h"
+#include "Schedule.h"
 
 namespace cargo {
 
@@ -13,15 +14,16 @@ namespace cargo {
     ~Vehicle();
     int& Origin();
     int& Destination();
-    TimeWindow& mTimeWindow();
+    const TimeWindow& getTimeWindow() const { return mTimeWindow; };
     int& Capacity();
-    
+    const Schedule& getSchedule() const { return mSchedule; };
+
   private:
     // node index of origin
     int mOrigin;
     // node index of destination
     int mDestination;
-    // vehicle's time window 
+    // vehicle's time window
     TimeWindow mTimeWindow;
     // capacity
     int mCapacity;

@@ -11,7 +11,7 @@ namespace cargo {
 
   }
 
-  static void Loader::loadTrips(std::map<time_t, std::vector<Trips>>& trips) {
+  void Loader::loadTrips(std::map<time_t, std::vector<Trips>>& trips) {
     std::ifstream ifs(mTripsPath);
     int id, origin, dest;
     std::string time;

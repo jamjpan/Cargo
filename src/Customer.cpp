@@ -5,7 +5,8 @@
 namespace cargo {
 
   // travel time is computed in cargo run class
-  Customer::Customer(int origin, int destination, time_t created, time_t travel, int demand) {
+  Customer::Customer(int id, int origin, int destination, time_t created, time_t travel, int demand) {
+    mId = id;
     mOrigin = origin;
     mDestination = destination;
     mTimeWindow.StartTime() = createTime;
