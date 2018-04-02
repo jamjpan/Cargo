@@ -13,7 +13,7 @@ namespace cargo {
   class Loader
   {
   public:
-    Loader();
+    Loader(std::string roadNetPath, std::string tripsPath);
     void loadTrips(std::map<time_t, std::vector<Trip> >& trips);
 
   private:

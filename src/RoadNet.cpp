@@ -3,12 +3,13 @@
 #include <fstream>
 #include <stdexcept>
 #include <algorithm>
-#include "RoadNetwork.h"
+#include "RoadNet.h"
+#include "Vehicle.h"
 #include "common.h"
 
 namespace cargo {
 
-  auto keySelector = [](auto veh) { return veh.current; };
+  auto keySelector = [](std::pair<int, Vehicle> pair) { return pair.second.current; };
 
   RoadNet::RoadNet(std::string roadNetPath, std::string gTreePath) {
     // init nodes and edges
@@ -16,9 +17,9 @@ namespace cargo {
     int id, o, d;
     double ox, oy, dx, dy;
     while (ifs >> id >> o >> d >> ox >> oy >> dx >> dy) {
-        mNodes[o]  = node_t(ox, oy);
-        mNodes[d]  = node_t(dx, dy);
-        mEdges[id] = { edge_t(o, d), haversine(Point(ox, oy), Point(dx, dy)) };
+        mNodes[o]  = node_t { ox, oy };
+        mNodes[d]  = node_t { dx, dy };
+        mEdges[id] = edge_t { o, d , haversine(ox, oy, dx, dy) };
     }
     std::printf("Nodes: %lu; Edges: %lu\n", mNodes.size(), mEdges.size());
     ifs.close();
@@ -27,7 +28,7 @@ namespace cargo {
     mGTree = GTree::get();
   }
 
-  Vehicle& RoadNet::getKthVehicle(int origin, int K) {
+  Vehicle RoadNet::getKthVehicle(int origin, int K) {
     // get current locations of vehicles
     std::vector<int> locations(mVehicles.size());
     transform(mVehicles.begin(), mVehicles.end(), locations.begin(), keySelector);

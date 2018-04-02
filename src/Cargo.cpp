@@ -1,5 +1,7 @@
 // author @J.T. Hu
 
+#include <iostream>
+#include <thread>
 // https://github.com/sailormoon/flags
 // #include "flags.h"
 #include "Cargo.h"
@@ -8,10 +10,11 @@
 
 namespace cargo {
 
-  Cargo::Cargo(int argc, const char* argv[]) {
+  Cargo::Cargo(int argc, const char* argv[])
+    : mRoadNet(RoadNet(RoadNetPath, GTreePath)) {
     // const flags::args args(argc, argv);
 
-    Loader loader();
+    Loader loader(RoadNetPath, TripsPath);
     // load trips dataset
     loader.loadTrips(mTrips);
   }
@@ -59,20 +62,20 @@ namespace cargo {
 
     // The RequestQueue for storing requests Thread-safe thanks to cameron314
     // https://github.com/cameron314/readerwriterqueue
-    moodycamel::ReaderWriterQueue<GenericTrip> requestQueue;
+    moodycamel::ReaderWriterQueue<Customer> requestQueue;
     // ... and another queue for replayed requests
-    moodycamel::ReaderWriterQueue<GenericTrip> replayQueue;
+    moodycamel::ReaderWriterQueue<Customer> replayQueue;
 
     time_t globalTime = mStart;
     bool done = false;
 
     // thread for processing requests
     std::thread RequestProcessor([&] {
-      Trip trip;
+      Customer customer(-1, -1, -1, -1, -1, -1);
       while (!done) {
-        bool hasRequest = requestQueue.try_dequeue(trip);
+        bool hasRequest = requestQueue.try_dequeue(customer);
         if (!hasRequest)
-          continue; // or sleep for a little while
+          continue; // or sleep for a while
       }
     });
   }

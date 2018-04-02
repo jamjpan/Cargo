@@ -9,10 +9,10 @@ namespace cargo {
   class TimeWindow
   {
   public:
-    TimeWindow();
+    // TimeWindow();
     TimeWindow(time_t, time_t);
     ~TimeWindow();
-    time_t& StartTime();
+    const time_t& StartTime();
     time_t& EndTime();
 
   private:

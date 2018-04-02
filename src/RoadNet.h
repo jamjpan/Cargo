@@ -15,7 +15,7 @@ namespace cargo {
   {
   public:
     RoadNet(std::string roadNetPath, std::string gTreePath);
-    Vehicle& getKthVehicle(int origin, int K);
+    Vehicle getKthVehicle(int origin, int K);
     // gtree only return integer
     double getDistance(int origin, int dest);
 

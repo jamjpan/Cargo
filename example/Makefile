@@ -4,7 +4,7 @@ LFLAGS = -Wall
 PTHREAD = -lpthread
 METIS = -L/usr/local/lib -lmetis
 SRC = ../src
-OBJS = main.o Cargo.o Customer.o Loader.o RoadNet.o Scheduel.o Solution.o \
+OBJS = main.o Cargo.o Customer.o Loader.o RoadNet.o Schedule.o Solution.o \
 	TimeWindow.o Vehicle.o NearestSolution.o gtree.o
 
 cargo: $(OBJS)
@@ -20,6 +20,14 @@ Cargo.o: $(SRC)/Cargo.cpp $(SRC)/Cargo.h $(SRC)/readerwriterqueue.h $(SRC)/Loade
 Customer.o: $(SRC)/Customer.cpp $(SRC)/Customer.h
 	$(CC) $(CFLAGS) $(SRC)/Customer.cpp
 
+Loader.o: $(SRC)/Loader.cpp $(SRC)/Loader.h
+	$(CC) $(CFLAGS) $(SRC)/Loader.cpp
+
+RoadNet.o: $(SRC)/RoadNet.cpp $(SRC)/RoadNet.h $(SRC)/common.h
+	$(CC) $(CFLAGS) $(SRC)/RoadNet.cpp
+
+Schedule.o: $(SRC)/Schedule.cpp $(SRC)/Schedule.h
+	$(CC) $(CFLAGS) $(SRC)/Schedule.cpp
 # grid.o: $(SRC)/grid.cpp $(SRC)/common.h
  	# $(CC) $(CFLAGS) $(SRC)/grid.cpp
 

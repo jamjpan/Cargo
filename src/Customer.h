@@ -10,7 +10,6 @@ namespace cargo {
   {
   public:
     Customer(int id, int origin, int destination, time_t created, time_t travel, int demand);
-    ~Customer();
     const int& Id() const { return mId; };
     const int& Origin() const { return mOrigin; };
     const int& Destination() const { return mDestination; };
