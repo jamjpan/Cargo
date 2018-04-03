@@ -14,20 +14,20 @@ namespace cargo {
   class Cargo
   {
   public:
-    std::string GTreePath = BJ_GTREE;
+    std::string gtree_path_ = BJ_GTREE;
     std::string RoadNetPath;
-    std::string TripsPath = BJ_TRIPS;
-    int NumberOfVehicles = 4000;
+    std::string trips_path_ = BJ_TRIPS;
+    int number_of_vehicles = 4000;
 
     Cargo(int argc, const char* argv[]);
-    RoadNet& getRoadNet() { return mRoadNet; };
-    void printUsage();
+    RoadNet& road_net() { return road_net_; };
+    void print_usage();
     void run(Solution* solution);
 
   private:
-    time_t mStart;
-    int mDuration;
-    RoadNet mRoadNet;
-    std::map<time_t, std::vector<Trip> > mTrips;
+    time_t start_;
+    int duration_;
+    RoadNet road_net_;
+    std::map<time_t, std::vector<Trip> > trips_;
   };
 }

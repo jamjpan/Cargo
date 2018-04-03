@@ -3,8 +3,8 @@
 
 namespace cargo {
 
-  TimeWindow::TimeWindow(time_t createTime, time_t travelTime) {
-    mStartTime = createTime;
-    mEndTime = travelTime + Cargo::MaxWait;
+  TimeWindow::TimeWindow(time_t created, time_t travel) {
+    start_time_ = created;
+    end_time_ = created + travel; // need another param accpetable dropoff
   }
 }

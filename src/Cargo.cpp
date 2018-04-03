@@ -11,15 +11,15 @@
 namespace cargo {
 
   Cargo::Cargo(int argc, const char* argv[])
-    : mRoadNet(RoadNet(RoadNetPath, GTreePath)) {
+    : road_net_(RoadNet(road_net_path_, gtree_path_)) {
     // const flags::args args(argc, argv);
 
-    Loader loader(RoadNetPath, TripsPath);
+    Loader loader(road_net_, trips_path_);
     // load trips dataset
-    loader.loadTrips(mTrips);
+    loader.loadTrips(trips_);
   }
 
-  void Cargo::printUsage() {
+  void Cargo::print_usage() {
     std::cerr
       << "Usage: ./routeRS <start> <dur> [OPTS]\n\n"
       << "\t<start>      Timestamp to begin generating requests\n"
@@ -55,8 +55,8 @@ namespace cargo {
   void Cargo::run(Solution* solution) {
     // initialize vehicles. could seperate vehicles and requests
     int count = 0;
-    auto itr = mTrips.find(mStart);
-    while (count != NumberOfVehicles && itr != mTrips.begin()) {
+    auto itr = trips.find(start);
+    while (count != number_of_vehicles && itr != trips_.begin()) {
       --itr;
     }
 
@@ -66,7 +66,7 @@ namespace cargo {
     // ... and another queue for replayed requests
     moodycamel::ReaderWriterQueue<Customer> replayQueue;
 
-    time_t globalTime = mStart;
+    time_t globalTime = start_;
     bool done = false;
 
     // thread for processing requests

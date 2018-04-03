@@ -4,12 +4,11 @@
 
 namespace cargo {
 
-  Vehicle::Vehicle(int origin, int destination, time_t leaving, time_t arrival, int capacity) {
-    mOrigin = origin;
-    mDestination = destination;
-    mTimeWindow.StartTime() = leaving;
-    mTimeWindow.EndTime() = arrival;
-    mCapacity = capacity;
+  Vehicle::Vehicle(int origin, int destination, time_t leaving, time_t arrival, int capacity)
+    : time_window_(TimeWindow(leaving, arrival)) {
+    origin_ = origin;
+    destination_ = destination;
+    capacity_ = capacity;
   }
   
 }

@@ -13,14 +13,14 @@ namespace cargo {
   class Solution
   {
   public:
-    Solution(RoadNet& roadNet);
+    Solution(RoadNet& road_net);
 
-    bool isValid(std::vector<stop_t> stops);
+    bool IsValid(std::vector<stop_t> stops);
 
-    virtual int assign(const Customer& customer);
+    virtual int Assign(const Customer& customer);
 
   protected:
-    RoadNet& mRoadNet;
-    std::unordered_map<int, Vehicle> mVehicles;
+    RoadNet& road_net_;
+    std::unordered_map<int, Vehicle> vehicles_;
   };
 }

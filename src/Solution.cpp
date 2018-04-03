@@ -4,8 +4,8 @@
 
 namespace cargo {
 
-  Solution::Solution(RoadNet& roadNet)
-    : mRoadNet(roadNet) {
+  Solution::Solution(RoadNet& road_net)
+    : road_net_(road_net) {
 
   }
 }

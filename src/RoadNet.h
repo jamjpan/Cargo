@@ -14,16 +14,15 @@ namespace cargo {
   class RoadNet
   {
   public:
-    RoadNet(std::string roadNetPath, std::string gTreePath);
-    Vehicle getKthVehicle(int origin, int K);
+    RoadNet(std::string road_net_path, std::string gtree_path);
+    Vehicle KthVehicle(int origin, int K);
     // gtree only return integer
-    double getDistance(int origin, int dest);
+    double Distance(int origin, int dest);
 
   private:
-    GTree::G_Tree mGTree;
-    std::unordered_map<int, node_t> mNodes;
-    std::unordered_map<int, edge_t> mEdges;
-    std::unordered_map<int, Vehicle> mVehicles;
-    std::vector<int> mVehicleIds;
+    GTree::G_Tree gtree_;
+    std::unordered_map<int, node_t> nodes_;
+    std::unordered_map<int, edge_t> edges_;
+    std::unordered_map<int, Vehicle> vehicles_;
   };
 }

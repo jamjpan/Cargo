@@ -14,25 +14,25 @@ namespace cargo {
     Vehicle();
     Vehicle(int origin, int destination, time_t leaving, time_t arrival, int capacity);
 
-    int& Origin();
-    int& Destination();
-    const TimeWindow& getTimeWindow() const { return mTimeWindow; };
-    int& Capacity();
-    const Schedule& getSchedule() const { return mSchedule; };
+    int origin const () { return origin_; };
+    int destination const () { return destination_; };
+    int capacity const () { return capacity_; };
+    const TimeWindow& time_window() const { return time_window_; };
+    const Schedule& schedule() const { return schedule_; };
 
     // current node id
-    int current;
+    int current_;
 
   private:
     // node index of origin
-    int mOrigin;
+    int origin_;
     // node index of destination
-    int mDestination;
+    int destination_;
     // vehicle's time window
-    TimeWindow mTimeWindow;
+    TimeWindow time_window_;
     // capacity
-    int mCapacity;
+    int capacity_;
     // schedule
-    Schedule mSchedule;
+    Schedule schedule_;
   };
 }

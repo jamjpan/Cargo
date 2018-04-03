@@ -10,21 +10,21 @@ namespace cargo {
   {
   public:
     Customer(int id, int origin, int destination, time_t created, time_t travel, int demand);
-    const int& Id() const { return mId; };
-    const int& Origin() const { return mOrigin; };
-    const int& Destination() const { return mDestination; };
-    const TimeWindow& getTimeWindow() const { return mTimeWindow; };
-    const int& Demand() const { return mDemand; };
+    int id() const { return id_; };
+    int origin() const { return origin_; };
+    int destination() const { return destination_; };
+    int demand() const { return mDemand; };
+    const TimeWindow& time_window() const { return time_window_; };
 
   private:
-    int mId;
+    int id_;
     // node index of origin
-    int mOrigin;
+    int origin_;
     // node index of destination
-    int mDestination;
+    int destination_;
     // customer's time window
-    TimeWindow mTimeWindow;
+    TimeWindow time_window_;
     // seat demand
-    int mDemand;
+    int demand_;
   };
 }

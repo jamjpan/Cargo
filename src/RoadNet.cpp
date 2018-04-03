@@ -9,34 +9,34 @@
 
 namespace cargo {
 
-  auto keySelector = [](std::pair<int, Vehicle> pair) { return pair.second.current; };
+  auto key_selector = [](std::pair<int, Vehicle> pair) { return pair.second.current; };
 
-  RoadNet::RoadNet(std::string roadNetPath, std::string gTreePath) {
+  RoadNet::RoadNet(std::string road_net_path, std::string gtree_path) {
     // init nodes and edges
-    std::ifstream ifs(roadNetPath);
+    std::ifstream ifs(road_net_path);
     int id, o, d;
     double ox, oy, dx, dy;
     while (ifs >> id >> o >> d >> ox >> oy >> dx >> dy) {
-        mNodes[o]  = node_t { ox, oy };
-        mNodes[d]  = node_t { dx, dy };
-        mEdges[id] = edge_t { o, d , haversine(ox, oy, dx, dy) };
+        nodes_[o]  = node_t { ox, oy };
+        nodes_[d]  = node_t { dx, dy };
+        edges_[id] = edge_t { o, d , haversine(ox, oy, dx, dy) };
     }
-    std::printf("Nodes: %lu; Edges: %lu\n", mNodes.size(), mEdges.size());
+    std::printf("Nodes: %lu; Edges: %lu\n", nodes_.size(), edges_.size());
     ifs.close();
     // init gtree
-    GTree::load(gTreePath);
+    GTree::load(gtree_path);
     mGTree = GTree::get();
   }
 
-  Vehicle RoadNet::getKthVehicle(int origin, int K) {
+  Vehicle RoadNet::KthVehicle(int origin, int K) {
     // get current locations of vehicles
-    std::vector<int> locations(mVehicles.size());
-    transform(mVehicles.begin(), mVehicles.end(), locations.begin(), keySelector);
+    std::vector<int> locations(vehicles_.size());
+    transform(vehicles_.begin(), vehicles_.end(), locations.begin(), key_selector);
 
-    std::vector<int> knnVehicles = mGTree.KNN(origin, K, locations);
+    std::vector<int> knn_vehicles = gtree.KNN(origin, K, locations);
     
-    if (knnVehicles.size() < K)
+    if (knn_vehicles.size() < K)
       throw std::runtime_error("no enough vehicles for knn search");
-    return mVehicles[knnVehicles[K-1]];
+    return vehicles_[knn_vehicles[K-1]];
   }
 }
