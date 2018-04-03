@@ -4,23 +4,24 @@
 //
 #pragma once
 
-#define LIBEZRS_VERSION "0.01.0"
+#define LIBCARGO_VERSION "0.01.0"
 
 #include <ctime> // for time_t
 #include "gtree/GTree.h"
 
-namespace ezrs {
+namespace cargo {
 
 typedef struct {
-  int Id;
-  double Longitude;
-  double Latitude;
-} Node_t;
+  int id;
+  double longitude;
+  double latitude;
+} node_t;
 
 typedef enum { WAITING = -1, INPROGRESS = 1, COMPLETED = 0 } RequestFlag;
 
 typedef enum { DROPOFF = 0, PICKUP = 1 } StopAction;
 
+/** maybe delete this
 class DistanceHelper {
 public:
   DistanceHelper();
@@ -32,7 +33,7 @@ public:
 private:
   bool mHasGtree;
   GTree::G_Tree mGtree;
-};
+};*/
 
 class Trip {
 public:

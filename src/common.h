@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include <string>
-
 namespace cargo {
 
+   /*
   const std::string BJ_GTREE = "./bjrn.gtree";
   const std::string BJ_NODE;
   const std::string BJ_TRIPS;
+  */
 
   const double PI = 3.141592653589793238462643383279502884L;
 
@@ -22,11 +22,12 @@ namespace cargo {
     double weight;
   } edge_t;
 
-  enum Stop { PICKUP, DROPOFF };
+  enum StopType { PICKUP, DROPOFF };
+
   typedef struct {
-    int node;
-    int cid; // Customer id
-    Stop type;
+    int node_id;
+    int cust_id; // Customer id
+    StopType type;
   } stop_t;
 
   double haversine(node_t u, node_t v) {
