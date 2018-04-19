@@ -4,7 +4,7 @@
 *.o
 *.a
 *.gtree
+.vscode/
 tests/all_tests
 utils/build_gtree
-.vscode/
 src/try/test
