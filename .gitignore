@@ -5,6 +5,4 @@
 *.a
 *.gtree
 .vscode/
-tests/all_tests
-utils/build_gtree
-src/try/test
+utils/gtreebuilder
