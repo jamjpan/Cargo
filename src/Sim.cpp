@@ -175,7 +175,7 @@ void Sim::Stop()
     stop_ = true;
 }
 
-void UpdateRoute(unsigned int veh_id, const std::vector<unsigned int> &route)
+void Sim::UpdateRoute(unsigned int veh_id, const std::vector<unsigned int> &route)
 {
     routes_.erase(veh_id);
     std::copy(route.begin(), route.end(), std::back_inserter(routes_[veh_id]));
