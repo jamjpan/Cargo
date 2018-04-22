@@ -1,23 +1,27 @@
-CXX ?= g++
-CFLAGS = -Wall -Wextra -std=c++11 -c
+CXX = g++
+CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c
 LFLAGS = -Wall
+PTHREAD = -lpthread
 METIS = -L/usr/local/lib -lmetis
+OBJS = main.o Sim.o common.o GTree.o NearestNeighbor.o
 
-all_tests: main.o test_common.cpp libcargo.a
-	$(CXX) $(LFLAGS) main.o -L. -lcargo -o all_tests
+test: $(OBJS)
+	$(CXX) $(LFLAGS) $(OBJS) $(PTHREAD) $(METIS) -o test
 
-main.o: main.cpp
+main.o: main.cpp Sim.h
 	$(CXX) $(CFLAGS) main.cpp
 
-###############################################################################
+Sim.o: Sim.cpp Sim.h common.h gtree/GTree.h
+	$(CXX) $(CFLAGS) Sim.cpp
 
-DistanceHelper.o: ../src/DistanceHelper.cpp ../src/libcargo.h
-	$(CXX) $(CFLAGS) ../src/DistanceHelper.cpp
+common.o: common.cpp common.h
+	$(CXX) $(CFLAGS) common.cpp
 
-#libcargo.a: DistanceHelper.o GTree.o
-#	ar rcs libcargo.a DistanceHelper.o GTree.o
+GTree.o: gtree/GTree.cc gtree/GTree.h
+	$(CXX) $(CFLAGS) gtree/GTree.cc
+
+NearestNeighbor.o: NearestNeighbor.cpp
+	$(CXX) $(CFLAGS) NearestNeighbor.cpp
 
 clean:
-	rm -f all_tests *.o *.a
-
-rebuild: clean all_tests
+	rm -rf *.o test

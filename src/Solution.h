@@ -1,26 +1,13 @@
-// author @J.T. Hu
+#include "common.h"
+#include "gtree/GTree.h"
 
-#pragma once
+class Solution {
+    public:
+        Solution(GTree::G_Tree &);
 
-#include <vector>
-#include <unordered_map>
-#include "RoadNet.h"
-#include "Vehicle.h"
-#include "Customer.h"
+        virtual void RequestOnline(trip_t);
+        virtual void VehicleOnline(trip_t);
 
-namespace cargo {
-
-  class Solution
-  {
-  public:
-    Solution(RoadNet& road_net);
-
-    bool IsValid(std::vector<stop_t> stops);
-
-    virtual int Assign(const Customer& customer);
-
-  protected:
-    RoadNet& road_net_;
-    std::unordered_map<int, Vehicle> vehicles_;
-  };
-}
+    private:
+        GTree::G_Tree &gtree_;
+};

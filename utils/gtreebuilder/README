@@ -1,0 +1,25 @@
+gtreebuilder will build a gtree index from an edge list.
+Edge list format:
+
+n m
+x y z
+...
+
+n = number of nodes
+m = number of edges
+x = edge id
+y = from id
+z = to id
+
+Nodes must be 0-indexed.
+
+Requires the METIS graph partitioning library:
+http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
+
+Original gtree implementation:
+https://github.com/TsinghuaDatabaseGroup/GTree
+
+Reference:
+Zhong R, Li G, Tan K-L, Zhou L, Gong Z. G-Tree: an efficient and scalable index
+for spatial search on road networks. TKDE 2015
+doi: 10.1109/TKDE.2015.2399306

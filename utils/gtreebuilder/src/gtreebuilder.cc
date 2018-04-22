@@ -1,13 +1,13 @@
 // Copyright(c) 2018 James J. Pan
 // Distributed under the MIT License (http://opensource.org/licenses/MIT)
 //
-#include "../src/gtree/GTree.h"
+#include "GTree.h"
 
 #include <iostream>
 #include <string>
 
 void PrintUsage() {
-  std::cerr << "Usage: ./build_gtree <edge_file>\n"
+  std::cerr << "Usage: ./gtreebuilder <edge_file>\n"
             << "\n"
             << "<edge_file> format:\n"
             << "first line: [# of nodes] [# of edges]\n"
