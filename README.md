@@ -19,8 +19,24 @@ algorithms and hence to study them. The goal of the Cargo library is to provide
 these abstractions. Because ridesharing in the real world is an online problem,
 Cargo is targeted at online algorithms. Hence, a simulator is included that
 submits simulated customer requests in real time to a solution implementation.
+The architecture is below.
 
-Similar projects:
+### Simulator
+
+The purpose of the simulator is to (1) generate requests in real time, and (2)
+simulate the ground-truth movement of the vehicles.
+
+### Solution
+
+Cargo provides a generic Solution class for implementing online ridesharing
+algorithms.
+
+### Logger
+
+The logger captures statistics of the simulation.
+
+### Similar projects
+
 - [Open-VRP](https://github.com/mck-/Open-VRP)
 - [jsprit](https://github.com/graphhopper/jsprit)
 - [VRPH](https://projects.coin-or.org/VRPH)
