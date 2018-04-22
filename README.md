@@ -1,24 +1,31 @@
-Cargo
-=======
-Simple ridesharing server for testing matching algorithms.
+# Cargo
 
-### Reason:
+Simple ridesharing library for testing matching algorithms.
 
-Ridesharing algorithms are hard to implement. Even something as simple as a
-"nearest neighbor" strategy still takes time to develop because there is a
-lot of ground work that needs to be built first, e.g. the road network, the
-requests, the vehicles, the request handler, moving the vehicles around the
-road network, etc. A nice set of pre-built abstractions would make it easier
-to develop these algorithms and hence to study them.
+## Motivation
 
-### Vision:
+Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
+to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
 
-The library is general enough for people to build their own vehicle searching
-and matching algorithms but powerful enough to provide a lot of out-of-the-box
-functionality, like moving the vehicles around the road network, supporting
-fast shortest-path searches, and supporting visualization.
+The problem for academics studying ridesharing algorithms is that these
+algorithms are hard to implement. Even something as simple as a "nearest
+neighbor" strategy takes much time to develop because there is a lot of ground
+work that needs to be built first, e.g. the road network, the requests, the
+vehicles, the request handler, moving the vehicles around the road network,
+etc.
 
-### To do (check means passed tests):
+A set of pre-built abstractions would make it easier to develop these
+algorithms and hence to study them. The goal of the Cargo library is to provide
+these abstractions. Because ridesharing in the real world is an online problem,
+Cargo is targeted at online algorithms. Hence, a simulator is included that
+submits simulated customer requests in real time to a solution implementation.
+
+Similar projects:
+- [Open-VRP](https://github.com/mck-/Open-VRP)
+- [jsprit](https://github.com/graphhopper/jsprit)
+- [VRPH](https://projects.coin-or.org/VRPH)
+
+## To do (check means passed tests):
 
 - [ ] Road network class
 -- RoadNetwork has methods knn, gtreesp, dijkstra (, haversine?)
