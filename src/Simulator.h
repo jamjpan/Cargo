@@ -5,32 +5,18 @@
 
 #include "base/basic_types.h"
 #include "base/ridesharing_types.h"
+#include "base/options.h"
 #include "gtree/GTree.h"
 
 namespace cargo {
+
+using opts::Options;
 
 class Simulator {
   public:
     Simulator();
 
-    // Getters/setters to all parameters
-    Filepath &ParamRoadNetworkPath();
-    Filepath &ParamGTreePath();
-    Filepath &ParamEdgePath();
-    Filepath &ParamProblemInstancePath();
-    std::string &ParamProblemInstanceName();
-    std::string &ParamRoadNetworkName();
-    size_t &ParamNumberOfVehicles();
-    size_t &ParamNumberOfCustomers();
-    size_t &ParamNumberOfNodes();
-    size_t &ParamNumberOfEdges();
-    Speed &ParamVehicleSpeed();
-
-    // The scale is a multiplier for the ratio between the SimTime and real
-    // time. A scale=2, for example, will set one SimTime to be equal to
-    // approximately 1/2 real seconds. The scale is unitless and has no
-    // real-world semantic meaning, hence it has a generic data type, float
-    float &ParamSimTimeScale();
+    void SetOptions(Options);
 
     // Attempt to load the nodes, edges, gtree, and problem instance from the
     // path parameters.
@@ -45,6 +31,9 @@ class Simulator {
     // objects on the road network. The index is built from a .edges file,
     // hence the weights are all integer.
     GTree::G_Tree gtree_;
+
+    // All the parameters for the simulator.
+    Options opts_;
 
     // Lookup tables for the nodes and edges.
     NodeMap nodes_;
@@ -96,21 +85,6 @@ class Simulator {
     // interval to be equal to 1000 ms in order to approximate real time.
     // The unit is milliseconds.
     int sleep_;
-
-    // All the parameters of the simulator
-    // Maybe move these into a Params class
-    Filepath path_rn_;
-    Filepath path_gtree_;
-    Filepath path_edges_;
-    Filepath path_trips_;
-    std::string name_instance_;
-    std::string name_rn_;
-    size_t count_vehicles_;
-    size_t count_customers_;
-    size_t count_nodes_;
-    size_t count_edges_;
-    float scale_;
-    Speed speed_;
 
     // Update the ground-truth tables by moving the vehicles, recomputing
     // positions, residuals, capacities.

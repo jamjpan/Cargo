@@ -11,6 +11,7 @@ Simulator.o: \
 	src/base/basic_types.h \
 	src/base/ridesharing_types.h \
 	src/base/file.h \
+	src/base/options.h \
 	src/gtree/GTree.h
 	$(CXX) $(CFLAGS) src/Simulator.cpp
 

@@ -11,9 +11,15 @@
 #include "base/basic_types.h"
 #include "base/ridesharing_types.h"
 #include "base/file.h"
+#include "base/options.h"
 #include "gtree/GTree.h"
 
 namespace cargo {
+
+using opts::Options;
+using file::ReadNodes;
+using file::ReadEdges;
+using file::ReadProblemInstance;
 
 // --------------------------------------------------------
 // Simulator
@@ -22,25 +28,16 @@ namespace cargo {
 Simulator::Simulator()
     : status_(SimulatorStatus::RUNNING), t_(0), count_active_(0) {}
 
-// Not quite sure what the better way is to set all these parameters!!
-Filepath &Simulator::ParamRoadNetworkPath() { return path_rn_; }
-Filepath &Simulator::ParamGTreePath() { return path_gtree_; }
-Filepath &Simulator::ParamEdgePath() { return path_edges_; }
-Filepath &Simulator::ParamProblemInstancePath() { return path_trips_; }
-std::string &Simulator::ParamProblemInstanceName() { return name_instance_; }
-std::string &Simulator::ParamRoadNetworkName() { return name_rn_; }
-size_t &Simulator::ParamNumberOfVehicles() { return count_vehicles_; }
-size_t &Simulator::ParamNumberOfCustomers() { return count_customers_; }
-size_t &Simulator::ParamNumberOfNodes() { return count_nodes_; }
-size_t &Simulator::ParamNumberOfEdges() { return count_edges_; }
-Speed &Simulator::ParamVehicleSpeed() { return speed_; }
-float &Simulator::ParamSimTimeScale() { return scale_; }
+void Simulator::SetOptions(Options opts) {
+    opts_ = opts;
+}
 
 void Simulator::Initialize() {
-    file::ReadNodes(path_rn_, nodes_);
-    file::ReadEdges(path_edges_, edges_);
-    file::ReadProblemInstance(path_trips_, pi_);
-    GTree::load(path_gtree_);
+    ReadNodes(opts_.RoadNetworkPath(), nodes_);
+    ReadEdges(opts_.EdgePath(), edges_);
+    ReadProblemInstance(opts_.ProblemInstancePath(), pi_);
+
+    GTree::load(opts_.GTreePath());
     gtree_ = GTree::get();
 
     // Compute the minimum simulation time (to allow all trips to be
@@ -48,7 +45,7 @@ void Simulator::Initialize() {
     tmin_ = pi_.trips.rbegin()->first;
 
     // Compute the sleep interval (ms) based on scale_
-    sleep_ = std::round((float)1000/scale_);
+    sleep_ = std::round((float)1000/opts_.SimTimeScale());
 }
 
 void Simulator::InsertVehicle(const Trip &trip) {
@@ -99,7 +96,8 @@ void Simulator::AdvanceSimulationState() {
 
         // Only move vehicles where next position is not route.end()
         if (std::next(positions_.at(tid)) != routes_.at(tid).end()) {
-            res -= speed_; // speed is m/s; each t_ corresponds to 1 real second
+            // speed is m/s; each t_ corresponds to 1 real second
+            res -= opts_.VehicleSpeed();
             if (res <= 0) {
                 positions_.at(tid)++;
                 auto nx = std::next(positions_.at(tid));
