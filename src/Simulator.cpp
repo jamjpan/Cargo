@@ -2,9 +2,6 @@
 
 #include <chrono>
 #include <thread>
-#include <iostream>
-#include <ctime>
-#include <algorithm>
 #include <iterator>
 #include <vector>
 
@@ -33,51 +30,58 @@ void Simulator::SetOptions(Options opts) {
 }
 
 void Simulator::Initialize() {
+    // Loads the road network and the problem instance.
     ReadNodes(opts_.RoadNetworkPath(), nodes_);
     ReadEdges(opts_.EdgePath(), edges_);
     ReadProblemInstance(opts_.ProblemInstancePath(), pi_);
 
+    // Sets the gtree.
     GTree::load(opts_.GTreePath());
     gtree_ = GTree::get();
 
-    // Compute the minimum simulation time (to allow all trips to be
-    // broadcasted)
+    // Sets the minimim simulation time to ensure all trips will be broadcasted.
     tmin_ = pi_.trips.rbegin()->first;
 
-    // Compute the sleep interval (ms) based on scale_
+    // Sets the sleep time based on the time scale option.
     sleep_ = std::round((float)1000/opts_.SimTimeScale());
 }
 
 void Simulator::InsertVehicle(const Trip &trip) {
-    // Insert into routes_
-    // Use GTree to find the vehicle's initial route from origin to
+    // (1) Inserts the vehicle's route into the routes_ table.
+    // Uses GTree to find the vehicle's initial route from origin to
     // destination. The route returned by GTree is a vector of ints
     // corresponding to node ID's; the distance is an int summing the edge
-    // lengths.
+    // lengths. So, the vector is walked in order to find the corresponding
+    // Nodes.
     std::vector<int> rt_raw;
     gtree_.find_path(trip.oid, trip.did, rt_raw);
-    // Build the Route by walking through the raw route to get the nodes
     Route rt;
     for (auto id : rt_raw)
         rt.push_back(nodes_.at(id));
     routes_[trip.id] = rt;
 
+    // (2) Inserts the vehicle's schedule into the schedules_ table.
+    // The initial schedule is the vehicle's origin and destination.
     Schedule sch;
     sch.push_back({trip.id, trip.oid, StopType::VEHICLE_ORIGIN});
     sch.push_back({trip.id, trip.did, StopType::VEHICLE_DESTINATION});
     schedules_[trip.id] = sch;
 
+    // (3) Inserts the vehicle's position into the positions_ table.
+    // The initial position is the head of the route.
     positions_[trip.id] = rt.begin();
 
-    // Insert into residuals_
-    // Compute the distance to the next node in the route and store in the
-    // residuals. nx is guaranteed to exist because the trip must have at least
-    // two nodes, origin and destination.
+    // (4) Inserts the vehicle's residual into the residuals_ table.  Computes
+    // the distance to the next node in the route. nx is guaranteed to exist
+    // because the trip must have at least two nodes, origin and destination.
     auto nx = std::next(rt.begin());
     residuals_[trip.id] = edges_.at(trip.oid).at(nx->id);
 
+    // (5) Inserts the vehicle's capacity into the capacities_ table.
+    // The capacity is equal to the trip demand.
     capacities_[trip.id] = trip.demand;
 
+    // (6) Increment the count of active vehicles.
     count_active_++;
 }
 
