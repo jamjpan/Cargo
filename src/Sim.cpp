@@ -114,14 +114,14 @@ void Sim::Start()
         }
 
         // update vehicle status
-        for (auto iter = current_.begin(); iter != current_.end(); ++iter)
+        for (const auto& kv : current_)
         {
-            unsigned int veh_id = iter->first;
+            const unsigned int veh_id = kv.first;
             // check if finished
             if (trips_[veh_id].finish)
                 continue;
-            unsigned int location = iter->second;
-            int residual = residual_[iter->first] + speed_;
+            unsigned int location = kv.second;
+            int residual = residual_[veh_id] + speed_;
             int distance;
             std::vector<unsigned int> &route = routes_[veh_id];
             auto pos = std::find(route.begin(), route.end(), location);
