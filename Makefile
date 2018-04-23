@@ -1,21 +1,24 @@
 CXX = g++
 CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c
-LFLAGS = -Wall
-PTHREAD = -lpthread
-METIS = -L/usr/local/lib -lmetis
 #-------------------------------------------------------------------------------
-OBJECTS = Sim.o GTree.o common.o
+OBJECTS = Simulator.o GTree.o file.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
-Sim.o: src/Sim.cpp src/Sim.h src/common.h src/gtree/GTree.h
-	$(CXX) $(CFLAGS) src/Sim.cpp
+Simulator.o: \
+	src/Simulator.cpp \
+	src/Simulator.h \
+	src/base/basic_types.h \
+	src/base/ridesharing_types.h \
+	src/base/file.h \
+	src/gtree/GTree.h
+	$(CXX) $(CFLAGS) src/Simulator.cpp
 
 GTree.o: src/gtree/GTree.cc src/gtree/GTree.h
 	$(CXX) $(CFLAGS) src/gtree/GTree.cc
 
-common.o: src/common.cpp src/common.h
-	$(CXX) $(CFLAGS) src/common.cpp
+file.o: src/base/file.cpp src/base/file.h
+	$(CXX) $(CFLAGS) src/base/file.cpp
 
 clean:
-	rm -rf *.o lib/cargo.a
+	rm -rf *.o lib/libcargo.a
