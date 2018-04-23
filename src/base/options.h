@@ -2,13 +2,14 @@
 #define CARGO_OPTIONS_H_
 
 #include "basic_types.h"
+#include "ridesharing_types.h"
 
 namespace cargo {
 namespace opts {
 
 class Options {
   public:
-    Options();
+    Options() {};
 
     // Path to the road network *.rnet file
     Filepath &RoadNetworkPath() {

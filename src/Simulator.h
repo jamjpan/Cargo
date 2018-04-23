@@ -97,16 +97,6 @@ class Simulator {
     //     residuals_
     //     capacities_
     void InsertVehicle(const Trip &);
-
-    // Update the ground-truth routes by copying the Route parameter into
-    // the routes_ table, replacing the existing route. To be safe, followup
-    // with a call to UpdatePosition to refresh the position iterator!
-    void UpdateRoute(const TripId &, const Route);
-    // Update other ground-truth tables.
-    void UpdateSchedule(const TripId &, const Schedule);
-    void UpdatePosition(const TripId &, Route::const_iterator);
-    void UpdateResidual(const TripId &, const Distance);
-    void UpdateCapacity(const TripId &, const Demand);
 };
 
 } // namespace cargo

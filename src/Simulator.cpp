@@ -5,6 +5,8 @@
 #include <iterator>
 #include <vector>
 
+#include <iostream>
+
 #include "base/basic_types.h"
 #include "base/ridesharing_types.h"
 #include "base/file.h"
@@ -44,6 +46,7 @@ void Simulator::Initialize() {
 
     // Sets the sleep time based on the time scale option.
     sleep_ = std::round((float)1000/opts_.SimTimeScale());
+    std::cout << "finished initialization" << std::endl;
 }
 
 void Simulator::InsertVehicle(const Trip &trip) {
@@ -86,14 +89,8 @@ void Simulator::InsertVehicle(const Trip &trip) {
 }
 
 void Simulator::AdvanceSimulationState() {
-    // Move the existing vehicles
-    // Loop through residuals_, and update them based on how far each
-    // vehicle has moved. If the residual becomes negative, a vehicle has
-    // arrived at its next node; update the position and check
-    //     (1) does the node belong to a stop in the vehicle's schedule?
-    //         if so, update the capacity if it is a DESTINATION type
-    //     (2) is the node the VEHICLE_DESTINATION?
-    //         if so, decrement active vehicles
+    // Sets new residuals_, positions_, capacities_ based on
+    // vehicle movement.
     for (const auto &kv : residuals_) {
         TripId tid = kv.first;
         Distance res = kv.second;
@@ -103,33 +100,18 @@ void Simulator::AdvanceSimulationState() {
             // speed is m/s; each t_ corresponds to 1 real second
             res -= opts_.VehicleSpeed();
             if (res <= 0) {
+                // (1) Increment the current position
                 positions_.at(tid)++;
+                // (2) Compute the residual to the next position
                 auto nx = std::next(positions_.at(tid));
                 residuals_.at(tid) = edges_.at(positions_.at(tid)->id).at(nx->id);
                 // TODO: check if is a stop
+            } else {
+                residuals_[tid] = res;
             }
         }
-    }
-}
 
-void Simulator::UpdateRoute(const TripId &tid, const Route) {
-
-}
-
-void Simulator::UpdateSchedule(const TripId &tid, const Schedule) {
-
-}
-
-void Simulator::UpdatePosition(const TripId &tid, Route::const_iterator x) {
-
-}
-
-void Simulator::UpdateResidual(const TripId &tid, const Distance d) {
-
-}
-
-void Simulator::UpdateCapacity(const TripId &tid, const Demand q) {
-
+    } // for
 }
 
 void Simulator::Run() {
