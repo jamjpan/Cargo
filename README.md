@@ -48,8 +48,12 @@ The logger captures statistics of the simulation.
 
 ## Usage
 
-Build the library using `make`. The library will be placed into `lib/cargo.a`
+Build the library using `make`. The library will be placed into `lib/libcargo.a`
 after building.
+
+To use in your own projects, `include` any `.h` file you need from the `src/`
+folder. Then compile using
+`g++ myproj.cpp -L/path/to/cargo -lcargo -L/path/to/metis -lmetis`
 
 ## To do (check means passed tests):
 
