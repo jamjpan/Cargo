@@ -15,6 +15,7 @@ class Sim
     void Start();
     void Stop();
     void UpdateRoute(unsigned int, const std::vector<unsigned int>&);
+    int Size();
 
   private:
     std::unordered_map<unsigned int, node_t> nodes_;
