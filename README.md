@@ -41,6 +41,16 @@ The logger captures statistics of the simulation.
 - [jsprit](https://github.com/graphhopper/jsprit)
 - [VRPH](https://projects.coin-or.org/VRPH)
 
+## Requirements
+
+- pthreads
+- [METIS graph partitioning library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
+
+## Usage
+
+Build the library using `make`. The library will be placed into `lib/cargo.a`
+after building.
+
 ## To do (check means passed tests):
 
 - [ ] Road network class

@@ -3,25 +3,17 @@ CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c
 LFLAGS = -Wall
 PTHREAD = -lpthread
 METIS = -L/usr/local/lib -lmetis
-OBJS = main.o Sim.o common.o GTree.o NearestNeighbor.o
-
-test: $(OBJS)
-	$(CXX) $(LFLAGS) $(OBJS) $(PTHREAD) $(METIS) -o test
-
-main.o: main.cpp Sim.h
+CARGO = -L/home/jpan/devel/Cargo/lib -lcargo
+#-------------------------------------------------------------------------------
+OBJECTS = main.o SimTest.o
+all: $(OBJECTS)
+	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) -o run_tests
+#-------------------------------------------------------------------------------
+main.o: main.cpp
 	$(CXX) $(CFLAGS) main.cpp
 
-Sim.o: Sim.cpp Sim.h common.h gtree/GTree.h
-	$(CXX) $(CFLAGS) Sim.cpp
-
-common.o: common.cpp common.h
-	$(CXX) $(CFLAGS) common.cpp
-
-GTree.o: gtree/GTree.cc gtree/GTree.h
-	$(CXX) $(CFLAGS) gtree/GTree.cc
-
-NearestNeighbor.o: NearestNeighbor.cpp
-	$(CXX) $(CFLAGS) NearestNeighbor.cpp
+SimTest.o: SimTest.cpp
+	$(CXX) $(CFLAGS) SimTest.cpp
 
 clean:
-	rm -rf *.o test
+	rm -rf *.o run_tests

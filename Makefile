@@ -5,7 +5,7 @@ PTHREAD = -lpthread
 METIS = -L/usr/local/lib -lmetis
 #-------------------------------------------------------------------------------
 OBJECTS = Sim.o GTree.o common.o
-lib/cargo.a: $(OBJECTS)
+lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
 Sim.o: src/Sim.cpp src/Sim.h src/common.h src/gtree/GTree.h
