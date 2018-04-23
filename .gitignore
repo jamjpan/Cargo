@@ -4,6 +4,7 @@
 *.o
 *.a
 *.gtree
+*.out
 .vscode/
 utils/gtreebuilder
 tests/run_tests
