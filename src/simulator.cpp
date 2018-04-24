@@ -1,4 +1,24 @@
-#include "Simulator.h"
+// MIT License
+//
+// Copyright (c) 2018 the Cargo authors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include <chrono>
 #include <thread>
@@ -7,11 +27,11 @@
 
 #include <iostream>
 
-#include "base/basic_types.h"
-#include "base/ridesharing_types.h"
-#include "base/file.h"
-#include "base/options.h"
-#include "gtree/GTree.h"
+#include "libcargo/simulator.h"
+#include "libcargo/types.h"
+#include "libcargo/file.h"
+#include "libcargo/options.h"
+#include "gtree/gtree.h"
 
 namespace cargo {
 
@@ -33,19 +53,19 @@ void Simulator::SetOptions(Options opts) {
 
 void Simulator::Initialize() {
     // Loads the road network and the problem instance.
-    ReadNodes(opts_.RoadNetworkPath(), nodes_);
-    ReadEdges(opts_.EdgePath(), edges_);
-    ReadProblemInstance(opts_.ProblemInstancePath(), pi_);
+    ReadNodes(opts_.RoadNetworkPath, nodes_);
+    ReadEdges(opts_.EdgeFilePath, edges_);
+    ReadProblemInstance(opts_.ProblemInstancePath, pi_);
 
     // Sets the gtree.
-    GTree::load(opts_.GTreePath());
+    GTree::load(opts_.GTreePath);
     gtree_ = GTree::get();
 
     // Sets the minimim simulation time to ensure all trips will be broadcasted.
     tmin_ = pi_.trips.rbegin()->first;
 
     // Sets the sleep time based on the time scale option.
-    sleep_ = std::round((float)1000/opts_.SimTimeScale());
+    sleep_ = std::round((float)1000/opts_.Scale);
     std::cout << "finished initialization" << std::endl;
 }
 
@@ -98,7 +118,7 @@ void Simulator::AdvanceSimulationState() {
         // Only move vehicles where next position is not route.end()
         if (std::next(positions_.at(tid)) != routes_.at(tid).end()) {
             // speed is m/s; each t_ corresponds to 1 real second
-            res -= opts_.VehicleSpeed();
+            res -= opts_.VehicleSpeed;
             if (res <= 0) {
                 // (1) Increment the current position
                 positions_.at(tid)++;

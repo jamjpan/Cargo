@@ -1,4 +1,25 @@
-#include "file.h"
+// MIT License
+//
+// Copyright (c) 2018 the Cargo authors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+#include "libcargo/file.h"
 
 #include <fstream>
 #include <iostream>
@@ -16,8 +37,8 @@ size_t ReadNodes(const Filepath &path, NodeMap &N) {
     NodeId oid, did;
     Latitude oy, dy;
     Longitude ox, dx;
-    int unused;
-    while (ifs >> unused >> oid >> did >> ox >> oy >> dx >> dy) {
+    int _unused;
+    while (ifs >> _unused >> oid >> did >> ox >> oy >> dx >> dy) {
         N[oid] = {oid, {ox, oy}};
         N[did] = {did, {dx, dy}};
     }
@@ -51,12 +72,12 @@ size_t ReadProblemInstance(const Filepath &path, ProblemInstance &P) {
     if (!ifs.good())
         throw std::runtime_error("problem path not found");
     P.trips.clear();
-    std::string str_unused;
+    std::string _unused;
     size_t m, n;
     size_t count_trips = 0;
-    ifs >> P.name >> str_unused >> m >> str_unused >> n;
-    ifs >> str_unused; // skip the blank line
-    std::getline(ifs, str_unused); // skip the header row
+    ifs >> P.name >> _unused >> m >> _unused >> n;
+    ifs >> _unused; // skip the blank line
+    std::getline(ifs, _unused); // skip the header row
     TripId tid;
     NodeId oid, did;
     Demand q;

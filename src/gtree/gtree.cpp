@@ -2,7 +2,7 @@
 #include <cstring>
 #include <algorithm>
 
-#include "GTree.h"
+#include "gtree/gtree.h"
 
 namespace GTree {
 

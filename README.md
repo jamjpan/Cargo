@@ -1,8 +1,4 @@
-# Cargo
-
-Simple ridesharing library for testing matching algorithms.
-
-## Motivation
+# Cargo - a library for evaluating online ridesharing matching algorithms.
 
 Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
 to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
@@ -41,7 +37,7 @@ The logger captures statistics of the simulation.
 - [jsprit](https://github.com/graphhopper/jsprit)
 - [VRPH](https://projects.coin-or.org/VRPH)
 
-## Requirements
+## Prerequisites
 
 - pthreads
 - [METIS graph partitioning library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
@@ -51,8 +47,8 @@ The logger captures statistics of the simulation.
 Build the library using `make`. The library will be placed into `lib/libcargo.a`
 after building.
 
-To use in your own projects, `include` any `.h` file you need from the `src/`
-folder. Then compile using
+Todo: write the public interface, put it into /include
+
 `g++ myproj.cpp -L/path/to/cargo -lcargo -L/path/to/metis -lmetis`
 
 ## To do (check means passed tests):

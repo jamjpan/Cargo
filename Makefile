@@ -1,25 +1,28 @@
 CXX = g++
-CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c
+CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude
 #-------------------------------------------------------------------------------
-OBJECTS = Simulator.o GTree.o file.o
+OBJECTS = simulator.o gtree.o file.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
-Simulator.o: \
-	src/Simulator.cpp \
-	src/Simulator.h \
-	src/base/basic_types.h \
-	src/base/ridesharing_types.h \
-	src/base/file.h \
-	src/base/options.h \
-	src/gtree/GTree.h
-	$(CXX) $(CFLAGS) src/Simulator.cpp
+simulator.o: \
+	include/libcargo/simulator.h \
+	include/libcargo/types.h \
+	include/libcargo/file.h \
+	include/libcargo/options.h \
+	include/gtree/gtree.h \
+	src/simulator.cpp
+	$(CXX) $(CFLAGS) src/simulator.cpp
 
-GTree.o: src/gtree/GTree.cc src/gtree/GTree.h
-	$(CXX) $(CFLAGS) src/gtree/GTree.cc
+gtree.o: \
+	include/gtree/gtree.h \
+	src/gtree/gtree.cpp
+	$(CXX) $(CFLAGS) src/gtree/gtree.cpp
 
-file.o: src/base/file.cpp src/base/file.h
-	$(CXX) $(CFLAGS) src/base/file.cpp
+file.o: \
+	include/libcargo/file.h \
+	src/file.cpp
+	$(CXX) $(CFLAGS) src/file.cpp
 
 clean:
 	rm -rf *.o lib/libcargo.a
