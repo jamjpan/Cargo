@@ -30,6 +30,7 @@
 #include "libcargo/types.h"
 #include "libcargo/file.h"
 #include "libcargo/options.h"
+#include "libcargo/message.h"
 #include "gtree/gtree.h"
 
 namespace cargo {
@@ -38,6 +39,8 @@ using opts::Options;
 using file::ReadNodes;
 using file::ReadEdges;
 using file::ReadProblemInstance;
+using msg::Message;
+using msg::MessageType;
 
 // --------------------------------------------------------
 // Simulator
@@ -107,7 +110,7 @@ void Simulator::InsertVehicle(const Trip &trip) {
     count_active_++;
 }
 
-void Simulator::AdvanceSimulationState() {
+void Simulator::NextSimulationState() {
     // Sets new residuals_, positions_, capacities_ based on
     // vehicle movement.
     for (const auto &kv : residuals_) {
@@ -141,7 +144,7 @@ void Simulator::Run() {
         auto t_start = std::chrono::high_resolution_clock::now();
 
         if (t_ > 0)
-            AdvanceSimulationState();
+            NextSimulationState();
 
         // All trips broadcasted, and no more active vehicles?
         if (t_ > tmin_ && count_active_ == 0)
@@ -163,8 +166,8 @@ void Simulator::Run() {
 
         // If the elapsed time is too long, the simulator's run thread is too
         // slow to fit inside real-time. Reset the Scale option to be 1. If the
-        // thread is still too slow, reduce the scale even further; but then,
-        // the simulation won't be real-time anymore; it will be slowed down.
+        // thread is still too slow, increase the scale; but then, the
+        // simulation won't be real-time anymore; it will be slowed down.
         auto t_end = std::chrono::high_resolution_clock::now();
         int elapsed = std::round(
             std::chrono::duration<double, std::milli>(t_end - t_start).count());

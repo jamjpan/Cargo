@@ -9,4 +9,5 @@
 build/
 lib/
 tool/gtreebuilder/gtreebuilder
+test/build/
 test/run_tests

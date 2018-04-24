@@ -15,6 +15,7 @@ build/simulator.o: \
 	include/libcargo/types.h \
 	include/libcargo/file.h \
 	include/libcargo/options.h \
+	include/libcargo/message.h \
 	include/gtree/gtree.h \
 	src/simulator.cpp
 	$(CXX) $(CFLAGS) src/simulator.cpp

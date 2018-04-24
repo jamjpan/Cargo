@@ -22,8 +22,6 @@
 #ifndef CARGO_INCLUDE_SIMULATOR_H_
 #define CARGO_INCLUDE_SIMULATOR_H_
 
-#include <unordered_map>
-
 #include "types.h"
 #include "options.h"
 #include "../gtree/gtree.h"
@@ -90,7 +88,7 @@ class Simulator {
 
     // Update the ground-truth tables by moving the vehicles, recomputing
     // positions, residuals, capacities.
-    void AdvanceSimulationState();
+    void NextSimulationState();
 
     // Insert a new vehicle into the ground-truth tables
     //     routes_

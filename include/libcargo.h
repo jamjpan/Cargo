@@ -29,6 +29,7 @@ namespace cargo {} // namespace cargo
 #include "libcargo/file.h"
 #include "libcargo/options.h"
 #include "libcargo/simulator.h"
+#include "libcargo/message.h"
 #include "libcargo/types.h"
 #include "gtree/gtree.h"
 
