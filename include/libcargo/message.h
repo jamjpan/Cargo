@@ -48,20 +48,14 @@
 // Usage:
 //     Message myMsg(MessageType::T);
 //     myMsg << "the answer is " << 42 << std::endl;
-//
-// Types:
-//     INFO     - blue
-//     WARNING  - magenta
-//     ERROR    - red
-//     SUCCESS  - green
 namespace cargo {
 namespace msg {
 
 enum class MessageType {
-    INFO,
-    WARNING,
-    ERROR,
-    SUCCESS,
+    INFO,       // blue
+    WARNING,    // magenta
+    ERROR,      // red
+    SUCCESS,    // green
 };
 
 struct Message : std::ostream, std::streambuf {
