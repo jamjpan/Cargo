@@ -139,7 +139,7 @@ void Simulator::Run() {
     // conditions are met: t_ > tmin_, and no more active vehicles.
     while (true) {
         // Start the clock for this interval
-        // auto t_start = std::chrono::high_resolution_clock::now();
+        auto t_start = std::chrono::high_resolution_clock::now();
 
         if (t_ > 0)
             AdvanceSimulationState();
@@ -162,10 +162,20 @@ void Simulator::Run() {
             }
         }
 
-        // update vehicle status
-        // auto t_end = std::chrono::high_resolution_clock::now();
-        // auto elapsed = std::round(std::chrono::duration<double, std::milli>(t_end - t_start).count());
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_));
+        // If the elapsed time is too long, the simulator's run thread is too
+        // slow to fit inside real-time. Reset the Scale option to be 1. If the
+        // thread is still too slow, reduce the scale even further; but then,
+        // the simulation won't be real-time anymore; it will be slowed down.
+        auto t_end = std::chrono::high_resolution_clock::now();
+        auto elapsed = std::round(
+            std::chrono::duration<double, std::milli>(t_end - t_start).count());
+        if (elapsed > sleep_) {
+            std::cerr << "Scale too big, exiting" << std::endl;
+            exit(0);
+        }
+
+        // Sleep until the next time interval
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ - elapsed));
 
         // Advance the simulation time
         t_++;
