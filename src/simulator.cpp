@@ -19,7 +19,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
 #include <chrono>
 #include <thread>
 #include <iterator>
@@ -167,7 +166,7 @@ void Simulator::Run() {
         // thread is still too slow, reduce the scale even further; but then,
         // the simulation won't be real-time anymore; it will be slowed down.
         auto t_end = std::chrono::high_resolution_clock::now();
-        auto elapsed = std::round(
+        int elapsed = std::round(
             std::chrono::duration<double, std::milli>(t_end - t_start).count());
         if (elapsed > sleep_) {
             std::cerr << "Scale too big, exiting" << std::endl;

@@ -1,11 +1,16 @@
 CXX = g++
-CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude
+CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 #-------------------------------------------------------------------------------
-OBJECTS = simulator.o gtree.o file.o
+OBJECTS = \
+		  build/simulator.o \
+		  build/gtree.o \
+		  build/file.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
-simulator.o: \
+$(OBJECTS): | build
+
+build/simulator.o: \
 	include/libcargo/simulator.h \
 	include/libcargo/types.h \
 	include/libcargo/file.h \
@@ -14,15 +19,18 @@ simulator.o: \
 	src/simulator.cpp
 	$(CXX) $(CFLAGS) src/simulator.cpp
 
-gtree.o: \
+build/gtree.o: \
 	include/gtree/gtree.h \
 	src/gtree/gtree.cpp
 	$(CXX) $(CFLAGS) src/gtree/gtree.cpp
 
-file.o: \
+build/file.o: \
 	include/libcargo/file.h \
 	src/file.cpp
 	$(CXX) $(CFLAGS) src/file.cpp
 
+build:
+	mkdir -p build
+
 clean:
-	rm -rf *.o lib/libcargo.a
+	rm -rf build/ lib/libcargo.a

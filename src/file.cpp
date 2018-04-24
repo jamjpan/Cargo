@@ -28,7 +28,7 @@
 namespace cargo {
 namespace file {
 
-size_t ReadNodes(const Filepath &path, NodeMap &N) {
+size_t ReadNodes(const Filepath &path, LU_NODES &N) {
     std::cout << "begin reading nodes from \"" << path << "\"\n";
     std::ifstream ifs(path);
     if (!ifs.good())
@@ -46,7 +46,7 @@ size_t ReadNodes(const Filepath &path, NodeMap &N) {
     return N.size();
 }
 
-size_t ReadEdges(const Filepath &path, EdgeMap &M) {
+size_t ReadEdges(const Filepath &path, LU_EDGES &M) {
     std::cout << "begin reading edges from \"" << path << "\"\n";
     std::ifstream ifs(path);
     if (!ifs.good())

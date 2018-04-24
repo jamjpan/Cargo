@@ -38,55 +38,37 @@ class Simulator {
 
     void SetOptions(Options);
 
-    // Attempt to load the nodes, edges, gtree, and problem instance from the
-    // path parameters.
+    // Reads the road network, edge file, problem instance, and gtree into
+    // memory. Sets the minimum simulation time and the sleep interval. Set
+    // the options first before calling this.
     void Initialize();
 
-    // Start the simulation. Call Run() within its own thread, otherwise it
-    // will block!
+    // Call this in its own thread, otherwise it will block!
     void Run();
 
   private:
+    // All the parameters for the simulator.
+    Options opts_;
+
     // GTree index, used for fast shortest-path computation and knn search of
     // objects on the road network. The index is built from a .edges file,
     // hence the weights are all integer.
     GTree::G_Tree gtree_;
 
-    // All the parameters for the simulator.
-    Options opts_;
-
-    // Lookup tables for the nodes and edges.
-    NodeMap nodes_;
-    EdgeMap edges_;
+    // These mutable tables store the ground truth state of the simulation.
+    // Only the Simulator should have access to them! Todo: maybe move these
+    // out to a relational database. That way, we get benefits like constraint
+    // checking and SQL syntax for updates and queries.
+    LU_NODES        nodes_;
+    LU_EDGES        edges_;
+    LU_ROUTES       routes_;
+    LU_SCHEDULES    schedules_;
+    LU_POSITIONS    positions_;
+    LU_RESIDUALS    residuals_;
+    LU_CAPACITIES   capacities_;
 
     // A problem instance.
     ProblemInstance pi_;
-
-    // These mutable tables store the ground truth state of the vehicles.
-    // Only the Simulator should have access to them!
-    std::unordered_map<TripId, Route> routes_;
-    std::unordered_map<TripId, Schedule> schedules_;
-    //
-    // The positions_ table stores the current position of every vehicle in the
-    // simulation, using iterators to point to an element in the vehicle's
-    // route. The iterator is constant, so it can be dereferenced to get the
-    // node, but a new node cannot be assigned to it.
-    //
-    // Care must be taken here. Iterators become invalidated after several
-    // operations. To be safe, after performing _any_ insertion, erasure, or
-    // resizing, rediscover the iterator and update this table.
-    std::unordered_map<TripId, Route::const_iterator> positions_;
-    //
-    // This table keeps track of how much distance each vehicle has remaining
-    // until it reaches the next node in its route.
-    std::unordered_map<TripId, Distance> residuals_;
-    //
-    // This table keeps track of the current capacities of each vehicle.
-    // TODO: Should the capacity be reduced only after picking up a reqest, or
-    // should it be reduced as soon as a request is assigned? If the former,
-    // should the capacity table include information about the future capacity
-    // of the vehicle?
-    std::unordered_map<TripId, Demand> capacities_;
 
     // Holds the status of the simulator.
     SimulatorStatus status_;

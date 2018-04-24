@@ -84,15 +84,6 @@ struct Edge {
     Distance weight;
 };
 
-// A lookup table keyed by node id.
-typedef std::unordered_map<NodeId, Node> NodeMap;
-
-// A lookup table for edges.  The table is "undirected"; that is, from-to and
-// to-from key combinations both exist in the table. Usage:
-//     EdgeMap em_;
-//     em[from_id][to_id] = weight;
-typedef std::unordered_map<NodeId, std::unordered_map<NodeId, Distance>> EdgeMap;
-
 // An ordered sequence of nodes.
 typedef std::vector<Node> Route;
 
@@ -151,6 +142,42 @@ struct Stop {
 // An ordered sequence of stops. There can be consecutive stops with the same
 // destination, but different trip_ids.
 typedef std::vector<Stop> Schedule;
+
+// Lookup tables.
+// A lookup table keyed by node id.
+typedef std::unordered_map<NodeId, Node> LU_NODES;
+//
+// A lookup table for edges.  The table is "undirected"; that is, from-to and
+// to-from key combinations both exist in the table. Usage:
+//     EdgeMap em_;
+//     em[from_id][to_id] = weight;
+typedef std::unordered_map<NodeId, std::unordered_map<NodeId, Distance>> LU_EDGES;
+//
+// Lookup tables for routes and schedules.
+typedef std::unordered_map<TripId, Route> LU_ROUTES;
+typedef std::unordered_map<TripId, Schedule> LU_SCHEDULES;
+//
+// Lookup tables for positions, residuals, capacities.
+// The positions_ table stores the current position of every vehicle in the
+// simulation, using iterators to point to an element in the vehicle's
+// route. The iterator is constant, so it can be dereferenced to get the
+// node, but a new node cannot be assigned to it.
+//
+// Care must be taken here. Iterators become invalidated after several
+// operations. To be safe, after performing _any_ insertion, erasure, or
+// resizing, rediscover the iterator and update this table.
+typedef std::unordered_map<TripId, Route::const_iterator> LU_POSITIONS;
+//
+// This table keeps track of how much distance each vehicle has remaining
+// until it reaches the next node in its route.
+typedef std::unordered_map<TripId, Distance> LU_RESIDUALS;
+//
+// This table keeps track of the current capacities of each vehicle.
+// TODO: Should the capacity be reduced only after picking up a reqest, or
+// should it be reduced as soon as a request is assigned? If the former,
+// should the capacity table include information about the future capacity
+// of the vehicle?
+typedef std::unordered_map<TripId, Demand> LU_CAPACITIES;
 
 // A problem instance is the set of trips keyed by their early time. When the
 // simulator time reaches SimTime, all the trips in the group are broadcasted.

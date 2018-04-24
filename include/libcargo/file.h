@@ -36,11 +36,11 @@ namespace file {
 // as well have a separate .nodes file as well, for the node coordinates.
 // Otherwise the .rnet file is redundant... the original purpose of the rnet
 // file was to help plotting using gnuplot!!
-size_t ReadNodes(const Filepath &, NodeMap &);
+size_t ReadNodes(const Filepath &, LU_NODES &);
 
 // Read edges from the edge file into memory. Returns the number of edges
 // read as a size type.
-size_t ReadEdges(const Filepath &, EdgeMap &);
+size_t ReadEdges(const Filepath &, LU_EDGES &);
 
 // Read a problem instance and parse it into trips. Returns the number of
 // trips as a size type.
