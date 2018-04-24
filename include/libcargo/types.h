@@ -53,6 +53,8 @@ namespace cargo {
 typedef int NodeId;
 typedef int EdgeId;
 typedef int TripId;
+typedef int VehicleId;
+typedef int CustomerId;
 
 // Double to minimize rounding errors; unit is meters.
 typedef double Distance;
@@ -71,14 +73,18 @@ typedef struct {
 
 // Nodes in the road network.
 struct Node {
-    NodeId id;
+    NodeId node_id;
     Point coordinates;
+
+    inline bool operator==(const Node& rhs) const {
+        return this->node_id == rhs.node_id;
+    }
 };
 
 // Weighted edge in the road network.
 // TODO: Not used?
 struct Edge {
-    EdgeId id;
+    EdgeId edge_id;
     NodeId from_id;
     NodeId to_id;
     Distance weight;
@@ -134,8 +140,8 @@ enum class StopType : int {
 
 // A stop corresponds to one single trip.
 struct Stop {
-    TripId trip_id;
-    NodeId destination;
+    CustomerId cust_id;
+    NodeId did;
     StopType type;
 };
 

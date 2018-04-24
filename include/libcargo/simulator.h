@@ -57,27 +57,30 @@ class Simulator {
     // Only the Simulator should have access to them! Todo: maybe move these
     // out to a relational database. That way, we get benefits like constraint
     // checking and SQL syntax for updates and queries.
-    LU_NODES        nodes_;
-    LU_EDGES        edges_;
-    LU_ROUTES       routes_;
-    LU_SCHEDULES    schedules_;
-    LU_POSITIONS    positions_;
-    LU_RESIDUALS    residuals_;
-    LU_CAPACITIES   capacities_;
+    LU_NODES        nodes_;         // k: int NodeId; v: Node
+    LU_EDGES        edges_;         // usage: edges_[from_id][to_id] = weight
+    LU_ROUTES       routes_;        // k: int TripId; v: Route (vector<Node>)
+    LU_SCHEDULES    schedules_;     // k: int TripId; v: Schedule (vector<Stop>)
+    LU_POSITIONS    positions_;     // k: int TripId; v: Route::const_itr
+    LU_RESIDUALS    residuals_;     // k: int TripId; v: double Distance
+    LU_CAPACITIES   capacities_;    // k: int TripId; v: int Demand
 
     // A problem instance.
     ProblemInstance pi_;
 
-    // Holds the status of the simulator.
+    // Holds the status of the simulator (enum : int)
     SimulatorStatus status_;
 
-    // Used to keep track of the time in the simulation world.
+    // Used to keep track of the time in the simulation world (int)
+    // Initializes to 0.
     SimTime t_;
 
-    // The minimum length of the simulation, equal to the latest trip.early
+    // The minimum length of the simulation, equals the latest trip.early (int)
+    // Equal to the maximum key in pi_.
     SimTime tmin_;
 
     // Holds the count of active vehicles.
+    // Initializes to 0.
     size_t count_active_;
 
     // This interval sets the simulation time with respect to real time. The
@@ -86,17 +89,21 @@ class Simulator {
     // The unit is milliseconds.
     int sleep_;
 
-    // Update the ground-truth tables by moving the vehicles, recomputing
-    // positions, residuals, capacities.
-    void NextSimulationState();
+    // Insert a new vehicle into the ground-truth tables.
+    void InsertVehicle(const Vehicle &);
 
-    // Insert a new vehicle into the ground-truth tables
-    //     routes_
-    //     schedules_
-    //     positions_
-    //     residuals_
-    //     capacities_
-    void InsertVehicle(const Trip &);
+    // Update the ground-truth tables by moving the vehicle.
+    void NextVehicleState(const VehicleId &);
+
+    // Returns true if a vehicle is currently at one of its stops. If a vehicle
+    // is "stopped" at a stop due to a long residual to the next node, this
+    // function will continue to return true!
+    bool IsStopped(const VehicleId &);
+
+    // Sets a vehicle's schedule in schedules_ to contain only the remaining
+    // stops. The strategy is to check every stop in the current schedule
+    // against the vehicle's remaining route.
+    void SynchronizeSchedule(const VehicleId &);
 };
 
 } // namespace cargo

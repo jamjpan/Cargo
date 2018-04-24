@@ -3,9 +3,10 @@
 #include "libcargo.h"
 
 using namespace cargo;
+
 using opts::Options;
-using msg::Message;
-using msg::MessageType;
+using  msg::Message;
+using  msg::MessageType;
 
 TEST_CASE("Messages print nice colors", "[msg]") {
     Message info(MessageType::INFO);

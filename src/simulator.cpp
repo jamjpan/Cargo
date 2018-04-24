@@ -23,8 +23,7 @@
 #include <thread>
 #include <iterator>
 #include <vector>
-
-#include <iostream>
+#include <algorithm>
 
 #include "libcargo/simulator.h"
 #include "libcargo/types.h"
@@ -39,8 +38,8 @@ using opts::Options;
 using file::ReadNodes;
 using file::ReadEdges;
 using file::ReadProblemInstance;
-using msg::Message;
-using msg::MessageType;
+using  msg::Message;
+using  msg::MessageType;
 
 // --------------------------------------------------------
 // Simulator
@@ -54,12 +53,10 @@ void Simulator::SetOptions(Options opts) {
 }
 
 void Simulator::Initialize() {
-    // Loads the road network and the problem instance.
     ReadNodes(opts_.RoadNetworkPath, nodes_);
     ReadEdges(opts_.EdgeFilePath, edges_);
     ReadProblemInstance(opts_.ProblemInstancePath, pi_);
 
-    // Sets the gtree.
     GTree::load(opts_.GTreePath);
     gtree_ = GTree::get();
 
@@ -68,72 +65,101 @@ void Simulator::Initialize() {
 
     // Sets the sleep time based on the time scale option.
     sleep_ = std::round((float)1000/opts_.Scale);
-    std::cout << "finished initialization" << std::endl;
+
+    Message info(MessageType::INFO);
+    info << "finished initialization" << std::endl;
 }
 
-void Simulator::InsertVehicle(const Trip &trip) {
-    // (1) Inserts the vehicle's route into the routes_ table.
+void Simulator::InsertVehicle(const Vehicle &veh) {
     // Uses GTree to find the vehicle's initial route from origin to
     // destination. The route returned by GTree is a vector of ints
     // corresponding to node ID's; the distance is an int summing the edge
     // lengths. So, the vector is walked in order to find the corresponding
     // Nodes.
     std::vector<int> rt_raw;
-    gtree_.find_path(trip.oid, trip.did, rt_raw);
+    gtree_.find_path(veh.oid, veh.did, rt_raw);
     Route rt;
-    for (auto id : rt_raw)
-        rt.push_back(nodes_.at(id));
-    routes_[trip.id] = rt;
+    for (auto node_id : rt_raw)
+        rt.push_back(nodes_.at(node_id));
+    routes_[veh.id] = rt;
 
-    // (2) Inserts the vehicle's schedule into the schedules_ table.
     // The initial schedule is the vehicle's origin and destination.
     Schedule sch;
-    sch.push_back({trip.id, trip.oid, StopType::VEHICLE_ORIGIN});
-    sch.push_back({trip.id, trip.did, StopType::VEHICLE_DESTINATION});
-    schedules_[trip.id] = sch;
+    sch.push_back({veh.id, veh.oid, StopType::VEHICLE_ORIGIN});
+    sch.push_back({veh.id, veh.did, StopType::VEHICLE_DESTINATION});
+    schedules_[veh.id] = sch;
 
-    // (3) Inserts the vehicle's position into the positions_ table.
     // The initial position is the head of the route.
-    positions_[trip.id] = rt.begin();
+    positions_[veh.id] = rt.begin();
 
-    // (4) Inserts the vehicle's residual into the residuals_ table.  Computes
-    // the distance to the next node in the route. nx is guaranteed to exist
-    // because the trip must have at least two nodes, origin and destination.
+    // Compute the distance to the next node in the route. nx is guaranteed to
+    // exist because the trip must have at least two nodes, origin and
+    // destination.
     auto nx = std::next(rt.begin());
-    residuals_[trip.id] = edges_.at(trip.oid).at(nx->id);
+    residuals_[veh.id] = edges_.at(veh.oid).at(nx->node_id);
 
-    // (5) Inserts the vehicle's capacity into the capacities_ table.
     // The capacity is equal to the trip demand.
-    capacities_[trip.id] = trip.demand;
+    capacities_[veh.id] = veh.demand;
 
-    // (6) Increment the count of active vehicles.
     count_active_++;
 }
 
-void Simulator::NextSimulationState() {
-    // Sets new residuals_, positions_, capacities_ based on
-    // vehicle movement.
-    for (const auto &kv : residuals_) {
-        TripId tid = kv.first;
-        Distance res = kv.second;
+void Simulator::NextVehicleState(const VehicleId &vid) {
+    // Remove the vehicle from residuals_ table if there is no more route.
+    if (std::next(positions_.at(vid)) == routes_.at(vid).end()) {
+        residuals_.erase(vid);
+        return;
+    }
 
-        // Only move vehicles where next position is not route.end()
-        if (std::next(positions_.at(tid)) != routes_.at(tid).end()) {
-            // speed is m/s; each t_ corresponds to 1 real second
-            res -= opts_.VehicleSpeed;
-            if (res <= 0) {
-                // (1) Increment the current position
-                positions_.at(tid)++;
-                // (2) Compute the residual to the next position
-                auto nx = std::next(positions_.at(tid));
-                residuals_.at(tid) = edges_.at(positions_.at(tid)->id).at(nx->id);
-                // TODO: check if is a stop
-            } else {
-                residuals_[tid] = res;
-            }
-        }
+    // Reduce the residual following one time step. Speed is in m/s, so we
+    // just need to deduct the speed.
+    Distance res = residuals_.at(vid);
+    res -= opts_.VehicleSpeed;
 
-    } // for
+    // Update position of the vehicle if the residual is < 0, otherwise
+    // just update the residual
+    if (res <= 0) {
+        positions_[vid]++;
+        // Compute the residual to the next position
+        auto nx = std::next(positions_.at(vid));
+        residuals_[vid] =
+            edges_.at(positions_.at(vid)->node_id).at(nx->node_id);
+
+        // Handle stops
+
+    } else {
+        residuals_[vid] = res;
+    }
+}
+
+bool Simulator::IsStopped(const VehicleId &vid) {
+    NodeId x = positions_.at(vid)->node_id;
+    Schedule _s = schedules_.at(vid);
+    for (auto s : _s)
+        if (s.did == x)
+            return true;
+    return false;
+}
+
+void Simulator::SynchronizeSchedule(const VehicleId &vid) {
+    // Extract the vehicle's remaining route
+    const Route &r = routes_.at(vid);
+    const Node &x = *(positions_.at(vid));
+    Route rt_rem;
+    auto i = std::find(r.begin(), r.end(), x);
+    std::copy(i, r.end(), std::back_inserter(rt_rem));
+
+    // Check each stop in the vehicle's schedule to see if it is in the
+    // remaining route. If so, keep the stop.
+    Schedule s_new;
+    const Schedule &s = schedules_.at(vid);
+    for (auto stop : s)
+        for (auto j = rt_rem.begin(); j != rt_rem.end(); ++j)
+            if (stop.did == j->node_id)
+                s_new.push_back(stop);
+
+    // Commit the synchronize schedule
+    schedules_[vid] = s_new;
 }
 
 void Simulator::Run() {
@@ -143,8 +169,11 @@ void Simulator::Run() {
         // Start the clock for this interval
         auto t_start = std::chrono::high_resolution_clock::now();
 
-        if (t_ > 0)
-            NextSimulationState();
+        // Move all the vehicles
+        if (t_ > 0) {
+            for (const auto &kv : residuals_)
+                NextVehicleState(kv.first);
+        }
 
         // All trips broadcasted, and no more active vehicles?
         if (t_ > tmin_ && count_active_ == 0)
