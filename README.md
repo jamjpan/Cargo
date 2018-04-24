@@ -1,4 +1,4 @@
-# Cargo - a library for evaluating online ridesharing matching algorithms.
+# Cargo - A Ridesharing Algorithms Evaluation Library
 
 Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
 to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
