@@ -6,5 +6,6 @@
 *.gtree
 *.out
 .vscode/
-utils/gtreebuilder
-tests/run_tests
+lib/
+tool/gtreebuilder/gtreebuilder
+test/run_tests
