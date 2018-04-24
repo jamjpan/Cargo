@@ -32,5 +32,6 @@ namespace cargo {} // namespace cargo
 #include "libcargo/message.h"
 #include "libcargo/types.h"
 #include "gtree/gtree.h"
+#include "sqlite3/sqlite3.h"
 
 #endif // CARGO_INCLUDE_LIBCARGO_H_

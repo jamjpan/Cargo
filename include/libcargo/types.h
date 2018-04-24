@@ -53,8 +53,6 @@ namespace cargo {
 typedef int NodeId;
 typedef int EdgeId;
 typedef int TripId;
-typedef int VehicleId;
-typedef int CustomerId;
 
 // Double to minimize rounding errors; unit is meters.
 typedef double Distance;
@@ -122,10 +120,6 @@ struct Trip {
     Demand demand;
 };
 
-// Purely semantic definitions
-typedef Trip Customer;
-typedef Trip Vehicle;
-
 // A set of trips is a TripGroup. In case order is important, TripGroup is
 // represented as a vector.
 typedef std::vector<Trip> TripGroup;
@@ -140,7 +134,7 @@ enum class StopType : int {
 
 // A stop corresponds to one single trip.
 struct Stop {
-    CustomerId cust_id;
+    TripId cust_id;
     NodeId did;
     StopType type;
 };
@@ -184,6 +178,9 @@ typedef std::unordered_map<TripId, Distance> LU_RESIDUALS;
 // should the capacity table include information about the future capacity
 // of the vehicle?
 typedef std::unordered_map<TripId, Demand> LU_CAPACITIES;
+// This table stores assignments.
+typedef std::unordered_map<TripId, TripId> LU_ASSIGNMENTS;
+
 
 // A problem instance is the set of trips keyed by their early time. When the
 // simulator time reaches SimTime, all the trips in the group are broadcasted.

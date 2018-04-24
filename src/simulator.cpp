@@ -70,7 +70,7 @@ void Simulator::Initialize() {
     info << "finished initialization" << std::endl;
 }
 
-void Simulator::InsertVehicle(const Vehicle &veh) {
+void Simulator::InsertVehicle(const Trip &veh) {
     // Uses GTree to find the vehicle's initial route from origin to
     // destination. The route returned by GTree is a vector of ints
     // corresponding to node ID's; the distance is an int summing the edge
@@ -104,7 +104,7 @@ void Simulator::InsertVehicle(const Vehicle &veh) {
     count_active_++;
 }
 
-void Simulator::NextVehicleState(const VehicleId &vid) {
+void Simulator::NextVehicleState(const TripId &vid) {
     // Remove the vehicle from residuals_ table if there is no more route.
     if (std::next(positions_.at(vid)) == routes_.at(vid).end()) {
         residuals_.erase(vid);
@@ -126,40 +126,32 @@ void Simulator::NextVehicleState(const VehicleId &vid) {
             edges_.at(positions_.at(vid)->node_id).at(nx->node_id);
 
         // Handle stops
-
+        if (IsStopped(vid)) {
+            
+        }
     } else {
         residuals_[vid] = res;
     }
 }
 
-bool Simulator::IsStopped(const VehicleId &vid) {
-    NodeId x = positions_.at(vid)->node_id;
-    Schedule _s = schedules_.at(vid);
-    for (auto s : _s)
-        if (s.did == x)
+bool Simulator::IsStopped(const TripId &tid) const {
+    for (auto stop : schedules_.at(tid))
+        if (stop.did == positions_.at(tid)->node_id)
             return true;
     return false;
 }
 
-void Simulator::SynchronizeSchedule(const VehicleId &vid) {
-    // Extract the vehicle's remaining route
-    const Route &r = routes_.at(vid);
-    const Node &x = *(positions_.at(vid));
-    Route rt_rem;
-    auto i = std::find(r.begin(), r.end(), x);
-    std::copy(i, r.end(), std::back_inserter(rt_rem));
-
+void Simulator::SynchronizeSchedule(const TripId &tid) {
     // Check each stop in the vehicle's schedule to see if it is in the
     // remaining route. If so, keep the stop.
     Schedule s_new;
-    const Schedule &s = schedules_.at(vid);
-    for (auto stop : s)
-        for (auto j = rt_rem.begin(); j != rt_rem.end(); ++j)
-            if (stop.did == j->node_id)
+    for (auto stop : schedules_.at(tid))
+        for (auto i = positions_.at(tid); i != routes_.at(tid).end(); ++i)
+            if (stop.did == i->node_id)
                 s_new.push_back(stop);
 
     // Commit the synchronize schedule
-    schedules_[vid] = s_new;
+    schedules_[tid] = s_new;
 }
 
 void Simulator::Run() {

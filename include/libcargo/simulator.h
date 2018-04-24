@@ -25,6 +25,7 @@
 #include "types.h"
 #include "options.h"
 #include "../gtree/gtree.h"
+#include "../sqlite3/sqlite3.h"
 
 namespace cargo {
 
@@ -52,6 +53,8 @@ class Simulator {
     // objects on the road network. The index is built from a .edges file,
     // hence the weights are all integer.
     GTree::G_Tree gtree_;
+
+    sqlite3 *db;
 
     // These mutable tables store the ground truth state of the simulation.
     // Only the Simulator should have access to them! Todo: maybe move these
@@ -90,20 +93,20 @@ class Simulator {
     int sleep_;
 
     // Insert a new vehicle into the ground-truth tables.
-    void InsertVehicle(const Vehicle &);
+    void InsertVehicle(const Trip &);
 
     // Update the ground-truth tables by moving the vehicle.
-    void NextVehicleState(const VehicleId &);
+    void NextVehicleState(const TripId &);
 
     // Returns true if a vehicle is currently at one of its stops. If a vehicle
     // is "stopped" at a stop due to a long residual to the next node, this
     // function will continue to return true!
-    bool IsStopped(const VehicleId &);
+    bool IsStopped(const TripId &) const;
 
     // Sets a vehicle's schedule in schedules_ to contain only the remaining
     // stops. The strategy is to check every stop in the current schedule
     // against the vehicle's remaining route.
-    void SynchronizeSchedule(const VehicleId &);
+    void SynchronizeSchedule(const TripId &);
 };
 
 } // namespace cargo
