@@ -1,5 +1,7 @@
 # Cargo - A Ridesharing Algorithms Library
 
+## Introduction
+
 Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
 to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
 
@@ -73,33 +75,42 @@ This wrapper can insert vectors easily into the db by converting them into blob
 data. In Cargo, the base Schedule and Route data types are represented as
 vectors. Schedules are vectors of stop IDs, and Routes are vectors of node IDs.
 
+## Schema
+
 Schema for the ground-truth simulation state tables:
 ```
-____________________─┐
-| VEHICLES         | │
--------------------- ┘
-| id (int)         | │
-| load (int)       |
-| nnd (double)     | // next-node distance
-| early (int)      | // in sim time units
-| late (int)       | // in sim time units
-| origin (int)     |
-| dest (int)       |
-| route_trav (blob)| // traveled route, vector<int>
-| route_rem (blob) | // remaining route, vector<int>
-| sched (blob)     | // vector<int> of stop IDs ------------------
---------------------                                             |
-                                                                 |
-____________________                                             |
-| STOPS            |                                             |
---------------------                                             |
-| id (int)         | <--------------------------------------------
-| trip_id (int)    | // corresponds to the cust/veh
-| node_id (int)    |
-| type (int)       | // 1=cust-origin;2=cust-dest;3=veh-origin;4=veh-dest
-| visit_time (int) | // defaults to early if type=1,3; late if type=2,4
---------------------
+┌──────────────────┐
+│ VEHICLES         │
+├──────────────────┤
+│ id (int)         │
+│ load (int)       │
+│ nnd (double)     │ // next-node distance
+│ early (int)      │ // in sim time units
+│ late (int)       │ // in sim time units
+│ origin (int)     │
+│ dest (int)       │
+│ route_trav (blob)│ // traveled route, vector<int>
+│ route_rem (blob) │ // remaining route, vector<int>
+│ sched (blob)     │ // vector<int> of stop IDs ←──┐
+└──────────────────┘                               │
+                                                   │
+┌──────────────────┐                               │
+│ STOPS            │                               │
+├──────────────────┤                               │
+│ id (int)         │ ──────────────────────────────┘
+│ trip_id (int)    │ // corresponds to cust/veh
+│ node_id (int)    │
+│ type (int)       │ // 1=cust-origin;2=cust-dest;3=veh-origin;4=veh-dest
+│ visit_time (int) │ // defaults to early if type=1,3; late if type=2,4
+└──────────────────┘
 ```
+### Conditions for writes:
+
+todo
+
+### R\*-tree:
+
+todo
 
 ## Usage
 
