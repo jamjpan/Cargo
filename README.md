@@ -19,8 +19,13 @@ The architecture is below.
 
 ### Simulator
 
-The purpose of the simulator is to (1) generate requests in real time, and (2)
-simulate the ground-truth movement of the vehicles.
+The purpose of the simulator is to
+- broadcast requests and vehicles in real, and
+- simulate the ground-truth movement of the vehicles.
+
+The simulator uses an in-memory sqlite3 db to capture the ground-truth state.
+The db is created per problem instance, and is destroyed when the simulation
+ends. It is never saved to disk.
 
 ### Solution
 
@@ -29,7 +34,7 @@ algorithms.
 
 ### Logger
 
-The logger captures statistics of the simulation.
+The logger captures statistics of the simulation and writes them to disk.
 
 ### Similar projects
 
@@ -39,36 +44,49 @@ The logger captures statistics of the simulation.
 
 ## Prerequisites
 
-- pthreads
-- [METIS graph partitioning library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
+Users should have pthreads installed because the simulator's Run() loop blocks
+an entire thread. The recommended usage is to execute the loop on a separate
+thread, and execute a Solution on the main thread.
+
+Users must also have the [METIS graph partitioning library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
+installed. Cargo provides a gtree spatial index for computing shortest paths,
+and METIS is required to build this dependency.
+
+Cargo also relies on sqlite3, included in the library.
 
 ## Usage
 
 Build the library using `make`. The library will be placed into `lib/libcargo.a`
-after building.
+after building. Then, in your own project, include the header to access the
+libcargo API. The `include/` folder should be placed somewhere your compiler
+can access.
+```
+// myproj.cpp
+#include "libcargo.h"
+int main() {
+    cargo::opts::Options myOpts;
+    myOpts.RoadNetworkPath = "...";
+    ... // set options
 
-Todo: write the public interface, put it into /include
+    cargo::Simulator mySim;
+    mySim.SetOptions(myOpts);
+    mySim.Initialize();
 
+    mySim.Run(); // this should be on a separate thread
+}
+```
+
+To compile, link the library (and don't forget to link METIS).
 `g++ myproj.cpp -L/path/to/cargo -lcargo -L/path/to/metis -lmetis`
 
 ## To do (check means passed tests):
 
-- [ ] Road network class
--- RoadNetwork has methods knn, gtreesp, dijkstra (, haversine?)
--- Cargo will construct a RoadNetwork but solutions can implement their own RN
-- [ ] Base Trip class
--- Trip members: id, origin, destination, early, late, demand (demand > 0 is customer, < 0 is vehicle)
--- Vehicle extends Trip, has some helper methods get_all_assignments, get_current_passengers, others?
--- Customer extends Trip, has some helper methods, get_current_assignment, is_picked_up, etc.
-- [ ] Routes, Schedules, Stops
--- Stop is a base type, it has node_id, customer_id, type
--- Route is needed to internally simulate the moving vehicles; vector of nodes?
--- Schedule is a vector of stops
-- [ ] Movement, positioning of vehicles (traffic?)
--- Vehicles are always at a node (nearest node), move at constant speed (runtime parameter?)
--- Traffic will impact the road network edge weights, for later
-- [ ] Simulating request submissions
-- [ ] Logging
-- [ ] Useful hooks for writing output and plotting
+- [x] Distance functions (Euclidean and Haversine)
+- [x] Message class provides four levels of colored terminal output
+- [ ] Semantic types match the ridesharing problem's vocabulary and entities
+- [ ] Simulator tracks the state of the simulation at every time step
+- [ ] Simulator broadcasts new vehicle and customer arrivals to matching algs
+- [ ] Implement some matching algs
+- [ ] Logging class logs statistics to disk
 
 Help wanted! Please feel free to throw pull requests at me.

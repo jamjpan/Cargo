@@ -54,7 +54,11 @@ class Simulator {
     // hence the weights are all integer.
     GTree::G_Tree gtree_;
 
+    // Stores the ground-truth state of the simulation. Only the simulator
+    // should have access to the db (even though sqlite3 is thread-safe).
     sqlite3 *db;
+    // Schema:
+    // Table 
 
     // These mutable tables store the ground truth state of the simulation.
     // Only the Simulator should have access to them! Todo: maybe move these
