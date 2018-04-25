@@ -38,11 +38,6 @@ The purposes of the simulator are to
 - broadcast requests and vehicles in real time, and
 - simulate the ground-truth movement of the vehicles.
 
-The Simulator uses an in-memory sqlite3 database to record the ground-truth
-state.  The database is created per problem instance, and is destroyed when the
-simulation ends. It is never saved to disk. Only the Simulator has write-access
-to the database.
-
 ### Solution
 
 todo
@@ -68,16 +63,10 @@ library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) installed.
 Cargo provides a gtree (Zhong et al 2015)  spatial index for computing shortest
 paths, and METIS is required to build this dependency.
 
-Cargo also uses [sqlite3](https://sqlite.org/index.html) for managing
-simulation state. Access is through
-[sqlite_modern_cpp](https://github.com/SqliteModernCpp/sqlite_modern_cpp).
-This wrapper can insert vectors easily into the db by converting them into blob
-data. In Cargo, the base Schedule and Route data types are represented as
-vectors. Schedules are vectors of stop IDs, and Routes are vectors of node IDs.
-
 ## Schema
 
-Schema for the ground-truth simulation state tables:
+Schema for the ground-truth simulation state tables is below. The tables
+are represented as `std::unordered_map`s.
 ```
 ┌──────────────────┐                             ┌───────────────────┐
 │ VEHICLES         │                             │ ASSIGNMENTS       │
@@ -89,26 +78,27 @@ Schema for the ground-truth simulation state tables:
 │ late (int)       │ // in sim time units
 │ origin (int)     │
 │ dest (int)       │
-│ route_trav (blob)│ // traveled route, vector<int>
-│ route_rem (blob) │ // remaining route, vector<int>
-│ sched (blob)     │ // vector<int> of stop IDs <──┐
-└──────────────────┘                               │
-                                                   │
-┌──────────────────┐                               │
-│ STOPS            │                               │
-├──────────────────┤                               │
-│ id (int)         │ ──────────────────────────────┘
+│ route (vec)      │ // route, vector<int>
+│ sched (vec)      │ // vector<int> of stop IDs <─────┐
+│ lv_node (itr)    │ // route::itr last-visited node  │
+│ lv_stop (itr)    │ // sched::itr last-visited stop  │
+└──────────────────┘                                  │
+                                                      │
+┌──────────────────┐                                  │
+│ STOPS            │                                  │
+├──────────────────┤                                  │
+│ id (int)         │ ─────────────────────────────────┘
 │ trip_id (int)    │ // corresponds to cust/veh
 │ node_id (int)    │
 │ type (int)       │ // 1=cust-origin;2=cust-dest;3=veh-origin;4=veh-dest
 │ visit_time (int) │ // defaults to early if type=1,3; late if type=2,4
 └──────────────────┘
 ```
-### Conditions for writes:
+### State updates:
 
 todo
 
-### R\*-tree:
+### Grid index:
 
 todo
 
