@@ -79,12 +79,12 @@ vectors. Schedules are vectors of stop IDs, and Routes are vectors of node IDs.
 
 Schema for the ground-truth simulation state tables:
 ```
-┌──────────────────┐
-│ VEHICLES         │
-├──────────────────┤
-│ id (int)         │
-│ load (int)       │
-│ nnd (double)     │ // next-node distance
+┌──────────────────┐                             ┌───────────────────┐
+│ VEHICLES         │                             │ ASSIGNMENTS       │
+├──────────────────┤                             ├───────────────────┤
+│ id (int)         │                             │ customer_id (int) │
+│ load (int)       │                             │ vehicle_id (int)  │
+│ nnd (double)     │ // next-node distance       └───────────────────┘
 │ early (int)      │ // in sim time units
 │ late (int)       │ // in sim time units
 │ origin (int)     │
