@@ -60,7 +60,7 @@ Build the library using `make`. The library will be placed into `lib/libcargo.a`
 after building. Then, in your own project, include the header to access the
 libcargo API. The `include/` folder should be placed somewhere your compiler
 can access.
-```
+```cpp
 // myproj.cpp
 #include "libcargo.h"
 int main() {
