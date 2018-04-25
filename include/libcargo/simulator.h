@@ -56,9 +56,14 @@ class Simulator {
 
     // Stores the ground-truth state of the simulation. Only the simulator
     // should have access to the db (even though sqlite3 is thread-safe).
+    // The db lives in memory for fast access, and is destroyed when
+    // the simulation completes.
     sqlite3 *db;
     // Schema:
-    // Table 
+    // Table VEHICLES
+    // --------------
+    // ID(int) | 
+    // Table ASSIGNMENTS
 
     // These mutable tables store the ground truth state of the simulation.
     // Only the Simulator should have access to them! Todo: maybe move these
