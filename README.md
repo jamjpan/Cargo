@@ -91,7 +91,7 @@ Schema for the ground-truth simulation state tables:
 │ dest (int)       │
 │ route_trav (blob)│ // traveled route, vector<int>
 │ route_rem (blob) │ // remaining route, vector<int>
-│ sched (blob)     │ // vector<int> of stop IDs ←──┐
+│ sched (blob)     │ // vector<int> of stop IDs <──┐
 └──────────────────┘                               │
                                                    │
 ┌──────────────────┐                               │
