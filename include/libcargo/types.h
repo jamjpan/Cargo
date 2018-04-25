@@ -51,11 +51,11 @@ namespace cargo {
 
 // ints are guaranteed at least 32-bits ~> 2 billion values.
 typedef int NodeId;
-typedef int EdgeId;
-typedef int TripId;
 
-// Double to minimize rounding errors; unit is meters.
-typedef double Distance;
+// these are part of the same "type-class", and are interchangeable.
+typedef int TripId;
+typedef int VehicleId;
+typedef int CustomerId;
 
 // No need for double precision because these will never be operated on. Float
 // gives us 7 decimal digits. For lng/lat coordinates, the 6th digit corresponds
@@ -64,32 +64,10 @@ typedef float Longitude;
 typedef float Latitude;
 
 // Spatial data type.
-typedef struct {
+struct Point {
     Longitude lng;
     Latitude lat;
-} Point;
-
-// Nodes in the road network.
-struct Node {
-    NodeId node_id;
-    Point coordinates;
-
-    inline bool operator==(const Node& rhs) const {
-        return this->node_id == rhs.node_id;
-    }
 };
-
-// Weighted edge in the road network.
-// TODO: Not used?
-struct Edge {
-    EdgeId edge_id;
-    NodeId from_id;
-    NodeId to_id;
-    Distance weight;
-};
-
-// An ordered sequence of nodes.
-typedef std::vector<Node> Route;
 
 // Used as the internal simulation time; one SimTime is roughly equivalent to
 // one real second. Time windows are expressed as SimTime, with 0 being the
@@ -97,13 +75,25 @@ typedef std::vector<Node> Route;
 // as the real (haversine) distance divided by the real speed, in m/s.
 typedef int SimTime;
 
-// Demand d > 0 indicates customer; otherwise vehicle with capacity d
-typedef int Demand;
+enum class StopType {
+    CUSTOMER_ORIGIN,
+    CUSTOMER_DEST,
+    VEHICLE_ORIGIN,
+    VEHICLE_DEST,
+};
 
-// All customers and vehicles are represented as raw "trips". The difference
-// between them is mostly semantic. The one logical difference is that
-// vehicles have negative demand, representing their capacity in the real
-// world.
+// visit_time defaults to -1 and is populated when a vehicle visits the stop.
+struct Stop {
+    TripId trip_id;
+    NodeId node_id;
+    StopType type;
+    SimTime visit_time;
+};
+
+typedef std::vector<NodeId> Route;
+typedef std::vector<Stop> Schedule;
+
+// Trip represents shared properties between customers and vehicles.
 struct Trip {
     TripId id;
     NodeId oid;
@@ -115,91 +105,57 @@ struct Trip {
     SimTime early;
     SimTime late;
 
-    // Positive demand corresponds to a customer request; negative demand
+    // Positive corresponds to a customer request; negative
     // corresponds to vehicle capacity.
-    Demand demand;
+    int demand;
 };
 
-// A set of trips is a TripGroup. In case order is important, TripGroup is
-// represented as a vector.
-typedef std::vector<Trip> TripGroup;
+// nnd is the next-node distance. lv_node and lv_stop are the indices to the
+// last-visited node and stop. These are advanced as the vehicle moves along
+// its route.
+struct Vehicle : public Trip {
+    int load; // mutate this instead of vehicle.demand
+    double nnd;
+    Route route;
+    Schedule sched;
+    size_t lv_node;
+    size_t lv_stop;
 
-// Stop types
-enum class StopType : int {
-    CUSTOMER_ORIGIN,
-    CUSTOMER_DESTINATION,
-    VEHICLE_ORIGIN,
-    VEHICLE_DESTINATION,
+    // Copy the properties of t into this vehicle.
+    Vehicle(const Trip &t)
+        : Trip(t), load(t.demand), nnd(0), lv_node(0), lv_stop(0) {}
 };
 
-// A stop corresponds to one single trip.
-struct Stop {
-    TripId cust_id;
-    NodeId did;
-    StopType type;
-};
+// Lookup nodes.
+typedef std::unordered_map<NodeId, Point>
+    KeyValueNodes;
 
-// An ordered sequence of stops. There can be consecutive stops with the same
-// destination, but different trip_ids.
-typedef std::vector<Stop> Schedule;
-
-// Lookup tables.
-// A lookup table keyed by node id.
-typedef std::unordered_map<NodeId, Node> LU_NODES;
-//
-// A lookup table for edges.  The table is "undirected"; that is, from-to and
-// to-from key combinations both exist in the table. Usage:
+// Lookup edges.  The key-value store is "undirected"; that is, from-to and
+// to-from key combinations both exist in the store. Usage:
 //     EdgeMap em_;
 //     em[from_id][to_id] = weight;
-typedef std::unordered_map<NodeId, std::unordered_map<NodeId, Distance>> LU_EDGES;
-//
-// Lookup tables for routes and schedules.
-typedef std::unordered_map<TripId, Route> LU_ROUTES;
-typedef std::unordered_map<TripId, Schedule> LU_SCHEDULES;
-//
-// Lookup tables for positions, residuals, capacities.
-// The positions_ table stores the current position of every vehicle in the
-// simulation, using iterators to point to an element in the vehicle's
-// route. The iterator is constant, so it can be dereferenced to get the
-// node, but a new node cannot be assigned to it.
-//
-// Care must be taken here. Iterators become invalidated after several
-// operations. To be safe, after performing _any_ insertion, erasure, or
-// resizing, rediscover the iterator and update this table.
-typedef std::unordered_map<TripId, Route::const_iterator> LU_POSITIONS;
-//
-// This table keeps track of how much distance each vehicle has remaining
-// until it reaches the next node in its route.
-typedef std::unordered_map<TripId, Distance> LU_RESIDUALS;
-//
-// This table keeps track of the current capacities of each vehicle.
-// TODO: Should the capacity be reduced only after picking up a reqest, or
-// should it be reduced as soon as a request is assigned? If the former,
-// should the capacity table include information about the future capacity
-// of the vehicle?
-typedef std::unordered_map<TripId, Demand> LU_CAPACITIES;
-// This table stores assignments.
-typedef std::unordered_map<TripId, TripId> LU_ASSIGNMENTS;
+typedef std::unordered_map<NodeId, std::unordered_map<NodeId, double>>
+    KeyValueEdges;
 
+// Lookup vehicles.
+typedef std::unordered_map<VehicleId, Vehicle>
+    KeyValueVehicles;
+
+// Store assignments.
+typedef std::unordered_map<VehicleId, CustomerId>
+    KeyValueAssignments;
 
 // A problem instance is the set of trips keyed by their early time. When the
 // simulator time reaches SimTime, all the trips in the group are broadcasted.
-// Map is used here to sort the trip groups by simtime. Then, we can easily
-// find the largest trip.early to set the minimum simulation time.
 struct ProblemInstance {
     std::string name;
-    std::map<SimTime, TripGroup> trips;
+    std::unordered_map<SimTime, std::vector<Trip>> trips;
 };
 
 // Simulator status flags
 // TODO: These might not be necessary?
-enum class SimulatorStatus : int {
-    // Default state of the simulator.
+enum class SimulatorStatus {
     RUNNING,
-
-    // The simulator reaches the FINISHED state if two conditions are met:
-    // (1) all trips from the problem instance have been broadcasted,
-    // (2) all vehicles have arrived at their destinations.
     FINISHED,
 };
 
@@ -210,7 +166,8 @@ typedef float Speed;
 typedef std::string Filepath;
 
 // Infinity
-const double kInfinity = std::numeric_limits<double>::infinity();
+const int kIntInfinity = std::numeric_limits<int>::infinity();
+const double kDblInfinity = std::numeric_limits<double>::infinity();
 
 // Math PI
 const double kPI = 3.141592653589793238462643383279502884L;

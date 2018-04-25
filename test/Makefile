@@ -7,7 +7,8 @@ CARGO = -L/home/jpan/devel/Cargo/lib -lcargo
 #-------------------------------------------------------------------------------
 OBJECTS = \
 		  build/main.o \
-		  build/simulator_test.o
+		  build/simulator_test.o \
+		  build/message_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
@@ -20,6 +21,10 @@ build/main.o: \
 build/simulator_test.o: \
 	src/simulator_test.cpp
 	$(CXX) $(CFLAGS) src/simulator_test.cpp
+
+build/message_test.o: \
+	src/message_test.cpp
+	$(CXX) $(CFLAGS) src/message_test.cpp
 
 build:
 	mkdir -p build

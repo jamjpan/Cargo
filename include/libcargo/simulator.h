@@ -24,86 +24,63 @@
 
 #include "types.h"
 #include "options.h"
+#include "message.h"
 #include "../gtree/gtree.h"
 
 namespace cargo {
 
 using opts::Options;
+using  msg::Message;
 
 class Simulator {
   public:
     Simulator();
 
+    // Do this first
     void SetOptions(Options);
 
-    // Reads the road network, edge file, problem instance, and gtree into
-    // memory. Sets the minimum simulation time and the sleep interval. Set
-    // the options first before calling this.
+    // - Read road network, edge file, problem instance
+    // - Set tmin_, sleep_
     void Initialize();
 
-    // Call this in its own thread, otherwise it will block!
-    void Run();
+    // Call this in its own thread!
+    // Returns false if finishes with no errors; true if finishes with errors.
+    bool Run();
 
   private:
-    // All the parameters for the simulator.
+    Message PRINT;
+    Message INFO;
+    Message WARN;
+    Message ERROR;
+    Message SUCCESS;
+
     Options opts_;
 
-    // GTree index, used for fast shortest-path computation and knn search of
-    // objects on the road network. The index is built from a .edges file,
-    // hence the weights are all integer.
     GTree::G_Tree gtree_;
 
-    // These mutable tables store the ground truth state of the simulation.
-    // Only the Simulator should have access to them! Todo: maybe move these
-    // out to a relational database. That way, we get benefits like constraint
-    // checking and SQL syntax for updates and queries.
-    LU_NODES        nodes_;         // k: int NodeId; v: Node
-    LU_EDGES        edges_;         // usage: edges_[from_id][to_id] = weight
-    LU_ROUTES       routes_;        // k: int TripId; v: Route (vector<Node>)
-    LU_SCHEDULES    schedules_;     // k: int TripId; v: Schedule (vector<Stop>)
-    LU_POSITIONS    positions_;     // k: int TripId; v: Route::const_itr
-    LU_RESIDUALS    residuals_;     // k: int TripId; v: double Distance
-    LU_CAPACITIES   capacities_;    // k: int TripId; v: int Demand
+    // These tables store the ground truth state of the simulation.
+    // Only the Simulator should have access to them!
+    KeyValueNodes        nodes_;
+    KeyValueEdges        edges_;         // usage: edges_[from_id][to_id] = weight
+    KeyValueVehicles     vehicles_;
+    KeyValueAssignments  assignments_;
 
-    // A problem instance.
     ProblemInstance pi_;
-
-    // Holds the status of the simulator (enum : int)
     SimulatorStatus status_;
 
-    // Used to keep track of the time in the simulation world (int)
-    // Initializes to 0.
-    SimTime t_;
+    // - t_ = current sim time
+    // - tmin_ = minimum sim duration (max trip.early)
+    // - tmax_ = maximum sim duration (max vehicle.late)
+    SimTime t_, tmin_, tmax_;
 
-    // The minimum length of the simulation, equals the latest trip.early (int)
-    // Equal to the maximum key in pi_.
-    SimTime tmin_;
-
-    // Holds the count of active vehicles.
-    // Initializes to 0.
+    // Stores the count of active vehicles (inits to 0).
     size_t count_active_;
 
-    // This interval sets the simulation time with respect to real time. The
-    // time in the problem instances is in seconds; hence set the sleep
-    // interval to be equal to 1000 ms in order to approximate real time.
-    // The unit is milliseconds.
+    // Stores the sleep interval per simulation time step, in milliseconds.
+    // (set with Initialize()).
     int sleep_;
 
-    // Insert a new vehicle into the ground-truth tables.
-    void InsertVehicle(const Trip &);
-
-    // Update the ground-truth tables by moving the vehicle.
-    void NextVehicleState(const TripId &);
-
-    // Returns true if a vehicle is currently at one of its stops. If a vehicle
-    // is "stopped" at a stop due to a long residual to the next node, this
-    // function will continue to return true!
-    bool IsStopped(const TripId &) const;
-
-    // Sets a vehicle's schedule in schedules_ to contain only the remaining
-    // stops. The strategy is to check every stop in the current schedule
-    // against the vehicle's remaining route.
-    void SynchronizeSchedule(const TripId &);
+    //void NextVehicleState(const TripId &);
 };
 
 } // namespace cargo

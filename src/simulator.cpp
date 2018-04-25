@@ -27,8 +27,8 @@
 
 #include "libcargo/simulator.h"
 #include "libcargo/types.h"
-#include "libcargo/file.h"
 #include "libcargo/options.h"
+#include "libcargo/file.h"
 #include "libcargo/message.h"
 #include "gtree/gtree.h"
 
@@ -38,7 +38,6 @@ using opts::Options;
 using file::ReadNodes;
 using file::ReadEdges;
 using file::ReadProblemInstance;
-using  msg::Message;
 using  msg::MessageType;
 
 // --------------------------------------------------------
@@ -46,138 +45,75 @@ using  msg::MessageType;
 // --------------------------------------------------------
 
 Simulator::Simulator()
-    : status_(SimulatorStatus::RUNNING), t_(0), count_active_(0) {}
+    : status_(SimulatorStatus::RUNNING), t_(0), tmin_(0), tmax_(0),
+      count_active_(0) {
+    // Better way to set these?
+    PRINT.type = MessageType::DEFAULT;
+    INFO.type = MessageType::INFO;
+    WARN.type = MessageType::WARNING;
+    ERROR.type = MessageType::ERROR;
+    SUCCESS.type = MessageType::SUCCESS;
+}
 
 void Simulator::SetOptions(Options opts) {
     opts_ = opts;
 }
 
 void Simulator::Initialize() {
+    // Wrap Initialize() in try..catch because these throw exceptions.
+    INFO << "begin Simulator::Initialize()\n";
+    PRINT << "read road network\n";
     ReadNodes(opts_.RoadNetworkPath, nodes_);
     ReadEdges(opts_.EdgeFilePath, edges_);
-    ReadProblemInstance(opts_.ProblemInstancePath, pi_);
-
+    PRINT << "read gtree\n";
     GTree::load(opts_.GTreePath);
     gtree_ = GTree::get();
+    PRINT << "read problem instance\n";
+    ReadProblemInstance(opts_.ProblemInstancePath, pi_);
 
-    // Sets the minimim simulation time to ensure all trips will be broadcasted.
-    tmin_ = pi_.trips.rbegin()->first;
-
-    // Sets the sleep time based on the time scale option.
-    sleep_ = std::round((float)1000/opts_.Scale);
-
-    Message info(MessageType::INFO);
-    info << "finished initialization" << std::endl;
-}
-
-void Simulator::InsertVehicle(const Trip &veh) {
-    // Uses GTree to find the vehicle's initial route from origin to
-    // destination. The route returned by GTree is a vector of ints
-    // corresponding to node ID's; the distance is an int summing the edge
-    // lengths. So, the vector is walked in order to find the corresponding
-    // Nodes.
-    std::vector<int> rt_raw;
-    gtree_.find_path(veh.oid, veh.did, rt_raw);
-    Route rt;
-    for (auto node_id : rt_raw)
-        rt.push_back(nodes_.at(node_id));
-    routes_[veh.id] = rt;
-
-    // The initial schedule is the vehicle's origin and destination.
-    Schedule sch;
-    sch.push_back({veh.id, veh.oid, StopType::VEHICLE_ORIGIN});
-    sch.push_back({veh.id, veh.did, StopType::VEHICLE_DESTINATION});
-    schedules_[veh.id] = sch;
-
-    // The initial position is the head of the route.
-    positions_[veh.id] = rt.begin();
-
-    // Compute the distance to the next node in the route. nx is guaranteed to
-    // exist because the trip must have at least two nodes, origin and
-    // destination.
-    auto nx = std::next(rt.begin());
-    residuals_[veh.id] = edges_.at(veh.oid).at(nx->node_id);
-
-    // The capacity is equal to the trip demand.
-    capacities_[veh.id] = veh.demand;
-
-    count_active_++;
-}
-
-void Simulator::NextVehicleState(const TripId &vid) {
-    // Remove the vehicle from residuals_ table if there is no more route.
-    if (std::next(positions_.at(vid)) == routes_.at(vid).end()) {
-        residuals_.erase(vid);
-        return;
-    }
-
-    // Reduce the residual following one time step. Speed is in m/s, so we
-    // just need to deduct the speed.
-    Distance res = residuals_.at(vid);
-    res -= opts_.VehicleSpeed;
-
-    // Update position of the vehicle if the residual is < 0, otherwise
-    // just update the residual
-    if (res <= 0) {
-        positions_[vid]++;
-        // Compute the residual to the next position
-        auto nx = std::next(positions_.at(vid));
-        residuals_[vid] =
-            edges_.at(positions_.at(vid)->node_id).at(nx->node_id);
-
-        // Handle stops
-        if (IsStopped(vid)) {
-            
+    PRINT << "parse vehicles\n";
+    for (const auto &kv : pi_.trips) {
+        for (const auto &trip : kv.second) {
+            // Set tmin_
+            if (trip.early > tmin_)
+                tmin_ = trip.early;
+            if (trip.demand < 1) {
+                vehicles_.insert(std::make_pair(trip.id, Vehicle(trip)));
+                Vehicle &veh = vehicles_.at(trip.id);
+                gtree_.find_path(veh.oid, veh.did, veh.route);
+                Stop o = {veh.id, veh.oid, StopType::VEHICLE_ORIGIN, -1};
+                Stop d = {veh.id, veh.did, StopType::VEHICLE_DEST, -1};
+                veh.sched = {o, d};
+                // Set tmax_
+                if (veh.late > tmax_)
+                    tmax_ = veh.late;
+            }
         }
-    } else {
-        residuals_[vid] = res;
     }
+    // Set the sleep time based on the time scale option.
+    sleep_ = std::round((float)1000/opts_.Scale);
+    INFO << "done Simulator::Initialize()\n";
 }
 
-bool Simulator::IsStopped(const TripId &tid) const {
-    for (auto stop : schedules_.at(tid))
-        if (stop.did == positions_.at(tid)->node_id)
-            return true;
-    return false;
-}
+//void Simulator::NextVehicleState(const TripId &vid) { }
 
-void Simulator::SynchronizeSchedule(const TripId &tid) {
-    // Check each stop in the vehicle's schedule to see if it is in the
-    // remaining route. If so, keep the stop.
-    Schedule s_new;
-    for (auto stop : schedules_.at(tid))
-        for (auto i = positions_.at(tid); i != routes_.at(tid).end(); ++i)
-            if (stop.did == i->node_id)
-                s_new.push_back(stop);
-
-    // Commit the synchronize schedule
-    schedules_[tid] = s_new;
-}
-
-void Simulator::Run() {
-    // This process will run (and block anything downstream) until two
-    // conditions are met: t_ > tmin_, and no more active vehicles.
-    while (true) {
+bool Simulator::Run() {
+    // Blocks until
+    // (1) minimum duration reached (t_ > tmin_) and
+    // (2) no more active vehicles (count_active_ == 0)
+    while (!(t_ > tmin_ && count_active_ == 0)) {
         // Start the clock for this interval
         auto t_start = std::chrono::high_resolution_clock::now();
+        PRINT << "tmin=" << tmin_ << "/t=" << t_ << "/tmax=" << tmax_;
 
         // Move all the vehicles
         if (t_ > 0) {
-            for (const auto &kv : residuals_)
-                NextVehicleState(kv.first);
         }
 
-        // All trips broadcasted, and no more active vehicles?
-        if (t_ > tmin_ && count_active_ == 0)
-            break;
-
-        // Broadcast new trips
-        // Loop through the TripGroup corresponding to the current SimTime t_
-        // and broadcast based on whether the trip is a customer or vehicle
+        // Broadcast new trips as customers or vehicles
         if (pi_.trips.find(t_) != pi_.trips.end()) {
-            for (auto trip : pi_.trips[t_]) {
+            for (auto trip : pi_.trips.at(t_)) {
                 if (trip.demand < 0) {
-                    InsertVehicle(trip);
                     // TODO: broadcast a new vehicle
                 } else {
                     // TODO: customer_online() embark
@@ -193,16 +129,18 @@ void Simulator::Run() {
         int elapsed = std::round(
             std::chrono::duration<double, std::milli>(t_end - t_start).count());
         if (elapsed > sleep_) {
-            std::cerr << "Scale too big, exiting" << std::endl;
-            exit(0);
+            ERROR << "Scale too big, exiting\n";
+            return true;
         }
 
+        PRINT << ".\n";
         // Sleep until the next time interval
         std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ - elapsed));
 
         // Advance the simulation time
         t_++;
     }
+    return false;
 }
 
 } // namespace cargo

@@ -22,14 +22,12 @@
 #include "libcargo/file.h"
 
 #include <fstream>
-#include <iostream>
 #include <stdexcept>
 
 namespace cargo {
 namespace file {
 
-size_t ReadNodes(const Filepath &path, LU_NODES &N) {
-    std::cout << "begin reading nodes from \"" << path << "\"\n";
+size_t ReadNodes(const Filepath &path, KeyValueNodes &N) {
     std::ifstream ifs(path);
     if (!ifs.good())
         throw std::runtime_error("node path not found");
@@ -37,25 +35,24 @@ size_t ReadNodes(const Filepath &path, LU_NODES &N) {
     NodeId oid, did;
     Latitude oy, dy;
     Longitude ox, dx;
-    int _unused;
-    while (ifs >> _unused >> oid >> did >> ox >> oy >> dx >> dy) {
-        N[oid] = {oid, {ox, oy}};
-        N[did] = {did, {dx, dy}};
+    int _; // unused
+    while (ifs >> _ >> oid >> did >> ox >> oy >> dx >> dy) {
+        N[oid] = {ox, oy};
+        N[did] = {dx, dy};
     }
     ifs.close();
     return N.size();
 }
 
-size_t ReadEdges(const Filepath &path, LU_EDGES &M) {
-    std::cout << "begin reading edges from \"" << path << "\"\n";
+size_t ReadEdges(const Filepath &path, KeyValueEdges &M) {
     std::ifstream ifs(path);
     if (!ifs.good())
         throw std::runtime_error("edge path not found");
     M.clear();
-    std::string line;
-    std::getline(ifs, line); // skip the header line
+    std::string _; // unused
+    std::getline(ifs, _); // skip the header line
     NodeId oid, did;
-    Distance weight;
+    double weight;
     size_t count_edges = 0;
     while (ifs >> oid >> did >> weight) {
         M[oid][did] = weight;
@@ -67,20 +64,19 @@ size_t ReadEdges(const Filepath &path, LU_EDGES &M) {
 }
 
 size_t ReadProblemInstance(const Filepath &path, ProblemInstance &P) {
-    std::cout << "begin reading problem instance from \"" << path << "\"\n";
     std::ifstream ifs(path);
     if (!ifs.good())
         throw std::runtime_error("problem path not found");
     P.trips.clear();
-    std::string _unused;
+    std::string _;
     size_t m, n;
     size_t count_trips = 0;
-    ifs >> P.name >> _unused >> m >> _unused >> n;
-    ifs >> _unused; // skip the blank line
-    std::getline(ifs, _unused); // skip the header row
+    ifs >> P.name >> _ >> m >> _ >> n;
+    ifs >> _; // skip the blank line
+    std::getline(ifs, _); // skip the header row
     TripId tid;
     NodeId oid, did;
-    Demand q;
+    int q;
     SimTime early, late;
     while (ifs >> tid >> oid >> did >> q >> early >> late) {
         P.trips[early].push_back({tid, oid, did, early, late, q});

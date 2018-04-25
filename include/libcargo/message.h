@@ -43,6 +43,9 @@
 #define BOLDWHITE   "\033[1m\033[37m"       /* Bold White   */
 
 #include <iostream>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 // Provides colored output.
 // Usage:
@@ -52,6 +55,7 @@ namespace cargo {
 namespace msg {
 
 enum class MessageType {
+    DEFAULT,    // black
     INFO,       // blue
     WARNING,    // magenta
     ERROR,      // red
@@ -59,6 +63,7 @@ enum class MessageType {
 };
 
 struct Message : std::ostream, std::streambuf {
+    Message() : std::ostream(this), type(MessageType::DEFAULT) {}
     Message(MessageType t) : std::ostream(this), type(t) {}
 
     bool head = true;
@@ -67,20 +72,27 @@ struct Message : std::ostream, std::streambuf {
     int sync() {
         std::cout << RESET;
         std::cout.flush();
+        head = true;
         return 0;
     }
 
     int overflow(int c) {
         if (head) {
+            auto now = std::chrono::system_clock::now();
+            auto now_c = std::chrono::system_clock::to_time_t(now);
             switch(type) {
+                case MessageType::DEFAULT:  std::cout << BLACK;     break;
                 case MessageType::INFO:     std::cout << BLUE;      break;
                 case MessageType::WARNING:  std::cout << MAGENTA;   break;
                 case MessageType::ERROR:    std::cout << RED;       break;
                 case MessageType::SUCCESS:  std::cout << GREEN;     break;
             }
+            std::cout << std::put_time(std::localtime(&now_c), "[%F %T] ");
             head = false;
         }
         std::cout << char(c);
+        if (c == int('\n'))
+            head = true;
         return 0;
     }
 };
