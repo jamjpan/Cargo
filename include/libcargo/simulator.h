@@ -80,7 +80,7 @@ class Simulator {
     // (set with Initialize()).
     int sleep_;
 
-    //void NextVehicleState(const TripId &);
+    void MoveVehicles();
 };
 
 } // namespace cargo

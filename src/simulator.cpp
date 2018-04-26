@@ -34,6 +34,8 @@
 
 namespace cargo {
 
+#define DEBUG true
+
 using opts::Options;
 using file::ReadNodes;
 using file::ReadEdges;
@@ -81,9 +83,11 @@ void Simulator::Initialize() {
                 vehicles_.insert(std::make_pair(trip.id, Vehicle(trip)));
                 Vehicle &veh = vehicles_.at(trip.id);
                 gtree_.find_path(veh.oid, veh.did, veh.route);
+                veh.nnd = (-1)*edges_.at(veh.oid).at(veh.route.at(1));
                 Stop o = {veh.id, veh.oid, StopType::VEHICLE_ORIGIN, -1};
                 Stop d = {veh.id, veh.did, StopType::VEHICLE_DEST, -1};
-                veh.sched = {o, d};
+                veh.sched.push_back(o);
+                veh.sched.push_back(d);
                 // Set tmax_
                 if (veh.late > tmax_)
                     tmax_ = veh.late;
@@ -95,7 +99,37 @@ void Simulator::Initialize() {
     INFO << "done Simulator::Initialize()\n";
 }
 
-//void Simulator::NextVehicleState(const TripId &vid) { }
+void Simulator::MoveVehicles() {
+    for (auto &kv : vehicles_) {
+        Vehicle &veh = kv.second;
+        #if DEBUG
+        // PRINT << "veh" << veh.id << "(" << veh.route.at(veh.lv_node) << ")"
+        //       << "nnd=" << veh.nnd << " early=" << veh.early << " active=" << veh.is_active << std::endl;
+        #endif
+        if (t_ > veh.early) {
+            veh.nnd += opts_.VehicleSpeed;
+            while (veh.nnd >= 0 && veh.is_active) {
+              veh.lv_node++;
+                #if DEBUG
+                INFO << "veh" << veh.id << " moved from " << veh.route.at(veh.lv_node-1)
+                     << " to " << veh.route.at(veh.lv_node) << std::endl;
+                #endif
+              if (veh.route.at(veh.lv_node) == veh.sched.at(veh.lv_stop + 1).node_id) {
+                  veh.lv_stop++;
+                  if (veh.sched.at(veh.lv_stop).type == StopType::VEHICLE_DEST) {
+                      veh.is_active = false;
+                      count_active_--;
+                  }
+                  else if (veh.sched.at(veh.lv_stop).type == StopType::CUSTOMER_ORIGIN)
+                      veh.load++;
+                  else
+                      veh.load--;
+               }
+               veh.nnd -= edges_.at(veh.route.at(veh.lv_node-1)).at(veh.route.at(veh.lv_node));
+            }
+        }
+    }
+}
 
 bool Simulator::Run() {
     // Blocks until
@@ -104,16 +138,16 @@ bool Simulator::Run() {
     while (!(t_ > tmin_ && count_active_ == 0)) {
         // Start the clock for this interval
         auto t_start = std::chrono::high_resolution_clock::now();
-        PRINT << "tmin=" << tmin_ << "/t=" << t_ << "/tmax=" << tmax_;
+        PRINT << "tmin=" << tmin_ << "/t=" << t_ << "/tmax=" << tmax_ << std::endl;
 
         // Move all the vehicles
-        if (t_ > 0) {
-        }
-
+        if (t_ > 0)
+            MoveVehicles();
         // Broadcast new trips as customers or vehicles
         if (pi_.trips.find(t_) != pi_.trips.end()) {
             for (auto trip : pi_.trips.at(t_)) {
                 if (trip.demand < 0) {
+                    count_active_++;
                     // TODO: broadcast a new vehicle
                 } else {
                     // TODO: customer_online() embark
@@ -128,12 +162,14 @@ bool Simulator::Run() {
         auto t_end = std::chrono::high_resolution_clock::now();
         int elapsed = std::round(
             std::chrono::duration<double, std::milli>(t_end - t_start).count());
+        #if DEBUG
+        WARN << elapsed << " ms" << std::endl;
+        #endif
         if (elapsed > sleep_) {
             ERROR << "Scale too big, exiting\n";
             return true;
         }
 
-        PRINT << ".\n";
         // Sleep until the next time interval
         std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ - elapsed));
 

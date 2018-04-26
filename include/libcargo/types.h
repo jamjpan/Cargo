@@ -110,20 +110,22 @@ struct Trip {
     int demand;
 };
 
-// nnd is the next-node distance. lv_node and lv_stop are the indices to the
-// last-visited node and stop. These are advanced as the vehicle moves along
-// its route.
+// nnd is the next-node distance (negative, to indicate remaining distance).
+// lv_node and lv_stop are the indices to the last-visited node and stop. These
+// are advanced as the vehicle moves along its route.
 struct Vehicle : public Trip {
     int load; // mutate this instead of vehicle.demand
-    double nnd;
+    float nnd;
     Route route;
     Schedule sched;
     size_t lv_node;
     size_t lv_stop;
+    bool is_active;
 
     // Copy the properties of t into this vehicle.
     Vehicle(const Trip &t)
-        : Trip(t), load(t.demand), nnd(0), lv_node(0), lv_stop(0) {}
+        : Trip(t), load(t.demand), nnd(0), lv_node(0), lv_stop(0),
+          is_active(true) {}
 };
 
 // Lookup nodes.
