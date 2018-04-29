@@ -25,19 +25,27 @@
 #include "types.h"
 #include "options.h"
 #include "message.h"
+#include "mqueue.h"
+// #include "Solution.h"
 #include "../gtree/gtree.h"
 
-namespace cargo {
+namespace cargo
+{
 
+using msg::Message;
 using opts::Options;
-using  msg::Message;
 
-class Simulator {
+class Solution;
+
+class Simulator
+{
   public:
     Simulator();
 
     // Do this first
     void SetOptions(Options);
+    // Just like connecting to a http server
+    void SetSolution(Solution *);
 
     // - Read road network, edge file, problem instance
     // - Set tmin_, sleep_
@@ -46,6 +54,17 @@ class Simulator {
     // Call this in its own thread!
     // Returns false if finishes with no errors; true if finishes with errors.
     bool Run();
+    void Terminate() { count_active_ = 0; };
+
+    // Set the assignment
+    // Returns false if the assignment is invalid(due to unacceptable route)
+    bool RequestMatched(const CustomerId &, const VehicleId &, const Schedule &, const Route &);
+
+    int Speed() { return opts_.VehicleSpeed; };
+
+    int TotalMatch() { return total_match_; };
+
+    int TotalTime() { return total_time_; };
 
   private:
     Message PRINT;
@@ -60,10 +79,11 @@ class Simulator {
 
     // These tables store the ground truth state of the simulation.
     // Only the Simulator should have access to them!
-    KeyValueNodes        nodes_;
-    KeyValueEdges        edges_;         // usage: edges_[from_id][to_id] = weight
-    KeyValueVehicles     vehicles_;
-    KeyValueAssignments  assignments_;
+    KeyValueNodes nodes_;
+    KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
+    KeyValueVehicles vehicles_;
+    KeyValueAssignments assignments_;
+    KeyValueBroadcastTime broadcast_time_;
 
     ProblemInstance pi_;
     SimulatorStatus status_;
@@ -79,6 +99,18 @@ class Simulator {
     // Stores the sleep interval per simulation time step, in milliseconds.
     // (set with Initialize()).
     int sleep_;
+
+    // Total runtime of all matched requets
+    int total_time_;
+    // Count of matched
+    int total_match_;
+    // message queue handler
+    mqd_t mq_;
+
+    // Solution pointer, for calling VehicleOnline and RequestOnline
+    // Use pointer instead of reference because we have to set the solution
+    // after the contructor called
+    Solution *solution_ = nullptr;
 
     void MoveVehicles();
 };

@@ -1,11 +1,11 @@
 // author @J.T. Hu
 
-#include "Solution.h"
+#include "libcargo/Solution.h"
 
-namespace cargo {
-
-  Solution::Solution(RoadNet& road_net)
-    : road_net_(road_net) {
-
-  }
+namespace cargo
+{
+Solution::Solution(Simulator *sim)
+{
+    sim_ = sim;
+}
 }

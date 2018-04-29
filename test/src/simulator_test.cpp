@@ -19,9 +19,11 @@ TEST_CASE("Simulator can be initialized and executed", "[simulator]") {
     op.Scale = 10;
     op.VehicleSpeed = 10;
 
-    Simulator sim;
-    sim.SetOptions(op);
-    sim.Initialize();
-    sim.Run();
+    Simulator *sim = new Simulator();
+    Solution *solution = new Solution(sim);
+    sim->SetOptions(op);
+    sim->SetSolution(solution);
+    sim->Initialize();
+    sim->Run();
 }
 

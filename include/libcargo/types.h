@@ -27,8 +27,10 @@
 #include <map>
 #include <unordered_map>
 #include <limits>
+#include <chrono>
 
-namespace cargo {
+namespace cargo
+{
 
 // We use many "logical" numerical types such as node IDs, edge IDs,
 // trip IDs, etc. Unfortunately the possibility exists for these types to
@@ -64,7 +66,8 @@ typedef float Longitude;
 typedef float Latitude;
 
 // Spatial data type.
-struct Point {
+struct Point
+{
     Longitude lng;
     Latitude lat;
 };
@@ -75,7 +78,8 @@ struct Point {
 // as the real (haversine) distance divided by the real speed, in m/s.
 typedef int SimTime;
 
-enum class StopType {
+enum class StopType
+{
     CUSTOMER_ORIGIN,
     CUSTOMER_DEST,
     VEHICLE_ORIGIN,
@@ -83,18 +87,23 @@ enum class StopType {
 };
 
 // visit_time defaults to -1 and is populated when a vehicle visits the stop.
-struct Stop {
+struct Stop
+{
     TripId trip_id;
     NodeId node_id;
     StopType type;
     SimTime visit_time;
+    // Time limit for a stop, if type == ORIGIN, it's early time, otherwise late time
+    // @James addition variable
+    SimTime time_limit;
 };
 
 typedef std::vector<NodeId> Route;
 typedef std::vector<Stop> Schedule;
 
 // Trip represents shared properties between customers and vehicles.
-struct Trip {
+struct Trip
+{
     TripId id;
     NodeId oid;
     NodeId did;
@@ -113,7 +122,8 @@ struct Trip {
 // nnd is the next-node distance (negative, to indicate remaining distance).
 // lv_node and lv_stop are the indices to the last-visited node and stop. These
 // are advanced as the vehicle moves along its route.
-struct Vehicle : public Trip {
+struct Vehicle : public Trip
+{
     int load; // mutate this instead of vehicle.demand
     float nnd;
     Route route;
@@ -125,7 +135,12 @@ struct Vehicle : public Trip {
     // Copy the properties of t into this vehicle.
     Vehicle(const Trip &t)
         : Trip(t), load(t.demand), nnd(0), lv_node(0), lv_stop(0),
-          is_active(true) {}
+          is_active(true){};
+
+    // @James add default constructor for map use
+    Vehicle()
+        : Trip(Trip{-1, -1, -1, -1, -1, 0}), load(0), nnd(0),
+          lv_node(0), lv_stop(0), is_active(false){};
 };
 
 // Lookup nodes.
@@ -147,16 +162,22 @@ typedef std::unordered_map<VehicleId, Vehicle>
 typedef std::unordered_map<VehicleId, CustomerId>
     KeyValueAssignments;
 
+// Request broadcast time map
+typedef std::unordered_map<CustomerId, std::chrono::time_point<std::chrono::high_resolution_clock>>
+    KeyValueBroadcastTime;
+
 // A problem instance is the set of trips keyed by their early time. When the
 // simulator time reaches SimTime, all the trips in the group are broadcasted.
-struct ProblemInstance {
+struct ProblemInstance
+{
     std::string name;
     std::unordered_map<SimTime, std::vector<Trip>> trips;
 };
 
 // Simulator status flags
 // TODO: These might not be necessary?
-enum class SimulatorStatus {
+enum class SimulatorStatus
+{
     RUNNING,
     FINISHED,
 };
