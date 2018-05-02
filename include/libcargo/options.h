@@ -41,6 +41,8 @@ struct Options {
 
     // Units: m/s
     Speed VehicleSpeed;
+    // @James GPS update timing
+    int GPSTiming;
 };
 
 } // namespace opts

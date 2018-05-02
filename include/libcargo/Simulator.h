@@ -58,13 +58,15 @@ class Simulator
 
     // Set the assignment
     // Returns false if the assignment is invalid(due to unacceptable route)
-    bool RequestMatched(const CustomerId &, const VehicleId &, const Schedule &, const Route &);
+    bool RequestMatched(const Trip &, const VehicleId &, const Schedule &, const Route &);
 
     int Speed() { return opts_.VehicleSpeed; };
 
     int TotalMatch() { return total_match_; };
 
     int TotalTime() { return total_time_; };
+
+    int TotalRefuse() { return total_refuse_; };
 
   private:
     Message PRINT;
@@ -104,6 +106,8 @@ class Simulator
     int total_time_;
     // Count of matched
     int total_match_;
+    //
+    int total_refuse_;
     // message queue handler
     mqd_t mq_;
 

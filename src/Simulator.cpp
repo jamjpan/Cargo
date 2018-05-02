@@ -42,6 +42,8 @@ namespace cargo
 {
 
 #define DEBUG false
+#define SPBUG false
+#define SP 620
 
 using file::ReadEdges;
 using file::ReadNodes;
@@ -108,6 +110,14 @@ void Simulator::Initialize()
                 vehicles_.insert(std::make_pair(trip.id, Vehicle(trip)));
                 Vehicle &veh = vehicles_.at(trip.id);
                 gtree_.find_path(veh.oid, veh.did, veh.route);
+#if SPBUG
+                if (veh.id == SP)
+                {
+                    for (auto &item : veh.route)
+                        INFO << item << " ";
+                    INFO << std::endl;
+                }
+#endif
                 veh.nnd = (-1) * edges_.at(veh.oid).at(veh.route.at(1));
                 // no need to set, already in constructor
                 // veh.lv_node = 0;
@@ -125,15 +135,6 @@ void Simulator::Initialize()
     // Set the sleep time based on the time scale option.
     sleep_ = std::round((float)1000 / opts_.Scale);
 
-    // initialize message queue
-    // mq_unlink("/update_vehicle");
-    // mq_ = mq_open("/update_vehicle", O_CREAT | O_WRONLY, 0655, mq_attr{0, 1000000, 1024, 0});
-    // if (mq_ == -1)
-    // {
-    // std::cout << strerror(errno) << std::endl;
-    // exit(0);
-    // }
-
     INFO << "done Simulator::Initialize()\n";
 }
 
@@ -146,64 +147,77 @@ void Simulator::MoveVehicles()
 // PRINT << "veh" << veh.id << "(" << veh.route.at(veh.lv_node) << ")"
 //       << "nnd=" << veh.nnd << " early=" << veh.early << " active=" << veh.is_active << std::endl;
 #endif
-        if (t_ > veh.early)
+#if SPBUG
+        if (veh.id == SP && t_ % 10 == 0)
+            PRINT << "veh" << veh.id << "(" << veh.route.at(veh.lv_node) << ")"
+                  << "nnd=" << veh.nnd << " early=" << veh.early << " active=" << veh.is_active << std::endl;
+#endif
+        if (t_ > veh.early && veh.is_active)
         {
             veh.nnd += opts_.VehicleSpeed;
             while (veh.nnd >= 0 && veh.is_active)
             {
                 veh.lv_node++;
-#if DEBUG
-                INFO << "veh" << veh.id << " moved from " << veh.route.at(veh.lv_node - 1)
-                     << " to " << veh.route.at(veh.lv_node) << std::endl;
+#if SPBUG
+                if (veh.id == SP)
+                    INFO << "veh" << veh.id << " moved from " << veh.route.at(veh.lv_node - 1)
+                         << " to " << veh.route.at(veh.lv_node) << std::endl;
 #endif
                 if (veh.lv_node >= veh.route.size())
                 {
                     ERROR << "veh " << veh.id << " " << veh.route.size() << " " << veh.lv_node << std::endl;
                     exit(0);
                 }
-                if (veh.route.at(veh.lv_node) == veh.sched.at(veh.lv_stop + 1).node_id)
+                // @James originally is if
+                while (veh.is_active && veh.route.at(veh.lv_node) == veh.sched.at(veh.lv_stop + 1).node_id)
                 {
                     veh.lv_stop++;
                     StopType type = veh.sched.at(veh.lv_stop).type;
-                    std::cout << "size: " << veh.sched.size() << std::endl;
+#if SPBUG
+                    if (veh.id == SP)
+                    {
+                        ERROR << "node: " << veh.sched.at(veh.lv_stop).node_id << "[" << int(type) << "]" << std::endl;
+                    }
+#endif
+                    // std::cout << "size: " << veh.sched.size() << std::endl;
                     // if (type == StopType::CUSTOMER_ORIGIN)
                     //     std::cout << "ORIGIN" << std::endl;
                     if (type == StopType::VEHICLE_DEST)
                     {
                         veh.is_active = false;
                         count_active_--;
+#if !SPBUG
                         SUCCESS << "veh " << veh.id << "\t[finish]" << std::endl;
+#endif
                     }
                     else if (type == StopType::CUSTOMER_ORIGIN)
                     {
                         veh.load++;
+#if !SPBUG
                         SUCCESS << "req " << veh.sched.at(veh.lv_stop).trip_id << "\t[pickup]" << std::endl;
+#endif
                     }
                     else
                     {
                         veh.load--;
+#if !SPBUG
                         SUCCESS << "req " << veh.sched.at(veh.lv_stop).trip_id << "\t[dropoff]" << std::endl;
+#endif
                     }
                 }
                 veh.nnd -= edges_.at(veh.route.at(veh.lv_node - 1)).at(veh.route.at(veh.lv_node));
             }
             // update in intervals
-            if ((t_ - veh.early) % 5 == 0)
+            if ((t_ - veh.early) % opts_.GPSTiming == 0)
             {
-                // Solution *solution = solution_;
-                // SimTime t = t_;
-                // std::thread thread([&solution, &veh, &t]() {
                 solution_->UpdateVehicle(veh, t_);
-                // });
-                // thread.detach();
-                // mq_send(mq_, (char *)(&t_), sizeof(t_), 1);
-                // mq_send(mq_, (char *)(&veh), sizeof(veh), 1);
-                // std::cout << "veh size: " << sizeof(veh) << std::endl;
             }
         }
         else if (t_ == veh.early)
         {
+#if !SPBUG
             SUCCESS << "veh " << veh.id << "\t[start]" << std::endl;
+#endif
             solution_->UpdateVehicle(veh, t_);
             // SUCCESS << "veh " << veh.id << "\t<<<start>>>" << std::endl;
         }
@@ -220,7 +234,8 @@ bool Simulator::Run()
         // Start the clock for this interval
         auto t_start = std::chrono::high_resolution_clock::now();
         // #if DEBUG
-        PRINT << "tmin=" << tmin_ << "/t=" << t_ << "/tmax=" << tmax_ << std::endl;
+        if (t_ % 50 == 0)
+            PRINT << "tmin=" << tmin_ << "/t=" << t_ << "/tmax=" << tmax_ << "/alive=" << count_active_ << std::endl;
         // #endif
 
         // Move all the vehicles
@@ -272,13 +287,39 @@ bool Simulator::Run()
     return false;
 }
 
-bool Simulator::RequestMatched(const CustomerId &cid, const VehicleId &vid, const Schedule &schedule, const Route &route)
+// it's just like inform the vehicle who is the customer
+bool Simulator::RequestMatched(const Trip &customer, const VehicleId &vid, const Schedule &schedule, const Route &route)
 {
     // TODO: validate the route
+    Route &old_route = vehicles_[vid].route;
+    int end = vehicles_[vid].lv_node;
+    // validity check !important
+    for (int i = 0; i <= end; ++i)
+    {
+        // if the old route doesn't exist in the new route or the oid is in the old route
+        if (route[i] != old_route[i] || customer.oid == old_route[i])
+        {
+            ERROR << "req " << customer.id << " to veh " << vid << " REFUSED" << std::endl;
+            total_refuse_++;
+            return false;
+        }
+    }
+
     // Get the runtime on the request
     auto t_end = std::chrono::high_resolution_clock::now();
-    int elpased = std::round(std::chrono::duration<double, std::milli>(t_end - broadcast_time_[cid]).count());
-    ERROR << "request " << cid << " matched in " << elpased << " ms" << std::endl;
+    int elpased = std::round(std::chrono::duration<double, std::milli>(t_end - broadcast_time_[customer.id]).count());
+#if SPBUG
+    if (vid == SP)
+    {
+        ERROR << "request " << customer.id << " matched to veh " << vid << " in " << elpased << " ms" << std::endl;
+        for (auto &item : route)
+            INFO << item << " ";
+        INFO << std::endl;
+    }
+#endif
+#if !SPBUG
+    ERROR << "request " << customer.id << " matched to veh " << vid << " in " << elpased << " ms" << std::endl;
+#endif
     total_time_ += elpased;
     total_match_++;
 
@@ -286,6 +327,7 @@ bool Simulator::RequestMatched(const CustomerId &cid, const VehicleId &vid, cons
     vehicles_[vid].route.clear();
     std::copy(schedule.begin(), schedule.end(), std::back_inserter(vehicles_[vid].sched));
     std::copy(route.begin(), route.end(), std::back_inserter(vehicles_[vid].route));
+    return true;
 }
 
 } // namespace cargo
