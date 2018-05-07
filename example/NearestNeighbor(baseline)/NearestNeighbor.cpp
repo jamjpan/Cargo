@@ -29,24 +29,24 @@ auto selector2 = [](std::pair<VehicleId, Vehicle> pair) { return pair.first; };
 NearestNeighbor::NearestNeighbor(Simulator *sim) : Solution(sim)
 {
     // temporarily hard-coded
-    GTree::load("../data/roadnetworks/cd1.gtree");
+    GTree::load("../../data/roadnetworks/cd1.gtree");
     gtree_ = GTree::get();
 }
 
 void NearestNeighbor::VehicleOnline(const Trip &vehicle)
 {
     // routes_[vehicle.id] = std::vector<NodeId> {vehicle.oid, vehicle.did};
-    Trip replay;
-    while (replay_queue_.try_dequeue(replay))
-        request_queue_.enqueue(replay);
+    // Trip replay;
+    // while (replay_queue_.try_dequeue(replay))
+    //     request_queue_.enqueue(replay);
 }
 
 void NearestNeighbor::RequestOnline(const Trip &request)
 {
     request_queue_.enqueue(request);
-    Trip replay;
-    while (replay_queue_.try_dequeue(replay))
-        request_queue_.enqueue(replay);
+    // Trip replay;
+    // while (replay_queue_.try_dequeue(replay))
+    //     request_queue_.enqueue(replay);
 }
 
 void NearestNeighbor::UpdateVehicle(const Vehicle &vehicle, const SimTime time)
@@ -54,6 +54,11 @@ void NearestNeighbor::UpdateVehicle(const Vehicle &vehicle, const SimTime time)
     // this function should be considered as "maintenance"
     // just get a copy of vehicle
     // make_pair makes a copy
+    // replay
+    // Trip replay;
+    // while (replay_queue_.try_dequeue(replay))
+    // request_queue_.enqueue(replay);
+
     std::lock_guard<std::mutex> guard(g_mutex_veh);
     vehicles_[vehicle.id] = vehicle;
     // auto iter = vehicles_.find(vehicle.id);
@@ -123,48 +128,55 @@ void NearestNeighbor::Run()
                 int i = base;
                 while (!matched && i < k)
                 {
-                    float distance = 0;
-                    int vid = indexes[candidates[i]];
-                    Vehicle &veh = vehicles_.at(vid);
-                    Route new_route;
-                    Schedule new_sched;
-                    int s1 = veh.route.size();
-                    // originally its lv_stop+1, but that's not correct, due to the distance
-                    // from lv_stop to the first in schedule is quite large
-                    std::copy(veh.sched.begin() + veh.lv_stop, veh.sched.end(), std::back_inserter(new_sched));
-                    if (InsertSchedule(request, veh, new_sched, distance, new_route))
+                    float distance = 0.0f;
+                    int vid;
+                    try
                     {
-                        matched = true;
-                        // concatenate schedule
-                        int insert_pos = 0;
-                        for (auto iter = veh.sched.begin(); iter != veh.sched.begin() + veh.lv_stop; ++iter)
+                        vid = indexes[candidates[i]];
+                        // std::cerr << "----------" << vid << std::endl;
+                        Vehicle &veh = vehicles_[vid];
+                        // std::cerr << "----------" << vid << std::endl;
+                        Route new_route;
+                        Schedule new_sched;
+                        int lv_stop = veh.lv_stop;
+                        int lv_node = veh.lv_node;
+                        // v1: originally its lv_stop+1, but that's not correct, due to the distance
+                        // from lv_stop to the first in schedule is quite large
+                        // v2: back to lv_stop + 1, and consider the next node in the route as the start
+                        std::copy(veh.sched.begin() + lv_stop + 1, veh.sched.end(), std::back_inserter(new_sched));
+                        if (InsertSchedule(request, veh, new_sched, distance, new_route))
                         {
-                            new_sched.insert(new_sched.begin() + insert_pos, *iter);
-                            insert_pos++;
-                        }
-                        // compute route and distance
-                        Route temp_route;
-                        int temp_distance = 0;
-                        int start_flag = 0;
-                        // concatenate route
-                        for (auto iter = new_sched.begin() + 1; iter != new_sched.end(); ++iter)
-                        {
-                            temp_distance += gtree_.find_path((iter - 1)->node_id, iter->node_id, temp_route);
-                            std::copy(temp_route.begin() + start_flag, temp_route.end(), std::back_inserter(new_route));
-                            start_flag = 1;
-                        }
-                        // temporarily just make copy to local map
-                        vehicles_[veh.id].sched = new_sched;
-                        vehicles_[veh.id].route = new_route;
+                            matched = true;
+                            // concatenate schedule
+                            int insert_pos = 0;
+                            for (auto iter = veh.sched.begin(); iter != veh.sched.begin() + lv_stop; ++iter)
+                            {
+                                new_sched.insert(new_sched.begin() + insert_pos, *iter);
+                                insert_pos++;
+                            }
+                            // concatenate route
+                            for (int i = lv_node; i >= 0; --i)
+                                new_route.insert(new_route.begin(), veh.route[i]);
+                            // temporarily just make copy to local map
+                            vehicles_[veh.id].sched = new_sched;
+                            vehicles_[veh.id].route = new_route;
 
-                        sim_->RequestMatched(request, veh.id, new_sched, new_route);
+                            if (!sim_->RequestMatched(request, veh.id, new_sched, new_route))
+                                matched = false;
+                        }
+                    }
+                    catch (std::exception &e)
+                    {
+                        std::cout << "VID: " << vid << std::endl;
+                        sim_->Terminate();
+                        Terminate();
                     }
                     i++;
                 }
                 base += increment;
             }
             if (!matched)
-                replay_queue_.enqueue(request);
+                request_queue_.enqueue(request);
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -174,6 +186,9 @@ void NearestNeighbor::Run()
 
 bool NearestNeighbor::InsertSchedule(const Trip &request, const Vehicle &vehicle, Schedule &schedule, float &distance, Route &new_route)
 {
+
+    // TODO: rethink, the schedule should start from the next node in the route rather than last visited stop
+
     // +1 get the route from schedule[lv_stop+1]
     // +2 get a copy of schedule[lv_stop+1:end] as test_sch
     // step 1,2 should be done in Run(), schedule here is test_sch
@@ -183,42 +198,59 @@ bool NearestNeighbor::InsertSchedule(const Trip &request, const Vehicle &vehicle
 
     // insert with O(n^2)
     // auto o_iter = schedule.begin();
-    int o_iter = 1;
+    // not 0 because the first stop is the last visited stop, so any assigned pickup can't be ahead of it
+    int o_iter = 0;
     int size = schedule.size();
     int min_distance = std::numeric_limits<int>::max();
     Schedule min_schedule;
     bool found = false;
     // load is negative for not-full vehicle
     int load = vehicle.load;
+
+    // v1: schedule[0] is the last visited node
+    // v2: correct_time is the time when the vehicle will visit the next node in the route
+    SimTime correct_time = updates_[vehicle.id] - (int)(vehicle.nnd / speed_);
+    NodeId schedule_start = vehicle.route[vehicle.lv_node + 1];
     // while (o_iter != schedule.end())
+    // not size+1 because the last stop is vehicle destination
     while (o_iter != size)
     {
         // insert pickup stop of the request
         schedule.insert(schedule.begin() + o_iter, Stop{request.id, request.oid, StopType::CUSTOMER_ORIGIN, -1, request.early});
         auto d_iter = o_iter + 1;
         // while (d_iter != schedule.end())
+        // not size+2 because the last stop is vehicle destination
         while (d_iter != size + 1)
         {
             // insert dropoff stop of the request
             schedule.insert(schedule.begin() + d_iter, Stop{request.id, request.did, StopType::CUSTOMER_DEST, -1, request.late});
-            // correct the time to first node, using '-' because nnd is negative
-            SimTime time = updates_[vehicle.id] - (int)(vehicle.nnd / speed_);
+            // correct the time to the last visited stop, using '-' because nnd is negative
+            SimTime time = correct_time;
             // check the time window & capacity validity
             bool not_begin = false;
             bool valid = true;
             int total_distance = 0;
-            for (auto iter = schedule.begin(); iter != schedule.end(); ++iter)
+            int dis;
+            for (int k = 0; k < size + 2; ++k)
+            // for (auto iter = schedule.begin(); iter != schedule.end(); ++iter)
             {
+                auto iter = schedule.begin() + k;
                 if (not_begin)
                 {
-                    int dis = gtree_.search((iter - 1)->node_id, iter->node_id);
-                    total_distance += dis;
-                    time += (int)(dis / speed_);
+                    dis = gtree_.search((iter - 1)->node_id, iter->node_id);
                 }
+                else
+                {
+                    dis = gtree_.search(schedule_start, iter->node_id);
+                }
+                total_distance += dis;
+                time += (int)(dis / speed_);
                 not_begin = true;
+
                 if (iter->type == StopType::CUSTOMER_ORIGIN || iter->type == StopType::VEHICLE_ORIGIN)
                 {
                     // early time window
+                    // the case will never came up
                     if (time < iter->time_limit)
                         time = iter->time_limit;
                     // if is customer origin, capacity--
@@ -266,6 +298,13 @@ bool NearestNeighbor::InsertSchedule(const Trip &request, const Vehicle &vehicle
         schedule = min_schedule;
         distance = min_distance;
         // new route. but there may be some problems with the boundray of old route and new route
+        gtree_.find_path(schedule_start, schedule[0].node_id, new_route);
+        Route temp_route;
+        for (int i = 1; i < size + 2; ++i)
+        {
+            gtree_.find_path(schedule[i-1].node_id, schedule[i].node_id, temp_route);
+            std::copy(temp_route.begin()+1, temp_route.end(), std::back_inserter(new_route));
+        }
     }
     return found;
 }
@@ -310,11 +349,11 @@ Assignments NearestNeighbor(RequestBatch R)
 int main()
 {
     Options op;
-    op.RoadNetworkPath = "../data/roadnetworks/cd1.rnet";
-    op.GTreePath = "../data/roadnetworks/cd1.gtree";
-    op.EdgeFilePath = "../data/roadnetworks/cd1.edges";
+    op.RoadNetworkPath = "../../data/roadnetworks/cd1.rnet";
+    op.GTreePath = "../../data/roadnetworks/cd1.gtree";
+    op.EdgeFilePath = "../../data/roadnetworks/cd1.edges";
     // op.ProblemInstancePath = "../data/benchmarks/cd1/cd1-SR-n10m5-0";
-    op.ProblemInstancePath = "../data/dataset_1000+1000_0";
+    op.ProblemInstancePath = "../../data/dataset_5000+500_0";
     op.Scale = 5;
     op.VehicleSpeed = 10;
     op.GPSTiming = 5;

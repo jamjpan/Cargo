@@ -122,7 +122,7 @@ void Simulator::Initialize()
                 // no need to set, already in constructor
                 // veh.lv_node = 0;
                 // >Hu modified for the change of Stop
-                Stop o = {veh.id, veh.oid, StopType::VEHICLE_ORIGIN, -1, trip.early};
+                Stop o = {veh.id, veh.oid, StopType::VEHICLE_ORIGIN, trip.early, trip.early};
                 Stop d = {veh.id, veh.did, StopType::VEHICLE_DEST, -1, trip.late};
                 veh.sched.push_back(o);
                 veh.sched.push_back(d);
@@ -172,7 +172,8 @@ void Simulator::MoveVehicles()
                 while (veh.is_active && veh.route.at(veh.lv_node) == veh.sched.at(veh.lv_stop + 1).node_id)
                 {
                     veh.lv_stop++;
-                    StopType type = veh.sched.at(veh.lv_stop).type;
+                    Stop &stop = veh.sched.at(veh.lv_stop);
+                    StopType type = stop.type;
 #if SPBUG
                     if (veh.id == SP)
                     {
@@ -186,6 +187,7 @@ void Simulator::MoveVehicles()
                     {
                         veh.is_active = false;
                         count_active_--;
+                        stop.visit_time = t_;
 #if !SPBUG
                         SUCCESS << "veh " << veh.id << "\t[finish]" << std::endl;
 #endif
@@ -193,6 +195,7 @@ void Simulator::MoveVehicles()
                     else if (type == StopType::CUSTOMER_ORIGIN)
                     {
                         veh.load++;
+                        stop.visit_time = t_;
 #if !SPBUG
                         SUCCESS << "req " << veh.sched.at(veh.lv_stop).trip_id << "\t[pickup]" << std::endl;
 #endif
@@ -200,6 +203,7 @@ void Simulator::MoveVehicles()
                     else
                     {
                         veh.load--;
+                        stop.visit_time = t_;
 #if !SPBUG
                         SUCCESS << "req " << veh.sched.at(veh.lv_stop).trip_id << "\t[dropoff]" << std::endl;
 #endif
@@ -323,11 +327,19 @@ bool Simulator::RequestMatched(const Trip &customer, const VehicleId &vid, const
     total_time_ += elpased;
     total_match_++;
 
-    vehicles_[vid].sched.clear();
-    vehicles_[vid].route.clear();
-    std::copy(schedule.begin(), schedule.end(), std::back_inserter(vehicles_[vid].sched));
-    std::copy(route.begin(), route.end(), std::back_inserter(vehicles_[vid].route));
-    return true;
+    try
+    {
+        vehicles_[vid].sched.clear();
+        vehicles_[vid].route.clear();
+        std::copy(schedule.begin(), schedule.end(), std::back_inserter(vehicles_[vid].sched));
+        std::copy(route.begin(), route.end(), std::back_inserter(vehicles_[vid].route));
+        return true;
+    }
+    catch (std::exception &e)
+    {
+        ERROR << "IIIIIIIIIIIIII'm here" << std::endl;
+        return true;
+    }
 }
 
 } // namespace cargo
