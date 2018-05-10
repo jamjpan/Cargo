@@ -95,6 +95,11 @@ void NearestNeighbor::Receive()
 // If you want to batch requests, you are on your own
 void NearestNeighbor::Run()
 {
+
+    std::cout << "gtree(1,2)=" << gtree_.search(1,2) << "\n";
+    std::cout << "gtree(2,5)=" << gtree_.search(2,5) << "\n";
+
+
     std::cout << "running" << std::endl;
     while (!done_)
     {
@@ -149,7 +154,7 @@ void NearestNeighbor::Run()
                             matched = true;
                             // concatenate schedule
                             int insert_pos = 0;
-                            for (auto iter = veh.sched.begin(); iter != veh.sched.begin() + lv_stop; ++iter)
+                            for (auto iter = veh.sched.begin(); iter != veh.sched.begin() + lv_stop + 1; ++iter)
                             {
                                 new_sched.insert(new_sched.begin() + insert_pos, *iter);
                                 insert_pos++;
@@ -238,13 +243,21 @@ bool NearestNeighbor::InsertSchedule(const Trip &request, const Vehicle &vehicle
                 if (not_begin)
                 {
                     dis = gtree_.search((iter - 1)->node_id, iter->node_id);
+   //                 std::cout << "gtree(" << (iter-1)->node_id << ", " << iter->node_id << ") = " << dis << "\n";
                 }
                 else
                 {
                     dis = gtree_.search(schedule_start, iter->node_id);
+  //                  std::cout << "gtree(" << schedule_start << ", " << iter->node_id << ") = " << dis << "\n";
                 }
                 total_distance += dis;
+ //               if (vehicle.id == 1)
+//                    std::cout << "distance: " << total_distance << std::endl;
                 time += (int)(dis / speed_);
+                /*
+                if (vehicle.id == 1)
+                    std::cout << time << std::endl;
+                    */
                 not_begin = true;
 
                 if (iter->type == StopType::CUSTOMER_ORIGIN || iter->type == StopType::VEHICLE_ORIGIN)
@@ -269,6 +282,7 @@ bool NearestNeighbor::InsertSchedule(const Trip &request, const Vehicle &vehicle
                     if (time > iter->time_limit)
                     {
                         valid = false;
+                        /// std::cout << veh "time exceed" << std::endl;
                         break;
                     }
                     if (iter->type == StopType::CUSTOMER_DEST)
@@ -352,11 +366,12 @@ int main()
     op.RoadNetworkPath = "../../data/roadnetworks/cd1.rnet";
     op.GTreePath = "../../data/roadnetworks/cd1.gtree";
     op.EdgeFilePath = "../../data/roadnetworks/cd1.edges";
-    // op.ProblemInstancePath = "../data/benchmarks/cd1/cd1-SR-n10m5-0";
     op.ProblemInstancePath = "../../data/dataset_5000+500_0";
-    op.Scale = 5;
+    //op.ProblemInstancePath = "../data/benchmarks/cd1/cd1-SR-n10m5-0";
+   // op.ProblemInstancePath = "../../data/benchmarks/tiny/tiny-n2m1-0";
+    op.Scale = 2;
     op.VehicleSpeed = 10;
-    op.GPSTiming = 5;
+    op.GPSTiming = 1;
 
     Simulator *sim = new Simulator();
     // move here because solution need options in simulator
@@ -375,6 +390,7 @@ int main()
 
     std::cout << "Total match:" << sim->TotalMatch() << std::endl;
     std::cout << "Total time:" << sim->TotalTime() << std::endl;
-    std::cout << "Average: " << sim->TotalTime() / sim->TotalMatch() << std::endl;
+    std::cout << "Average: " << (sim->TotalMatch() == 0 ? 0 : sim->TotalTime() / sim->TotalMatch()) << std::endl;
+    //std::cout << "Average: " << sim->TotalTime() / sim->TotalMatch() << std::endl;
     std::cout << "Refused rate: " << float(sim->TotalRefuse()) / (sim->TotalMatch() + sim->TotalRefuse()) * 100 << std::endl;
 }

@@ -43,7 +43,7 @@ namespace cargo
 
 #define DEBUG false
 #define SPBUG false
-#define SP 620
+#define SP 1
 
 using file::ReadEdges;
 using file::ReadNodes;
@@ -318,6 +318,9 @@ bool Simulator::RequestMatched(const Trip &customer, const VehicleId &vid, const
         ERROR << "request " << customer.id << " matched to veh " << vid << " in " << elpased << " ms" << std::endl;
         for (auto &item : route)
             INFO << item << " ";
+        INFO << std::endl;
+        for (auto &item : schedule)
+            INFO << item.node_id << " ";
         INFO << std::endl;
     }
 #endif
