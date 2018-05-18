@@ -2,6 +2,7 @@ CXX = g++
 CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -I../include -o $@
 LFLAGS = -Wall
 PTHREAD = -lpthread
+LDL = -ldl
 METIS = -L/usr/local/lib -lmetis
 CARGO = -L../lib -lcargo
 #-------------------------------------------------------------------------------
@@ -11,7 +12,7 @@ OBJECTS = \
 		  build/message_test.o \
 		  build/sqlite3_test.o
 all: $(OBJECTS)
-	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) -o run_tests
+	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
 $(OBJECTS): | build
 
