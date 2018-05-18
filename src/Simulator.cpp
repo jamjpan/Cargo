@@ -24,8 +24,6 @@
 #include <iterator>
 #include <vector>
 #include <algorithm>
-// using message queue
-#include <mqueue.h>
 #include <errno.h>
 #include <string.h>
 

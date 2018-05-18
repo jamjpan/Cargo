@@ -25,7 +25,6 @@
 #include "types.h"
 #include "options.h"
 #include "message.h"
-#include "mqueue.h"
 // #include "Solution.h"
 #include "../gtree/gtree.h"
 
@@ -109,7 +108,7 @@ class Simulator
     //
     int total_refuse_;
     // message queue handler
-    mqd_t mq_;
+    //mqd_t mq_;
 
     // Solution pointer, for calling VehicleOnline and RequestOnline
     // Use pointer instead of reference because we have to set the solution
