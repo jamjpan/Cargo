@@ -287,7 +287,7 @@ bool Simulator::Run()
         // Advance the simulation time
         t_++;
     }
-    mq_close(mq_);
+//    mq_close(mq_);
     return false;
 }
 

@@ -8,7 +8,8 @@ CARGO = -L../lib -lcargo
 OBJECTS = \
 		  build/main.o \
 		  build/simulator_test.o \
-		  build/message_test.o
+		  build/message_test.o \
+		  build/sqlite3_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
@@ -25,6 +26,10 @@ build/simulator_test.o: \
 build/message_test.o: \
 	src/message_test.cpp
 	$(CXX) $(CFLAGS) src/message_test.cpp
+
+build/sqlite3_test.o: \
+	src/sqlite3_test.cpp
+	$(CXX) $(CFLAGS) src/sqlite3_test.cpp
 
 build:
 	mkdir -p build

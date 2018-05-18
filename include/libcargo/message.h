@@ -81,7 +81,7 @@ struct Message : std::ostream, std::streambuf {
             auto now = std::chrono::system_clock::now();
             auto now_c = std::chrono::system_clock::to_time_t(now);
             switch(type) {
-                case MessageType::DEFAULT:  std::cout << BLACK;     break;
+                case MessageType::DEFAULT:  std::cout << RESET;     break;
                 case MessageType::INFO:     std::cout << BLUE;      break;
                 case MessageType::WARNING:  std::cout << MAGENTA;   break;
                 case MessageType::ERROR:    std::cout << RED;       break;

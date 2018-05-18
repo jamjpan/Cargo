@@ -5,6 +5,7 @@ CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 OBJECTS = \
 		  build/Simulator.o \
 		  build/gtree.o \
+		  build/sqlite3.o \
 		  build/file.o \
 		  build/Solution.o
 lib/libcargo.a: $(OBJECTS)
@@ -26,6 +27,11 @@ build/gtree.o: \
 	include/gtree/gtree.h \
 	src/gtree/gtree.cpp
 	$(CXX) $(CFLAGS) src/gtree/gtree.cpp
+
+build/sqlite3.o: \
+	include/sqlite3/sqlite3.h \
+	src/sqlite3/sqlite3.c
+	$(CC) src/sqlite3/sqlite3.c
 
 build/file.o: \
 	include/libcargo/file.h \
