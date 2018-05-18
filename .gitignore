@@ -5,7 +5,9 @@
 *.a
 *.gtree
 *.out
+*#
 .vscode/
+.#*
 build/
 lib/
 tool/gtreebuilder/gtreebuilder
