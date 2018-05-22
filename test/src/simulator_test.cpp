@@ -18,12 +18,13 @@ TEST_CASE("Simulator can be initialized and executed", "[simulator]") {
     op.ProblemInstancePath = "../data/dataset_500+1000_0";
     op.Scale = 10;
     op.VehicleSpeed = 10;
+    op.GPSTiming = 1;
 
     Simulator *sim = new Simulator();
     Solution *solution = new Solution(sim);
     sim->SetOptions(op);
     sim->SetSolution(solution);
     sim->Initialize();
-    sim->Run();
+//    sim->Run();
 }
 

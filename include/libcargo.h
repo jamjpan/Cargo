@@ -33,6 +33,7 @@ namespace cargo {} // namespace cargo
 #include "libcargo/types.h"
 #include "libcargo/Solution.h"
 #include "gtree/gtree.h"
+#include "sqlite3/sqlite3.h"
 #include "queue/readerwriterqueue.h"
 
 #endif // CARGO_INCLUDE_LIBCARGO_H_

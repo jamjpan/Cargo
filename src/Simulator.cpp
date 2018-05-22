@@ -24,8 +24,6 @@
 #include <iterator>
 #include <vector>
 #include <algorithm>
-// using message queue
-#include <mqueue.h>
 #include <errno.h>
 #include <string.h>
 
@@ -287,7 +285,7 @@ bool Simulator::Run()
         // Advance the simulation time
         t_++;
     }
-    mq_close(mq_);
+//    mq_close(mq_);
     return false;
 }
 
