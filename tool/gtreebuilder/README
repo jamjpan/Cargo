@@ -2,14 +2,14 @@ gtreebuilder will build a gtree index from an edge list.
 Edge list format:
 
 n m
-x y z
+x y w
 ...
 
 n = number of nodes
 m = number of edges
-x = edge id
-y = from id
-z = to id
+x = from id
+y = to id
+w = integer weight
 
 Nodes must be 0-indexed.
 

@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+# @authors
+#   Juntao Hu <hujuntao@buaa.edu.cn>
+#   James J. Pan <jamesjpan@outlook.com>
+
+from collections import defaultdict, namedtuple
+import networkx as nx
+import random
+import math
+import argparse
+import sys
+
+Node = namedtuple('Node', ['id', 'lon', 'lat'])
+
+class TripGenerator:
+    min_lon = 1000
+    min_lat = 1000
+    max_lon = 0
+    max_lat = 0
+
+    nodes = dict()
+    grid_index = defaultdict(lambda: list(), dict())
+    graph = nx.Graph()
+
+    def __init__(self, grid_size, rnet_file):
+        self.grid_size = grid_size
+        road = open(rnet_file, 'r')
+
+        while True:
+            line = road.readline()
+            if line:
+                line = line.split(' ')
+                o = int(line[1])
+                d = int(line[2])
+                o_lon = float(line[3])
+                o_lat = float(line[4])
+                d_lon = float(line[5])
+                d_lat = float(line[6])
+                self.nodes[o] = Node(o, o_lon, o_lat)
+                self.nodes[d] = Node(d, d_lon, d_lat)
+                self.set_min_max(self.nodes[o])
+                self.set_min_max(self.nodes[d])
+                self.graph.add_node(o)
+                self.graph.add_node(d)
+                self.graph.add_edge(o, d, weight=self.haversine(
+                    self.nodes[o], self.nodes[d]))
+            else:
+                break
+
+        road.close()
+        print(self.min_lon, self.max_lon, self.min_lat, self.max_lat)
+        self.grid_lon = (self.max_lon - self.min_lon) / grid_size
+        self.grid_lat = (self.max_lat - self.min_lat) / grid_size
+
+        for idx in self.nodes:
+            node = self.nodes[idx]
+            self.grid_index[self.get_index(node)].append(node.id)
+
+        print('total nodes:', self.graph.number_of_nodes())
+        print('total edges:', self.graph.number_of_edges())
+
+    def generate(self, prefix, num, vehs, custs, speed, freq, delay, cap):
+        num = int(num);
+        vehs = int(vehs);
+        custs = int(custs);
+        speed = int(speed);
+        freq = int(freq);
+        delay = int(delay);
+        cap = int(cap);
+        max_early = (vehs+custs/freq)
+        max_delay = delay*60; # delay is in minutes
+        for i in range(num):
+            with open(prefix + '_' + str(i+1) + ".instance", 'w') as fout:
+                fout.write(prefix + '_' + str(i+1) + '\n')
+                fout.write('VEHICLES ' + str(vehs) + '\n')
+                fout.write('CUSTOMERS ' + str(custs) + '\n')
+                fout.write('\n')
+                fout.write('ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n')
+                idxs = [i for i in range(vehs + custs)]
+                random.shuffle(idxs)
+                id_count = 1
+                for idx in idxs:
+                    sys.stdout.write('{}\{}\r'.format(id_count,(vehs+custs)))
+                    sys.stdout.flush()
+                    origin = self.random_pick_node()
+                    dest = self.random_pick_node()
+                    if idx < vehs:
+                        fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(random.randint(
+                            0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
+                    else:
+                        fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(random.randint(
+                            0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
+                    id_count += 1
+        print()
+        print("Done")
+
+    def set_min_max(self, node):
+        if node.lon < self.min_lon:
+            self.min_lon = node.lon
+        if node.lon > self.max_lon:
+            self.max_lon = node.lon
+        if node.lat < self.min_lat:
+            self.min_lat = node.lat
+        if node.lat > self.max_lat:
+            self.max_lat = node.lat
+
+    def get_index(self, node):
+        lat_num = int((node.lat - self.min_lat) / self.grid_lat)
+        lon_num = int((node.lon - self.min_lon) / self.grid_lon)
+        return lat_num * self.grid_size + lon_num
+
+    def random_pick_node(self):
+        while True:
+            random.seed()
+            node_list = self.grid_index[random.randrange(
+                self.grid_size * self.grid_size)]
+            if len(node_list) is not 0:
+                return random.choice(node_list)
+
+    def shortest_path_time(self, origin, dest, speed):
+        route_distance = nx.shortest_path_length(
+            self.graph, source=origin, target=dest, weight='weight')
+        # print(route_distance)
+        return round(route_distance / speed)
+
+    def haversine(self, origin, dest):
+        lon1 = origin.lon
+        lat1 = origin.lat
+        lon2 = dest.lon
+        lat2 = dest.lat
+        radius = 6371000  # meters
+
+        dlat = math.radians(lat2-lat1)
+        dlon = math.radians(lon2-lon1)
+        a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(lat1)) * \
+            math.cos(math.radians(lat2)) * \
+            math.sin(dlon / 2) * math.sin(dlon / 2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return radius * c
+
+
+def get_parser():
+    p = argparse.ArgumentParser(description="Generate RSP instances")
+    p.add_argument("rnet_file")
+    p.add_argument("num_customers")
+    p.add_argument("num_vehicles")
+    p.add_argument("-f", "--freq", metavar="FREQ", type=int, help="stream frequency (default: 5/s)", default=5)
+    p.add_argument("-s", "--speed", metavar="SPEED", type=int, help="vehicle speed (default: 10 m/s)", default=10)
+    p.add_argument("-d", "--delay", metavar="DELAY", type=int, help="max vehicle delay (default: 10 min)", default=10)
+    p.add_argument("-c", "--cap", metavar="CAPACITY", type=int, help="vehicle capacity (default: 2)", default=2)
+    p.add_argument("-g", "--grid", metavar="GRID", type=int, help="# of grid cells (default: 100)", default=100)
+    p.add_argument("-n", "--num", metavar="NUM", type=int, help="# of instances (default: 1)", default=1)
+    p.add_argument("-o", "--out", metavar="OUTPUT", help="output dest (default: a.instance)", default="a")
+    return p;
+
+
+def rspgen(args):
+    tg = TripGenerator(args["grid"], args["rnet_file"]);
+    tg.generate(args["out"], args["num"], args["num_vehicles"], args["num_customers"], args["speed"],
+            args["freq"], args["delay"], args["cap"]);
+
+
+if __name__ == "__main__":
+    rspgen(vars(get_parser().parse_args()))
+

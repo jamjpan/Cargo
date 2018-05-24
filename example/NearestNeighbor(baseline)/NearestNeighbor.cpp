@@ -366,9 +366,8 @@ int main()
     op.RoadNetworkPath = "../../data/roadnetworks/cd1.rnet";
     op.GTreePath = "../../data/roadnetworks/cd1.gtree";
     op.EdgeFilePath = "../../data/roadnetworks/cd1.edges";
-    op.ProblemInstancePath = "../../data/dataset_5000+500_0";
-    //op.ProblemInstancePath = "../data/benchmarks/cd1/cd1-SR-n10m5-0";
-   // op.ProblemInstancePath = "../../data/benchmarks/tiny/tiny-n2m1-0";
+    op.ProblemInstancePath = "../../data/benchmarks/cd1/rs-md-10.instance";
+    //op.ProblemInstancePath = "../../data/dataset_5000+500_0";
     op.Scale = 2;
     op.VehicleSpeed = 10;
     op.GPSTiming = 1;

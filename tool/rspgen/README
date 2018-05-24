@@ -1,0 +1,24 @@
+usage: rspgen [-h] [-f FREQ] [-s SPEED] [-d DELAY] [-c CAPACITY] [-g GRID]
+              [-n NUM] [-o OUTPUT]
+              rnet_file num_customers num_vehicles
+
+Generate RSP instances
+
+positional arguments:
+  rnet_file
+  num_customers
+  num_vehicles
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FREQ, --freq FREQ  stream frequency (default: 5/s)
+  -s SPEED, --speed SPEED
+                        vehicle speed (default: 10 m/s)
+  -d DELAY, --delay DELAY
+                        max vehicle delay (default: 10 min)
+  -c CAPACITY, --cap CAPACITY
+                        vehicle capacity (default: 2)
+  -g GRID, --grid GRID  # of grid cells (default: 100)
+  -n NUM, --num NUM     # of instances (default: 1)
+  -o OUTPUT, --out OUTPUT
+                        output dest (default: a.instance)
