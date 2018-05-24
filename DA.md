@@ -1,5 +1,32 @@
 # Data Access Documentation
 
+### datbases
+
+#### vehicle
+
+id INT
+o_id INT // avoid using oid, because sqlite use oid as an alias of rowid
+d_id INT
+early INT
+late INT
+demand INT
+load INT
+nnd INT
+route vector
+sched vector
+lv_node INT
+lv_stop INT
+is_active INT
+
+#### request
+
+id INT
+o_id INT
+d_id INT
+early INT
+late INT
+demand INT
+
 ### class DA
 
 #### variables
@@ -16,9 +43,9 @@ return:
 + 0 for success
 + 1 for db error
 
-__int UpdateLocation(Vehicle \*, NodeId)__
+__int UpdateLocation(VehicleId, int, int)__
 
-param: vehicle pointer, node id of the new location
+param: vehicle id, lv_node, nnd
 
 return:
 + 0 for success
@@ -26,14 +53,12 @@ return:
 
 __int UpdateSchedule(Vehicle \*, Schedule \*, Route \*)__
 
-param: vehicle pointer, new schedule pointer
+param: vehicle pointer, new schedule pointer, new route pointer (the consistency of schedule and route should be managed by user)
 
 return:
 + 0 for success
 + 1 for db error
 + 2 for invalid schedule(schedule that is conflict with the traveled route)
-
-route will be compute when schedule is updated.
 
 __int UpdateStop(Vehicle \*, int, SimTime)__
 
