@@ -7,7 +7,8 @@ OBJECTS = \
 		  build/gtree.o \
 		  build/sqlite3.o \
 		  build/file.o \
-		  build/Solution.o
+		  build/Solution.o \
+			build/DA.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
@@ -32,6 +33,11 @@ build/sqlite3.o: \
 	include/sqlite3/sqlite3.h \
 	src/sqlite3/sqlite3.c
 	$(CC) src/sqlite3/sqlite3.c
+
+build/DA.o: \
+	include/libcargo/DA.h \
+	src/DA.cpp
+	$(CXX) $(CFLAGS) src/DA.cpp
 
 build/file.o: \
 	include/libcargo/file.h \

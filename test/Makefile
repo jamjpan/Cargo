@@ -10,7 +10,8 @@ OBJECTS = \
 		  build/main.o \
 		  build/simulator_test.o \
 		  build/message_test.o \
-		  build/sqlite3_test.o
+		  build/sqlite3_test.o \
+			build/DA_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
@@ -31,6 +32,10 @@ build/message_test.o: \
 build/sqlite3_test.o: \
 	src/sqlite3_test.cpp
 	$(CXX) $(CFLAGS) src/sqlite3_test.cpp
+
+build/DA_test.o: \
+	src/DA_test.cpp
+	$(CXX) $(CFLAGS) src/DA_test.cpp
 
 build:
 	mkdir -p build

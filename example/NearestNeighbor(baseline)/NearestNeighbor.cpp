@@ -5,10 +5,7 @@
 #include <algorithm>
 #include <thread>
 #include <mutex>
-#include <mqueue.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
+#include <cmath>
 // #include "common.h"
 // #include "gtree/gtree.h"
 #include "NearestNeighbor.h"
@@ -72,24 +69,24 @@ void NearestNeighbor::UpdateVehicle(const Vehicle &vehicle, const SimTime time)
     // std::cout << "veh " << vehicle.id << " received" << std::endl;
 }
 
-void NearestNeighbor::Receive()
-{
-    mq_unlink("/update_vehicle");
-    mqd_t mq = mq_open("/update_vehicle", O_CREAT | O_RDWR, 0655, mq_attr{0, 1000000, 1024, 0});
-    SimTime st;
-    Vehicle v;
-    while (!done_)
-    {
-        int err = mq_receive(mq, (char *)(&st), 1024, NULL);
-        if (err == -1)
-        {
-            std::cout << strerror(errno) << std::endl;
-            done_ = true;
-        }
-        mq_receive(mq, (char *)(&v), 1024, NULL);
-        std::cout << "veq " << v.id << " received" << std::endl;
-    }
-}
+// void NearestNeighbor::Receive()
+// {
+//     mq_unlink("/update_vehicle");
+//     mqd_t mq = mq_open("/update_vehicle", O_CREAT | O_RDWR, 0655, mq_attr{0, 1000000, 1024, 0});
+//     SimTime st;
+//     Vehicle v;
+//     while (!done_)
+//     {
+//         int err = mq_receive(mq, (char *)(&st), 1024, NULL);
+//         if (err == -1)
+//         {
+//             std::cout << strerror(errno) << std::endl;
+//             done_ = true;
+//         }
+//         mq_receive(mq, (char *)(&v), 1024, NULL);
+//         std::cout << "veq " << v.id << " received" << std::endl;
+//     }
+// }
 
 // Run function, should contain a loop
 // If you want to batch requests, you are on your own
@@ -213,8 +210,8 @@ bool NearestNeighbor::InsertSchedule(const Trip &request, const Vehicle &vehicle
     int load = vehicle.load;
 
     // v1: schedule[0] is the last visited node
-    // v2: correct_time is the time when the vehicle will visit the next node in the route
-    SimTime correct_time = updates_[vehicle.id] - (int)(vehicle.nnd / speed_);
+    // v2: correct_time is the time when the vehicle will visit the next node in the route (round up)
+    SimTime correct_time = updates_[vehicle.id] - std::ceil((float)vehicle.nnd / speed_);
     NodeId schedule_start = vehicle.route[vehicle.lv_node + 1];
     // while (o_iter != schedule.end())
     // not size+1 because the last stop is vehicle destination

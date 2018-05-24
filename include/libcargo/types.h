@@ -125,7 +125,7 @@ struct Trip
 struct Vehicle : public Trip
 {
     int load; // mutate this instead of vehicle.demand
-    float nnd;
+    int nnd;
     Route route;
     Schedule sched;
     size_t lv_node;
