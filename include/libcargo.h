@@ -28,7 +28,7 @@ namespace cargo {} // namespace cargo
 
 #include "libcargo/DA.h"
 #include "libcargo/Inserter.h"
-#include "libcargo/ScheduleRouter.h"
+#include "libcargo/Router.h"
 #include "libcargo/Simulator.h"
 #include "libcargo/Solution.h"
 #include "libcargo/file.h"

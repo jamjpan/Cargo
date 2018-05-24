@@ -12,7 +12,7 @@ OBJECTS = \
 		  build/sqlite3_test.o \
 		  build/inserter_test.o \
 		  build/simulator_test.o \
-		  build/schedule_router_test.o
+		  build/router_test.o
 #		  build/DA_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
@@ -39,9 +39,9 @@ build/inserter_test.o: \
 	src/inserter_test.cpp
 	$(CXX) $(CFLAGS) src/inserter_test.cpp
 
-build/schedule_router_test.o: \
-	src/schedule_router_test.cpp
-	$(CXX) $(CFLAGS) src/schedule_router_test.cpp
+build/router_test.o: \
+	src/router_test.cpp
+	$(CXX) $(CFLAGS) src/router_test.cpp
 
 build/DA_test.o: \
 	src/DA_test.cpp

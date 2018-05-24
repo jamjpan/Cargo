@@ -19,8 +19,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_SCHEDULEROUTER_H_
-#define CARGO_INCLUDE_SCHEDULEROUTER_H_
+#ifndef CARGO_INCLUDE_ROUTER_H_
+#define CARGO_INCLUDE_ROUTER_H_
 
 #include "types.h"
 #include "../gtree/gtree.h"
@@ -28,10 +28,10 @@
 namespace cargo
 {
 
-class ScheduleRouter
+class Router
 {
   public:
-    ScheduleRouter(GTree::G_Tree &);
+    Router(GTree::G_Tree &);
     int RouteThrough(const Schedule &, Route &);
 
   private:
@@ -40,4 +40,4 @@ class ScheduleRouter
 
 } // namespace cargo
 
-#endif // CARGO_INCLUDE_SCHEDULEROUTER_H_
+#endif // CARGO_INCLUDE_ROUTER_H_

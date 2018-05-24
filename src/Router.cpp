@@ -21,14 +21,13 @@
 // SOFTWARE.
 #include <iterator>
 
-#include "libcargo/ScheduleRouter.h"
+#include "libcargo/Router.h"
 
-namespace cargo
-{
+namespace cargo {
 
-ScheduleRouter::ScheduleRouter(GTree::G_Tree &g) : gtree_(g) {}
+Router::Router(GTree::G_Tree &g) : gtree_(g) {}
 
-int ScheduleRouter::RouteThrough(const Schedule &s, Route &r) {
+int Router::RouteThrough(const Schedule &s, Route &r) {
     Route r_;
     int c = 0;
     r_.push_back(s.begin()->node_id);

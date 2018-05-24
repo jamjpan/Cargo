@@ -22,6 +22,7 @@
 #include <iterator>
 
 #include "libcargo/Inserter.h"
+#include "libcargo/Router.h"
 
 namespace cargo
 {
