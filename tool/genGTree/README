@@ -1,4 +1,4 @@
-gtreebuilder will build a gtree index from an edge list.
+genGtree will build a gtree index from an edge list.
 Edge list format:
 
 n m

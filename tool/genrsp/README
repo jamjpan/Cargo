@@ -1,4 +1,4 @@
-usage: rspgen [-h] [-f FREQ] [-s SPEED] [-d DELAY] [-c CAPACITY] [-g GRID]
+usage: genrsp [-h] [-f FREQ] [-s SPEED] [-d DELAY] [-c CAPACITY] [-g GRID]
               [-n NUM] [-o OUTPUT]
               rnet_file num_customers num_vehicles
 

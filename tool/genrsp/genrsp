@@ -154,12 +154,12 @@ def get_parser():
     return p;
 
 
-def rspgen(args):
+def genrsp(args):
     tg = TripGenerator(args["grid"], args["rnet_file"]);
     tg.generate(args["out"], args["num"], args["num_vehicles"], args["num_customers"], args["speed"],
             args["freq"], args["delay"], args["cap"]);
 
 
 if __name__ == "__main__":
-    rspgen(vars(get_parser().parse_args()))
+    genrsp(vars(get_parser().parse_args()))
 

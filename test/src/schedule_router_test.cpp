@@ -12,6 +12,8 @@ TEST_CASE("ScheduleRouter works", "[schedule_router]") {
     m << "ScheduleRouter Test Begin" << std::endl;
 
     GTree::load("../data/roadnetworks/tiny.gtree");
+    auto g_ = GTree::getG();
+    m << g_.n << " " << g_.m << std::endl;
     auto gtree_ = GTree::get();
 
     Stop o {1, 0, StopType::CUSTOMER_ORIGIN, 0, 0};
@@ -28,4 +30,5 @@ TEST_CASE("ScheduleRouter works", "[schedule_router]") {
         m << *i << " ";
     m << std::endl;
 
+    REQUIRE(c == 15);
 }

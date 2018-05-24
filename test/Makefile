@@ -1,5 +1,5 @@
 CXX = g++
-CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -I../include -o $@
+CFLAGS = -Wall -Wextra -std=c++11 -O0 -g -c -I../include -o $@
 LFLAGS = -Wall
 PTHREAD = -lpthread
 LDL = -ldl
@@ -11,8 +11,9 @@ OBJECTS = \
 		  build/message_test.o \
 		  build/sqlite3_test.o \
 		  build/inserter_test.o \
-		  build/schedule_router_test.o \
-		  build/DA_test.o
+		  build/simulator_test.o \
+		  build/schedule_router_test.o
+#		  build/DA_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
