@@ -32,7 +32,7 @@ DA::DA()
     }
     // craete stop table
     rc = sqlite3_exec(db,
-                      "CREATE TABLE stop(id INT, t_id INT, n_id INT, stype INT "
+                      "CREATE TABLE stop(t_id INT, n_id INT, stype INT "
                       ", visit_time INT, time_limit INT)",
                       NULL, NULL, &zErrMsg);
     if (rc != SQLITE_OK) {
@@ -82,8 +82,31 @@ int DA::AddVehicle(Vehicle* vehicle)
     sqlite3_bind_int(stmt, 6, vehicle->demand);
     sqlite3_bind_int(stmt, 7, vehicle->load);
     sqlite3_bind_int(stmt, 8, vehicle->nnd);
-    sqlite3_bind_text(stmt, 9, NULL, 0, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, NULL, 0, SQLITE_STATIC);
+
+    // convert route into string
+    std::string route = VectorToString(vehicle->route);
+    sqlite3_bind_text(stmt, 9, route.c_str(), route.length(), SQLITE_STATIC);
+    
+    // insert stops into stop table
+    std::vector<long long int> stop_ids;
+    sqlite3_stmt* insert_stop;
+    rc = sqlite3_prepare_v2(db, "INSERT INTO stop(t_id, n_id, type, visit_time, time_limit) VALUES(?, ?, ?, ?, ?)", -1, &insert_stop, NULL);
+    for (auto& stop : vehicle->sched) {
+      sqlite3_bind_int(insert_stop, 1, stop.trip_id);
+      sqlite3_bind_int(insert_stop, 2, stop.node_id);
+      sqlite3_bind_int(insert_stop, 3, (int)stop.type);
+      sqlite3_bind_int(insert_stop, 4, stop.visit_time);
+      sqlite3_bind_int(insert_stop, 5, stop.time_limit);
+      rc = sqlite3_step(insert_stop);
+      if (rc != SQLITE_DONE) {
+        std::cerr << "step error: " << sqlite3_errmsg(db) << std::endl;
+	return 1;
+      }
+    }
+      // not sure whether there will be concurrency problem
+      stop_ids.push_back(sqlite3_last_insert_rowid(db));
+    std::string sched = VectorToString(stop_ids);
+    sqlite3_bind_text(stmt, 10, sched.c_str(), sched.length(), SQLITE_STATIC);
     sqlite3_bind_int(stmt, 11, vehicle->lv_node);
     sqlite3_bind_int(stmt, 12, vehicle->lv_stop);
     sqlite3_bind_int(stmt, 13, vehicle->is_active);
@@ -128,18 +151,29 @@ int DA::UpdateLocation(VehicleId vid, int lv_node, int nnd)
   return 0;
 }
 
-std::vector<int> DA::StringToVector(std::string list)
+std::vector<long long int> DA::StringToVector(std::string list)
 {
   std::string delimiter = ",";
   std::string num;
-  std::vector<int> result;
+  std::vector<long long int> result;
   size_t pos;
   while ((pos = list.find(delimiter)) != std::string::npos) {
     num = list.substr(0, pos);
-    result.push_back(std::stoi(num));
+    result.push_back(std::stoll(num));
     list.erase(0, pos+delimiter.length());
   }
   return result;
 }
 
+template<typename T>
+std::string DA::VectorToString(std::vector<T>& list)
+{
+  std::string result = "";
+  std::string delimiter = ",";
+  for (auto i : list) {
+    result.append(std::to_string(i));
+    result.append(delimiter);
+  }
+  return result;
+}
 }  // namespace cargo

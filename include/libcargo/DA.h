@@ -15,7 +15,9 @@ class DA
   int UpdateLocation(VehicleId, int, int);
   int UpdateSchedule(VehicleId, Schedule *, Route *);
   int UpdateStop(VehicleId, int, SimTime);
-  std::vector<int> StringToVector(std::string);
+  std::vector<long long int> StringToVector(std::string);
+  template<typename T>
+  std::string VectorToString(std::vector<T>&);
 
  private:
   sqlite3 *db;

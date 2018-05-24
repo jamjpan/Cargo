@@ -8,7 +8,6 @@ CARGO = -L../lib -lcargo
 #-------------------------------------------------------------------------------
 OBJECTS = \
 		  build/main.o \
-		  build/simulator_test.o \
 		  build/message_test.o \
 		  build/sqlite3_test.o \
 			build/DA_test.o

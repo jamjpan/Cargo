@@ -139,8 +139,7 @@ struct Vehicle : public Trip
 
     // @James add default constructor for map use
     Vehicle()
-        : Trip(Trip{-1, -1, -1, -1, -1, 0}), load(0), nnd(0),
-          lv_node(0), lv_stop(0), is_active(false){};
+        : Trip(Trip{-1, -1, -1, -1, -1, 0}), load(0), nnd(0), lv_node(0), lv_stop(0), is_active(false){};
 };
 
 // Lookup nodes.
