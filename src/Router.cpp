@@ -27,10 +27,10 @@ namespace cargo {
 
 Router::Router(GTree::G_Tree &g) : gtree_(g) {}
 
-int Router::RouteThrough(const Schedule &s, Route &r) {
-    Route r_;
+int Router::RouteThrough(const Schedulel &s, Routel &r) {
+    Routel r_;
     int c = 0;
-    r_.push_back(s.begin()->node_id);
+    r_.push_back(s.front().node_id);
     for (auto i = s.begin(); i != std::prev(s.end()); ++i) {
         Route rt;
         gtree_.find_path(i->node_id, std::next(i)->node_id, rt);

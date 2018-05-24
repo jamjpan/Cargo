@@ -1,15 +1,13 @@
 #include "catch.hpp"
-
 #include "libcargo.h"
-
-using namespace cargo;
-
-using  msg::Message;
-using  msg::MessageType;
-
 // =============================================================================
 // Messages
 // =============================================================================
+using namespace cargo;
+
+using msg::Message;
+using msg::MessageType;
+
 TEST_CASE("Messages print nice colors", "[msg]") {
     Message msg1(MessageType::DEFAULT);
     Message info(MessageType::INFO);

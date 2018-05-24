@@ -816,7 +816,9 @@ Matrix& Matrix::operator=(const Matrix &m) {
 }
 
 Node::Node() {
-    clear();
+    //clear();
+    part = n = father = deep = 0;
+    catch_id = -1;
 }
 
 void Node::save() {
@@ -843,8 +845,8 @@ void Node::save() {
 void Node::load() {
     scanf("%d%d%d%d%d%d%d", &n, &father, &part, &deep, &catch_id,
           &catch_bound, &min_border_dist);
-    if (son != NULL)
-        delete[] son;
+    //if (son != NULL)
+    //    delete[] son;
     son = new int[part];
     for (int i = 0; i < part; i++)
         scanf("%d", &son[i]);

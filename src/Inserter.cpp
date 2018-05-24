@@ -20,28 +20,39 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <iterator>
+#include <iostream>
+#include <limits>
 
 #include "libcargo/Inserter.h"
-#include "libcargo/Router.h"
 
-namespace cargo
-{
+namespace cargo {
 
-Inserter::Inserter(GTree::G_Tree &g) : gtree_(g) {}
+Inserter::Inserter(GTree::G_Tree &g) : gtree_(g), rtr_(g) {}
 
-bool Inserter::Inserter_jaw(Schedule &s, const Trip &t, Route &r) {
-    Stop o {t.id, t.oid, StopType::CUSTOMER_ORIGIN, 0, t.early};
-    Stop d {t.id, t.did, StopType::CUSTOMER_DEST, 0, t.late};
-
-    Schedule s_min;
+Schedulel Inserter::Inserter_jaw(const Schedulel &s, const Stop o, const Stop d,
+                                Routel &r) {
+    Schedulel s_min {};
+    Routel r_min, r_;
     int c_min = kIntInfinity;
-    for (auto i = s.begin(); i != std::prev(s.end()); ++i) {
-        s.insert(i, o);
-        for (auto j = std::next(i); j != s.end(); ++j) {
-            s.insert(j, d);
+    int c_;
+
+    for (size_t i = 0; i < s.size(); ++i) {
+        Schedulel so = s;
+        so.insert(std::next(so.begin(), i), o);
+        for (size_t j = i+1; j <= so.size(); ++j) {
+            Schedulel sod = so;
+            sod.insert(std::next(sod.begin(), j), d);
+            c_ = rtr_.RouteThrough(sod, r_);
+            if (c_ < c_min) {
+                c_min = c_;
+                r_min = r_;
+                s_min = sod;
+            }
         }
     }
-    return false;
+
+    r = r_min;
+    return s_min;
 }
 
 } // namespace cargo

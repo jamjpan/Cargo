@@ -23,19 +23,20 @@
 #define CARGO_INCLUDE_INSERTER_H_
 
 #include "types.h"
+#include "Router.h"
 #include "../gtree/gtree.h"
 
-namespace cargo
-{
+namespace cargo {
 
-class Inserter
-{
+class Inserter {
   public:
     Inserter(GTree::G_Tree &);
-    bool Inserter_jaw(Schedule &, const Trip &, Route &);
+
+    Schedulel Inserter_jaw(const Schedulel &, const Stop, const Stop, Routel &);
 
   private:
     GTree::G_Tree &gtree_;
+    Router rtr_;
 };
 
 } // namespace cargo

@@ -49,19 +49,22 @@ build/file.o: \
 build/Solution.o: \
 	include/libcargo/Solution.h \
 	include/libcargo/types.h \
-	include/libcargo/Simulator.h
+	include/libcargo/Simulator.h \
+	src/Solution.cpp
 	$(CXX) $(CFLAGS) src/Solution.cpp
 
 build/Inserter.o: \
 	include/libcargo/Inserter.h \
 	include/libcargo/types.h \
-	include/gtree/gtree.h
+	include/gtree/gtree.h \
+	src/Inserter.cpp
 	$(CXX) $(CFLAGS) src/Inserter.cpp
 
 build/Router.o: \
 	include/libcargo/Router.h \
 	include/libcargo/types.h \
-	include/gtree/gtree.h
+	include/gtree/gtree.h \
+	src/Router.cpp
 	$(CXX) $(CFLAGS) src/Router.cpp
 
 build:

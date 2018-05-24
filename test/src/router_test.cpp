@@ -1,11 +1,10 @@
 #include "catch.hpp"
-
 #include "libcargo.h"
 
 using namespace cargo;
 
-using  msg::Message;
-using  msg::MessageType;
+using msg::Message;
+using msg::MessageType;
 
 TEST_CASE("Router works", "[router]") {
     Message m(MessageType::DEFAULT);
@@ -18,10 +17,10 @@ TEST_CASE("Router works", "[router]") {
 
     Stop o {1, 0, StopType::CUSTOMER_ORIGIN, 0, 0};
     Stop d {1, 6, StopType::CUSTOMER_DEST, 0, 10};
-    Schedule s {o, d};
+    Schedulel s {o, d};
 
     Router sr(gtree_);
-    Route r;
+    Routel r;
 
     int c = sr.RouteThrough(s, r);
     m << "Cost through (0,6) on tiny == 15: " << c << "\nRoute: ";

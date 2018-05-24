@@ -1,7 +1,7 @@
 #include "catch.hpp"
+#include "libcargo.h"
 
 #include <stdio.h>
-#include "libcargo.h"
 
 using namespace cargo;
 

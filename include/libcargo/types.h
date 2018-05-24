@@ -24,6 +24,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <map>
 #include <unordered_map>
 #include <limits>
@@ -100,6 +101,8 @@ struct Stop
 
 typedef std::vector<NodeId> Route;
 typedef std::vector<Stop> Schedule;
+typedef std::list<NodeId> Routel;
+typedef std::list<Stop> Schedulel;
 
 // Trip represents shared properties between customers and vehicles.
 struct Trip
@@ -188,7 +191,7 @@ typedef float Speed;
 typedef std::string Filepath;
 
 // Infinity
-const int kIntInfinity = std::numeric_limits<int>::infinity();
+const int kIntInfinity = std::numeric_limits<int>::max();
 const double kDblInfinity = std::numeric_limits<double>::infinity();
 
 // Math PI

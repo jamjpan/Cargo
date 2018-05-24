@@ -1,11 +1,11 @@
 #include "catch.hpp"
-
 #include "libcargo.h"
 
 using namespace cargo;
 
+using msg::Message;
+using msg::MessageType;
 using opts::Options;
-
 // =============================================================================
 // Simulator
 // =============================================================================
@@ -19,11 +19,11 @@ TEST_CASE("Simulator can be initialized and executed", "[simulator]") {
     op.VehicleSpeed = 10;
     op.GPSTiming = 1;
 
-    Simulator *sim = new Simulator();
-    Solution *solution = new Solution(sim);
-    sim->SetOptions(op);
-    sim->SetSolution(solution);
-    sim->Initialize();
+//    Simulator *sim = new Simulator();
+//    Solution *solution = new Solution(sim);
+//    sim->SetOptions(op);
+//    sim->SetSolution(solution);
+//    sim->Initialize();
 //    sim->Run();
 }
 

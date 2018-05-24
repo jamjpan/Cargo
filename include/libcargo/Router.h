@@ -32,7 +32,7 @@ class Router
 {
   public:
     Router(GTree::G_Tree &);
-    int RouteThrough(const Schedule &, Route &);
+    int RouteThrough(const Schedulel &, Routel &);
 
   private:
     GTree::G_Tree &gtree_;
