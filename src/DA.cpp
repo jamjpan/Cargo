@@ -30,6 +30,15 @@ DA::DA()
       std::cerr << "SQL error: " << zErrMsg << std::endl;
       sqlite3_free(zErrMsg);
     }
+    // craete stop table
+    rc = sqlite3_exec(db,
+                      "CREATE TABLE stop(id INT, t_id INT, n_id INT, stype INT "
+                      ", visit_time INT, time_limit INT)",
+                      NULL, NULL, &zErrMsg);
+    if (rc != SQLITE_OK) {
+      std::cerr << "SQL error: " << zErrMsg << std::endl;
+      sqlite3_free(zErrMsg);
+    }
   }
 }
 
@@ -95,7 +104,9 @@ int DA::AddVehicle(Vehicle* vehicle)
 int DA::UpdateLocation(VehicleId vid, int lv_node, int nnd)
 {
   sqlite3_stmt* stmt;
-  rc = sqlite3_prepare_v2(db, "UPDATE vehicle SET lv_node = ?, nnd = ? WHERE id = ?", -1, &stmt, NULL);
+  rc = sqlite3_prepare_v2(
+      db, "UPDATE vehicle SET lv_node = ?, nnd = ? WHERE id = ?", -1, &stmt,
+      NULL);
   if (rc != SQLITE_OK) {
     std::cerr << "prepare error: " << sqlite3_errmsg(db) << std::endl;
     return 1;
@@ -115,6 +126,20 @@ int DA::UpdateLocation(VehicleId vid, int lv_node, int nnd)
     return 1;
   }
   return 0;
+}
+
+std::vector<int> DA::StringToVector(std::string list)
+{
+  std::string delimiter = ",";
+  std::string num;
+  std::vector<int> result;
+  size_t pos;
+  while ((pos = list.find(delimiter)) != std::string::npos) {
+    num = list.substr(0, pos);
+    result.push_back(std::stoi(num));
+    list.erase(0, pos+delimiter.length());
+  }
+  return result;
 }
 
 }  // namespace cargo
