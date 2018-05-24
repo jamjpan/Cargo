@@ -8,7 +8,9 @@ OBJECTS = \
 		  build/sqlite3.o \
 		  build/file.o \
 		  build/Solution.o \
-			build/DA.o
+		  build/Inserter.o \
+		  build/ScheduleRouter.o \
+		  build/DA.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
@@ -49,6 +51,18 @@ build/Solution.o: \
 	include/libcargo/types.h \
 	include/libcargo/Simulator.h
 	$(CXX) $(CFLAGS) src/Solution.cpp
+
+build/Inserter.o: \
+	include/libcargo/Inserter.h \
+	include/libcargo/types.h \
+	include/gtree/gtree.h
+	$(CXX) $(CFLAGS) src/Inserter.cpp
+
+build/ScheduleRouter.o: \
+	include/libcargo/ScheduleRouter.h \
+	include/libcargo/types.h \
+	include/gtree/gtree.h
+	$(CXX) $(CFLAGS) src/ScheduleRouter.cpp
 
 build:
 	mkdir -p build

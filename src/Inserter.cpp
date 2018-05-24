@@ -19,24 +19,28 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_H_
-#define CARGO_INCLUDE_LIBCARGO_H_
+#include <iterator>
 
-// This is the public API for Cargo.
-
-namespace cargo {} // namespace cargo
-
-#include "libcargo/DA.h"
 #include "libcargo/Inserter.h"
-#include "libcargo/ScheduleRouter.h"
-#include "libcargo/Simulator.h"
-#include "libcargo/Solution.h"
-#include "libcargo/file.h"
-#include "libcargo/message.h"
-#include "libcargo/options.h"
-#include "libcargo/types.h"
-#include "gtree/gtree.h"
-#include "queue/readerwriterqueue.h"
-#include "sqlite3/sqlite3.h"
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+namespace cargo
+{
+
+Inserter::Inserter(GTree::G_Tree &g) : gtree_(g) {}
+
+bool Inserter::Inserter_jaw(Schedule &s, const Trip &t, Route &r) {
+    Stop o {t.id, t.oid, StopType::CUSTOMER_ORIGIN, 0, t.early};
+    Stop d {t.id, t.did, StopType::CUSTOMER_DEST, 0, t.late};
+
+    Schedule s_min;
+    int c_min = kIntInfinity;
+    for (auto i = s.begin(); i != std::prev(s.end()); ++i) {
+        s.insert(i, o);
+        for (auto j = std::next(i); j != s.end(); ++j) {
+            s.insert(j, d);
+        }
+    }
+    return false;
+}
+
+} // namespace cargo

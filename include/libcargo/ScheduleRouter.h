@@ -19,24 +19,25 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_H_
-#define CARGO_INCLUDE_LIBCARGO_H_
+#ifndef CARGO_INCLUDE_SCHEDULEROUTER_H_
+#define CARGO_INCLUDE_SCHEDULEROUTER_H_
 
-// This is the public API for Cargo.
+#include "types.h"
+#include "../gtree/gtree.h"
 
-namespace cargo {} // namespace cargo
+namespace cargo
+{
 
-#include "libcargo/DA.h"
-#include "libcargo/Inserter.h"
-#include "libcargo/ScheduleRouter.h"
-#include "libcargo/Simulator.h"
-#include "libcargo/Solution.h"
-#include "libcargo/file.h"
-#include "libcargo/message.h"
-#include "libcargo/options.h"
-#include "libcargo/types.h"
-#include "gtree/gtree.h"
-#include "queue/readerwriterqueue.h"
-#include "sqlite3/sqlite3.h"
+class ScheduleRouter
+{
+  public:
+    ScheduleRouter(GTree::G_Tree &);
+    int RouteThrough(const Schedule &, Route &);
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+  private:
+    GTree::G_Tree &gtree_;
+};
+
+} // namespace cargo
+
+#endif // CARGO_INCLUDE_SCHEDULEROUTER_H_

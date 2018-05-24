@@ -19,24 +19,27 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_H_
-#define CARGO_INCLUDE_LIBCARGO_H_
+#include <iterator>
 
-// This is the public API for Cargo.
-
-namespace cargo {} // namespace cargo
-
-#include "libcargo/DA.h"
-#include "libcargo/Inserter.h"
 #include "libcargo/ScheduleRouter.h"
-#include "libcargo/Simulator.h"
-#include "libcargo/Solution.h"
-#include "libcargo/file.h"
-#include "libcargo/message.h"
-#include "libcargo/options.h"
-#include "libcargo/types.h"
-#include "gtree/gtree.h"
-#include "queue/readerwriterqueue.h"
-#include "sqlite3/sqlite3.h"
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+namespace cargo
+{
+
+ScheduleRouter::ScheduleRouter(GTree::G_Tree &g) : gtree_(g) {}
+
+int ScheduleRouter::RouteThrough(const Schedule &s, Route &r) {
+    Route r_;
+    int c = 0;
+    r_.push_back(s.begin()->node_id);
+    for (auto i = s.begin(); i != std::prev(s.end()); ++i) {
+        Route rt;
+        gtree_.find_path(i->node_id, std::next(i)->node_id, rt);
+        std::copy(std::next(rt.begin()), rt.end(), std::back_inserter(r_));
+        c += gtree_.search(i->node_id, std::next(i)->node_id);
+    }
+    r = r_;
+    return c;
+}
+
+} // namespace cargo

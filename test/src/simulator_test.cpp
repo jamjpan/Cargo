@@ -14,8 +14,7 @@ TEST_CASE("Simulator can be initialized and executed", "[simulator]") {
     op.RoadNetworkPath = "../data/roadnetworks/cd1.rnet";
     op.GTreePath = "../data/roadnetworks/cd1.gtree";
     op.EdgeFilePath = "../data/roadnetworks/cd1.edges";
-    // op.ProblemInstancePath = "../data/benchmarks/cd1/cd1-SR-n10m5-0";
-    op.ProblemInstancePath = "../data/dataset_500+1000_0";
+    op.ProblemInstancePath = "../data/benchmarks/a_1.instance";
     op.Scale = 10;
     op.VehicleSpeed = 10;
     op.GPSTiming = 1;
