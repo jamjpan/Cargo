@@ -59,14 +59,13 @@ class TripGenerator:
         print('total nodes:', self.graph.number_of_nodes())
         print('total edges:', self.graph.number_of_edges())
 
-    def generate(self, prefix, num, vehs, custs, speed, freq, delay, cap):
+    def generate(self, prefix, num, vehs, custs, speed, freq, delay):
         num = int(num);
         vehs = int(vehs);
         custs = int(custs);
         speed = int(speed);
         freq = int(freq);
         delay = int(delay);
-        cap = int(cap);
         max_early = (vehs+custs/freq)
         max_delay = delay*60; # delay is in minutes
         for i in range(num):
@@ -84,6 +83,13 @@ class TripGenerator:
                     sys.stdout.flush()
                     origin = self.random_pick_node()
                     dest = self.random_pick_node()
+                    cap = 1;
+                    if idx < vehs*.1:
+                        cap = 7
+                    elif idx < vehs*.6:
+                        cap = 3
+                    elif idx < vehs*.8:
+                        cap = 2
                     if idx < vehs:
                         fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(random.randint(
                             0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
@@ -147,19 +153,18 @@ def get_parser():
     p.add_argument("-f", "--freq", metavar="FREQ", type=int, help="stream frequency (default: 5/s)", default=5)
     p.add_argument("-s", "--speed", metavar="SPEED", type=int, help="vehicle speed (default: 10 m/s)", default=10)
     p.add_argument("-d", "--delay", metavar="DELAY", type=int, help="max vehicle delay (default: 10 min)", default=10)
-    p.add_argument("-c", "--cap", metavar="CAPACITY", type=int, help="vehicle capacity (default: 2)", default=2)
     p.add_argument("-g", "--grid", metavar="GRID", type=int, help="# of grid cells (default: 100)", default=100)
     p.add_argument("-n", "--num", metavar="NUM", type=int, help="# of instances (default: 1)", default=1)
     p.add_argument("-o", "--out", metavar="OUTPUT", help="output dest (default: a.instance)", default="a")
     return p;
 
 
-def genrsp(args):
+def rspgen(args):
     tg = TripGenerator(args["grid"], args["rnet_file"]);
     tg.generate(args["out"], args["num"], args["num_vehicles"], args["num_customers"], args["speed"],
-            args["freq"], args["delay"], args["cap"]);
+            args["freq"], args["delay"]);
 
 
 if __name__ == "__main__":
-    genrsp(vars(get_parser().parse_args()))
+    rspgen(vars(get_parser().parse_args()))
 
