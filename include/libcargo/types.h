@@ -97,6 +97,11 @@ struct Stop
     // Time limit for a stop, if type == ORIGIN, it's early time, otherwise late time
     // @James addition variable
     SimTime time_limit;
+
+    // bool operator==(const Stop& a) {
+    //     return (a.trip_id == trip_id && a.node_id == node_id && a.type == type
+    //             && a.time_limit == time_limit);
+    // }
 };
 
 typedef std::vector<NodeId> Route;

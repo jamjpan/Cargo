@@ -9,13 +9,13 @@ using msg::MessageType;
 TEST_CASE("Router works", "[router]") {
     GTree::load("../data/roadnetworks/tiny.gtree");
 
-    WHEN("tiny.gtree is loaded") {
+    SECTION("tiny.gtree is loaded") {
         auto g_ = GTree::getG();
         REQUIRE(g_.n == 9);
         REQUIRE(g_.m == 9);
     }
 
-    WHEN("shortest path works") {
+    SECTION("shortest path works") {
         auto gtree_ = GTree::get();
         Stop o{1, 0, StopType::CUSTOMER_ORIGIN, 0, 0};
         Stop d{1, 6, StopType::CUSTOMER_DEST, 0, 10};
