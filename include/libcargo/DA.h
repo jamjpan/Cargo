@@ -10,6 +10,7 @@ public:
     DA();
     ~DA();
     int AddVehicle(Vehicle *);
+    // vid lv_node nnd
     int UpdateLocation(VehicleId, int, int);
     int UpdateSchedule(VehicleId, Schedule *, Route *);
     int UpdateStop(VehicleId, int, SimTime);

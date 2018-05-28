@@ -172,6 +172,7 @@ typedef std::unordered_map<
 // simulator time reaches SimTime, all the trips in the group are broadcasted.
 struct ProblemInstance {
     std::string name;
+    std::string road_network;
     std::unordered_map<SimTime, std::vector<Trip>> trips;
 };
 

@@ -9,8 +9,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -49,7 +49,7 @@ size_t ReadEdges(const Filepath &path, KeyValueEdges &M) {
     if (!ifs.good())
         throw std::runtime_error("edge path not found");
     M.clear();
-    std::string _; // unused
+    std::string _;        // unused
     std::getline(ifs, _); // skip the header line
     NodeId oid, did;
     double weight;
@@ -71,8 +71,8 @@ size_t ReadProblemInstance(const Filepath &path, ProblemInstance &P) {
     std::string _;
     size_t m, n;
     size_t count_trips = 0;
-    ifs >> P.name >> _ >> m >> _ >> n;
-    ifs >> _; // skip the blank line
+    ifs >> P.name >> P.road_network >> _ >> m >> _ >> n;
+    ifs >> _;             // skip the blank line
     std::getline(ifs, _); // skip the header row
     TripId tid;
     NodeId oid, did;

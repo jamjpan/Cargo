@@ -22,6 +22,7 @@
 #ifndef CARGO_INCLUDE_SIMULATOR_H_
 #define CARGO_INCLUDE_SIMULATOR_H_
 
+#include "DA.h"
 #include "message.h"
 #include "options.h"
 #include "types.h"
@@ -36,8 +37,8 @@ using opts::Options;
 class Solution;
 
 class Simulator {
-  public:
-    Simulator();
+public:
+    Simulator(DA &);
 
     // Do this first
     void SetOptions(Options);
@@ -66,7 +67,7 @@ class Simulator {
 
     int TotalRefuse() { return total_refuse_; };
 
-  private:
+private:
     Message PRINT;
     Message INFO;
     Message WARN;
@@ -87,6 +88,9 @@ class Simulator {
 
     ProblemInstance pi_;
     SimulatorStatus status_;
+
+    // data access instance
+    DA &da_;
 
     // - t_ = current sim time
     // - tmin_ = minimum sim duration (max trip.early)

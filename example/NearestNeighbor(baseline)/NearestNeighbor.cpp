@@ -25,9 +25,11 @@ auto selector = [](std::pair<VehicleId, Vehicle> pair) {
 };
 auto selector2 = [](std::pair<VehicleId, Vehicle> pair) { return pair.first; };
 
-NearestNeighbor::NearestNeighbor(Simulator *sim) : Solution(sim) {
+NearestNeighbor::NearestNeighbor(Simulator *sim, opts::Options opts)
+    : Solution(sim) {
     // temporarily hard-coded
-    GTree::load("../../data/roadnetworks/cd1.gtree");
+    opts_ = opts;
+    GTree::load(opts_.GTreePath);
     gtree_ = GTree::get();
 }
 
@@ -365,18 +367,19 @@ Assignments NearestNeighbor(RequestBatch R)
 int main() {
     Options op;
     op.RoadNetworkPath = "../../data/roadnetwork/cd1.rnet";
-    op.GTreePath = "../../data/roadnetworks/cd1.gtree";
+    op.GTreePath = "../../data/gtree/cd1.gtree";
     op.EdgeFilePath = "../../data/roadnetwork/cd1.edges";
-    op.ProblemInstancePath = "../../data/benchmark/rs-md-10.instance";
+    op.ProblemInstancePath = "../../data/benchmark/rs-md-3.instance";
     // op.ProblemInstancePath = "../../data/dataset_5000+500_0";
     op.Scale = 2;
     op.VehicleSpeed = 10;
     op.GPSTiming = 1;
 
-    Simulator *sim = new Simulator();
+    DA da;
+    Simulator *sim = new Simulator(da);
     // move here because solution need options in simulator
     sim->SetOptions(op);
-    Solution *solution = new NearestNeighbor(sim);
+    Solution *solution = new NearestNeighbor(sim, op);
     sim->SetSolution(solution);
     sim->Initialize();
 

@@ -149,11 +149,19 @@ int DA::UpdateLocation(VehicleId vid, int lv_node, int nnd) {
         sqlite3_bind_int(stmt, 2, nnd);
         sqlite3_bind_int(stmt, 3, vid);
     }
+    // rc = sqlite3_step(stmt);
+    // if (rc != SQLITE_ROW) {
+    //     std::cerr << "step error: " << sqlite3_errmsg(db) << std::endl;
+    //     return -1;
+    // }
     rc = sqlite3_step(stmt);
-    if (rc != SQLITE_OK) {
+
+    if (rc != SQLITE_DONE) {
         std::cerr << "step error: " << sqlite3_errmsg(db) << std::endl;
         return -1;
     }
+    // std::cout << "veh " << vid << " move to " << lv_node << std::endl;
+
     rc = sqlite3_finalize(stmt);
     if (rc != SQLITE_OK) {
         std::cerr << "finalize error: " << sqlite3_errmsg(db) << std::endl;
