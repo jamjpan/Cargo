@@ -366,10 +366,10 @@ Assignments NearestNeighbor(RequestBatch R)
 
 int main() {
     Options op;
-    op.RoadNetworkPath = "../../data/roadnetwork/cd1.rnet";
-    op.GTreePath = "../../data/gtree/cd1.gtree";
-    op.EdgeFilePath = "../../data/roadnetwork/cd1.edges";
-    op.ProblemInstancePath = "../../data/benchmark/rs-md-3.instance";
+    op.RoadNetworkPath = "../../data/roadnetwork/mny.rnet";
+    op.GTreePath = "../../data/gtree/mny.gtree";
+    op.EdgeFilePath = "../../data/roadnetwork/mny.edges";
+    op.ProblemInstancePath = "../../data/benchmark/rs-sm-2.instance";
     // op.ProblemInstancePath = "../../data/dataset_5000+500_0";
     op.Scale = 2;
     op.VehicleSpeed = 10;

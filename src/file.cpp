@@ -44,6 +44,42 @@ size_t ReadNodes(const Filepath &path, KeyValueNodes &N) {
     return N.size();
 }
 
+size_t ReadNodes(const Filepath &path, KeyValueNodes &N, Longitude &minX,
+                 Longitude &maxX, Latitude &minY, Latitude &maxY) {
+    std::ifstream ifs(path);
+    if (!ifs.good())
+        throw std::runtime_error("node path not found");
+    N.clear();
+    NodeId oid, did;
+    Latitude oy, dy;
+    Longitude ox, dx;
+    int _; // unused
+    Longitude minLong = 999, maxLong = -999;
+    Latitude minLat = 999, maxLat = -999;
+    while (ifs >> _ >> oid >> did >> ox >> oy >> dx >> dy) {
+        N[oid] = {ox, oy};
+        N[did] = {dx, dy};
+        for (int i = 0; i < 2; i++) {
+            if (ox < minLong)
+                minLong = ox;
+            if (ox > maxLong)
+                maxLong = ox;
+            if (oy < minLat)
+                minLat = oy;
+            if (oy > maxLat)
+                maxLat = oy;
+            ox = dx;
+            oy = dy;
+        }
+    }
+    ifs.close();
+    minX = minLong;
+    maxX = maxLong;
+    minY = minLat;
+    maxY = maxLat;
+    return N.size();
+}
+
 size_t ReadEdges(const Filepath &path, KeyValueEdges &M) {
     std::ifstream ifs(path);
     if (!ifs.good())

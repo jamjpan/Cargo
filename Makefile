@@ -34,7 +34,7 @@ build/gtree.o: \
 build/sqlite3.o: \
 	include/sqlite3/sqlite3.h \
 	src/sqlite3/sqlite3.c
-	$(CC) src/sqlite3/sqlite3.c
+	$(CC) -DSQLITE_ENABLE_RTREE src/sqlite3/sqlite3.c
 
 build/DA.o: \
 	include/libcargo/DA.h \
