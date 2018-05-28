@@ -9,8 +9,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -22,22 +22,20 @@
 #ifndef CARGO_INCLUDE_SIMULATOR_H_
 #define CARGO_INCLUDE_SIMULATOR_H_
 
-#include "types.h"
-#include "options.h"
 #include "message.h"
+#include "options.h"
+#include "types.h"
 // #include "Solution.h"
 #include "../gtree/gtree.h"
 
-namespace cargo
-{
+namespace cargo {
 
 using msg::Message;
 using opts::Options;
 
 class Solution;
 
-class Simulator
-{
+class Simulator {
   public:
     Simulator();
 
@@ -57,7 +55,8 @@ class Simulator
 
     // Set the assignment
     // Returns false if the assignment is invalid(due to unacceptable route)
-    bool RequestMatched(const Trip &, const VehicleId &, const Schedule &, const Route &);
+    bool RequestMatched(const Trip &, const VehicleId &, const Schedule &,
+                        const Route &);
 
     int Speed() { return opts_.VehicleSpeed; };
 
@@ -108,7 +107,7 @@ class Simulator
     //
     int total_refuse_;
     // message queue handler
-    //mqd_t mq_;
+    // mqd_t mq_;
 
     // Solution pointer, for calling VehicleOnline and RequestOnline
     // Use pointer instead of reference because we have to set the solution
