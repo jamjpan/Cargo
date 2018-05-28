@@ -32,15 +32,6 @@ def rspgen_real(args):
             graph.add_edge(o, d, weight=haversine(lon1, lat1, lon2, lat2))
     print('total nodes:', graph.number_of_nodes())
     print('total edges:', graph.number_of_edges())
-
-    f_out = open(args["out"], 'w')
-    f_out.write(args["out"]+'\n')
-    rnet_name = args["rnet_file"].split('/').pop().split('.rnet')[0]
-    f_out.write(rnet_name+'\n')
-    f_out.write('VEHICLES '+args["num_vehicles"]+'\n')
-    f_out.write('CUSTOMERS '+args["num_customers"]+'\n')
-    f_out.write('\n')
-    f_out.write('ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n')
     trip = []
     i = 1
     m = int(args["num_vehicles"])
@@ -48,6 +39,8 @@ def rspgen_real(args):
     with open(args["trips_file"]) as f_trips:
         sthr = int(args["start_hour"])
         for line in f_trips:
+            sys.stdout.write('{}\{}\r'.format(i,(m+n)))
+            sys.stdout.flush()
             col = line.strip().split(' ')
             tm = col[2].split(':')
             hr = int(tm[0])
@@ -65,7 +58,7 @@ def rspgen_real(args):
                 near_d = nearest_node(d_lon, d_lat, int(args["tolerance"]), node)
                 if near_o != -1 and near_d != -1:
                     trip_time = sp_time(near_o, near_d, args["speed"], graph)
-                    trip_late = trip_time + diff + random.randint(0, int(args["delay"]*600))
+                    trip_late = trip_time + diff + random.randint(0, int(args["delay"]*60))
                     cap = 1;
                     if i <= m: # is a vehicle
                         if i < m*.1:
@@ -74,17 +67,30 @@ def rspgen_real(args):
                             cap = 3
                         elif i < m*.8:
                             cap = 2
-                        f_out.write('\t'.join([str(i), str(near_o), str(near_d), str(-cap),
-                            str(diff), str(trip_late)+'\n']))
+                        trip.append((near_o, near_d, -cap, diff, trip_late))
                     else:
-                        f_out.write('\t'.join([str(i), str(near_o), str(near_d), str(1),
-                            str(diff), str(trip_late)+'\n']))
-                    sys.stdout.write('{}\{}\r'.format(i,(m+n)))
-                    sys.stdout.flush()
+                        trip.append((near_o, near_d, 1, diff, trip_late))
                     i+=1
                     if i > m+n:
                         break
+    print()
+    random.shuffle(trip)
+    f_out = open(args["out"], 'w')
+    f_out.write(args["out"]+'\n')
+    rnet_name = args["rnet_file"].split('/').pop().split('.rnet')[0]
+    f_out.write(rnet_name+'\n')
+    f_out.write('VEHICLES '+args["num_vehicles"]+'\n')
+    f_out.write('CUSTOMERS '+args["num_customers"]+'\n')
+    f_out.write('\n')
+    f_out.write('ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n')
+    i = 1
+    for tr in trip:
+        f_out.write('\t'.join([str(i), str(tr[0]), str(tr[1]), str(tr[2]), str(tr[3]), str(tr[4])+'\n']))
+        sys.stdout.write('{}\{}\r'.format(i,(m+n)))
+        sys.stdout.flush()
+        i += 1
     f_out.close()
+    print()
 
 
 def haversine(lon1, lat1, lon2, lat2):
