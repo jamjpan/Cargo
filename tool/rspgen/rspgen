@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# @authors
-#   Juntao Hu <hujuntao@buaa.edu.cn>
-#   James J. Pan <jamesjpan@outlook.com>
-
+""" Authors:
+Juntao Hu <hujuntao@buaa.edu.cn>
+James J. Pan <jamesjpan@outlook.com>
+"""
 from collections import defaultdict, namedtuple
 import networkx as nx
 import random
@@ -24,6 +24,7 @@ class TripGenerator:
 
     def __init__(self, grid_size, rnet_file):
         self.grid_size = grid_size
+        self.rnet = rnet_file
         road = open(rnet_file, 'r')
 
         while True:
@@ -73,6 +74,8 @@ class TripGenerator:
             for i in range(num):
                 with open(prefix + '_' + str(i+1) + ".instance", 'w') as fout:
                     fout.write(prefix + '\n')
+                    rnet_name = (self.rnet).split('/').pop().split('.rnet')[0]
+                    fout.write(rnet_name+'\n')
                     fout.write('VEHICLES ' + str(vehs) + '\n')
                     fout.write('CUSTOMERS ' + str(custs) + '\n')
                     fout.write('\n')
@@ -85,6 +88,9 @@ class TripGenerator:
                         sys.stdout.flush()
                         origin = self.random_pick_node()
                         dest = self.random_pick_node()
+                        trip_time = self.shortest_path_time(origin, dest, speed)
+                        trip_early = random.randint(0, max_early)
+                        trip_late = trip_time + trip_early + random.randint(0, max_delay)
                         cap = 1;
                         if idx < vehs*.1:
                             cap = 7
@@ -93,11 +99,11 @@ class TripGenerator:
                         elif idx < vehs*.8:
                             cap = 2
                         if idx < vehs:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(random.randint(
-                                0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
+                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(trip_early),
+                                str(trip_late)]) + '\n')
                         else:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(random.randint(
-                                0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
+                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(trip_early),
+                                str(trip_late)]) + '\n')
                         id_count += 1
             print()
             print("Done")
@@ -124,6 +130,8 @@ class TripGenerator:
                 print()
                 with open(prefix + '_' + str(k+1) + ".instance", 'w') as fout:
                     fout.write(prefix + '\n')
+                    rnet_name = (self.rnet).split('/').pop().split('.rnet')[0]
+                    fout.write(rnet_name+'\n')
                     fout.write('VEHICLES ' + str(vehs) + '\n')
                     fout.write('CUSTOMERS ' + str(custs) + '\n')
                     fout.write('\n')
@@ -136,6 +144,9 @@ class TripGenerator:
                         sys.stdout.flush()
                         origin = candidates.pop()
                         dest = candidates.pop()
+                        trip_time = self.shortest_path_time(origin, dest, speed)
+                        trip_early = random.randint(0, max_early)
+                        trip_late = trip_time + trip_early + random.randint(0, max_delay)
                         cap = 1;
                         if idx < vehs*.1:
                             cap = 7
@@ -144,11 +155,11 @@ class TripGenerator:
                         elif idx < vehs*.8:
                             cap = 2
                         if idx < vehs:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(random.randint(
-                                0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
+                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(trip_early),
+                                str(trip_late)]) + '\n')
                         else:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(random.randint(
-                                0, max_early)), str(self.shortest_path_time(origin, dest, speed) + random.randint(0, max_delay))]) + '\n')
+                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(trip_early),
+                                str(trip_late)]) + '\n')
                         id_count += 1
             print()
             print("Done")

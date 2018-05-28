@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+rm data/benchmark/*.instance
 tool/rspgen/rspgen data/roadnetwork/cd1.rnet 11 2 SC -f 10 -o rs-sm-1
 tool/rspgen/rspgen data/roadnetwork/mny.rnet 12 6 SR -f 20 -o rs-sm-2
 tool/rspgen/rspgen data/roadnetwork/cd1.rnet 12 1 SR -f 5 -o rs-sm-3
