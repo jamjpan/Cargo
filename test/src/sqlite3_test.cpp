@@ -43,6 +43,13 @@ static int circle_query_callback(sqlite3_rtree_query_info *p) {
     float lat = p->aCoord[2];
 }
 
+static int exec_query_callback(void *unused, int count, char **data,
+                               char **columns) {
+    for (int i = 0; i < count; ++i)
+        std::cout << data[i] << std::endl;
+    return 0;
+}
+
 TEST_CASE("Sqlite3 Rtree", "[sqlite3]") {
     std::cout << "rtree test" << std::endl;
     Longitude minX, maxX;
@@ -50,6 +57,7 @@ TEST_CASE("Sqlite3 Rtree", "[sqlite3]") {
     KeyValueNodes nodes;
     file::ReadNodes("../data/roadnetwork/mny.rnet", nodes, minX, maxX, minY,
                     maxY);
+    std::cout << nodes.size() << std::endl;
     sqlite3 *db;
     char *zErrMsg = 0;
     int rc;
@@ -60,22 +68,34 @@ TEST_CASE("Sqlite3 Rtree", "[sqlite3]") {
     } else {
         rc = sqlite3_exec(db,
                           "CREATE VIRTUAL TABLE location_index USING rtree "
-                          "(id, minX, maxX, minY, maxY",
+                          "(id, minX, maxX, minY, maxY)",
                           NULL, NULL, &zErrMsg);
-        sqlite3_rtree_query_callback(db, "circle", circle_query_callback, NULL,
-                                     NULL);
+        if (rc != SQLITE_OK)
+            std::cout << "exec error: " << zErrMsg << std::endl;
+        rc = sqlite3_rtree_query_callback(db, "circle", circle_query_callback,
+                                          NULL, NULL);
+        if (rc != SQLITE_OK)
+            std::cout << "rtree error: " << sqlite3_errmsg(db) << std::endl;
 
         sqlite3_stmt *insert_node;
-        rc = sqlite3_prepare_v2(
-            db, "INSERT INTO location_index VALUES(?, ?, ?, ?, ?)", -1,
-            &insert_node, NULL);
+        rc = sqlite3_prepare_v2(db,
+                                "INSERT INTO location_index(id, minX, maxX, "
+                                "minY, maxY) VALUES(?, ?, ?, ?, ?)",
+                                -1, &insert_node, NULL);
+        int count = 0;
         for (auto &kv : nodes) {
+            if (count == 10)
+                break;
+            count++;
+            std::cout << kv.first << std::endl;
             sqlite3_bind_int(insert_node, 1, kv.first);
-            sqlite3_bind_int(insert_node, 2, kv.second.lng);
-            sqlite3_bind_int(insert_node, 3, kv.second.lng);
-            sqlite3_bind_int(insert_node, 4, kv.second.lat);
-            sqlite3_bind_int(insert_node, 5, kv.second.lat);
-            sqlite3_step(insert_node);
+            sqlite3_bind_double(insert_node, 2, kv.second.lng);
+            sqlite3_bind_double(insert_node, 3, kv.second.lng);
+            sqlite3_bind_double(insert_node, 4, kv.second.lat);
+            sqlite3_bind_double(insert_node, 5, kv.second.lat);
+            rc = sqlite3_step(insert_node);
+            if (rc != SQLITE_DONE)
+                std::cout << "step error: " << sqlite3_errmsg(db) << std::endl;
         }
 
         auto iter = nodes.begin();
@@ -85,7 +105,9 @@ TEST_CASE("Sqlite3 Rtree", "[sqlite3]") {
         select_query.append(", ");
         select_query.append(std::to_string(iter->second.lat));
         select_query.append(")");
-        sqlite3_exec(db, select_query.c_str(), NULL, NULL, &zErrMsg);
+        rc = sqlite3_exec(db, select_query.c_str(), NULL, NULL, &zErrMsg);
+        if (rc != SQLITE_OK)
+            std::cout << "exec error: " << sqlite3_errmsg(db) << std::endl;
 
         sqlite3_finalize(insert_node);
         sqlite3_close(db);
