@@ -45,61 +45,62 @@ param trip  {k in Vehicles}     integer > 0;        # max trip time of vehicle
 param sp    {i in A, j in A};                       # sp cost, meters
 
 ### Decision vars
-var x {i in A, j in A, k in Vehicles: i!=j} binary; # x^k_{ij}
-var ArriveTime {i in A, k in Vehicles} >= 0;        # B^k_i
-var DepartLoad {i in A, k in Vehicles} >= 0;        # Q^k_i
+var x {k in Vehicles, i in (N union {k,k+m}), j in (N union {k,k+m}): i!=j} binary; # x^k_{ij}
+var ArriveTime {k in Vehicles, i in (N union {k,k+m})} >= 0;        # B^k_i
+var DepartLoad {k in Vehicles, i in (N union {k,k+m})} >= 0;        # Q^k_i
 
 ### Objective function
-minimize cost: sum{i in A, j in A, k in Vehicles: i!=j} sp[i,j]*x[i,j,k];
+minimize cost: sum{k in Vehicles, i in (N union {k,k+m}), j in (N union {k,k+m}): i!=j} sp[i,j]*x[k,i,j];
 
 ### Constraints
 # Service constraints:
 # - each customer should be served by at most 1 vehicle
 # - if served, each customer should be served by the same vehicle
-s.t. eq2  {i in CustOrigins}: sum{k in Vehicles, j in A: j!=i} x[i,j,k] = 1;
-s.t. eq3  {k in Vehicles, i in CustOrigins}: (sum{j in A: j!=i} x[i,j,k]) - (sum{j in A: j!=i+n} x[i+n,j,k]) = 0;
+s.t. eq2  {i in CustOrigins}: sum{k in Vehicles, j in (N union {k,k+m}): j!=i} x[k,i,j] = 1;
+#s.t. eq2  {i in {5,7,13,18,12}}: sum{k in Vehicles, j in (N union {k,k+m}): j!=i} x[k,i,j] = 1;
+s.t. eq3  {k in Vehicles, i in CustOrigins}: (sum{j in (N union {k,k+m}): j!=i} x[k,i,j]) - (sum{j in (N union {k,k+m}): j!=i+n} x[k,i+n,j]) = 0;
 
 # Depot constraints:
 # - Vehicles start at their origin
 # - If a vehicle enters node j, it must exist node j
 # - Vehicles end at their destination
-s.t. eq4  {k in Vehicles}: sum{j in A: j!=k} x[k,j,k] = 1;
-s.t. eq5  {k in Vehicles, i in N}: (sum{j in A: j!=i} x[j,i,k]) - (sum{j in A: j!=i} x[i,j,k]) = 0;
-s.t. eq6  {k in Vehicles}: sum{i in A: i!=k+m} x[i,k+m,k] = 1;
+s.t. eq4  {k in Vehicles}: sum{j in (N union {k+m})} x[k,k,j] = 1;
+s.t. eq5  {k in Vehicles, i in N}: (sum{j in (N union {k,k+m}): j!=i} x[k,j,i]) - (sum{j in (N union {k,k+m}): j!=i} x[k,i,j]) = 0;
+s.t. eq6  {k in Vehicles}: sum{i in (N union {k})} x[k,i,k+m] = 1;
 
 # Time and load constraints:
 # (Eqs 7-8 are linearized using (15), (16) from the paper)
 # (Eq 7 implies precedence constraint)
 # - Arrival time at j must be greater than arrival time at i, plus the travel time
 # - Load at j should match load at i plus the change in load
-s.t. eq7  {k in Vehicles, i in A, j in A: i!=j}: ArriveTime[j,k] - (ArriveTime[i,k] + serv[i] + sp[i,j]/speed - M*(1-x[i,j,k])) >= 0;
-s.t. eq8  {k in Vehicles, i in A, j in A: i!=j}: DepartLoad[j,k] - (DepartLoad[i,k] + load[j] - M*(1-x[i,j,k])) >= 0;
+s.t. eq7  {k in Vehicles, i in (N union {k,k+m}), j in (N union {k,k+m}): i!=j}: ArriveTime[k,j] - (ArriveTime[k,i] + serv[i] + sp[i,j]/speed - M*(1-x[k,i,j])) >= 0;
+s.t. eq8  {k in Vehicles, i in (N union {k,k+m}), j in (N union {k,k+m}): i!=j}: DepartLoad[k,j] - (DepartLoad[k,i] + load[j] - M*(1-x[k,i,j])) >= 0;
 
 # Ride and trip duration constraints:
 # (Eq 9a,b combine (9), (12) from the paper)
 # - Customer ride time cannot exceed ride[i]
 # - Vehicle trip time cannot exceed trip[k]
-s.t. eq9a {k in Vehicles, i in CustOrigins}: ride[i] - (ArriveTime[i+n,k] - (ArriveTime[i,k] + serv[i])) >= 0;
-s.t. eq9b {k in Vehicles, i in CustOrigins}: (ArriveTime[i+n,k] - (ArriveTime[i,k] + serv[i])) - sp[i,i+n]/speed >= 0;
-s.t. eq10 {k in Vehicles}: trip[k] - (ArriveTime[k+m+n,k] - ArriveTime[k,k]) >= 0;
+s.t. eq9a {k in Vehicles, i in CustOrigins}: ride[i] - (ArriveTime[k,i+n] - (ArriveTime[k,i] + serv[i])) >= 0;
+s.t. eq9b {k in Vehicles, i in CustOrigins}: (ArriveTime[k,i+n] - (ArriveTime[k,i] + serv[i])) - sp[i,i+n]/speed >= 0;
+s.t. eq10 {k in Vehicles}: trip[k] - (ArriveTime[k,k+m] - ArriveTime[k,k]) >= 0;
 
 # Time window constraints
 # (Eq 11a,b describe (11))
-s.t. eq11a {k in Vehicles, i in A}: ArriveTime[i,k] - early[i] >= 0;
-s.t. eq11b {k in Vehicles, i in A}: late[i] - ArriveTime[i,k] >= 0;
+s.t. eq11a {k in Vehicles, i in (N union {k,k+m})}: ArriveTime[k,i] - early[i] >= 0;
+s.t. eq11b {k in Vehicles, i in (N union {k,k+m})}: late[i] - ArriveTime[k,i] >= 0;
 
 # Load constraints
 # (Eq 13a,b describe (13))
-s.t. eq13a {k in Vehicles, i in A}: DepartLoad[i,k] >= max(0,load[i]);
-s.t. eq13b {k in Vehicles, i in A}: DepartLoad[i,k] <= min(cap[k],cap[k]+load[i]);
+s.t. eq13a {k in Vehicles, i in (N union {k,k+m})}: DepartLoad[k,i] >= max(0,load[i]);
+s.t. eq13b {k in Vehicles, i in (N union {k,k+m})}: DepartLoad[k,i] <= min(cap[k],cap[k]+load[i]);
 
 # Solve
 solve;
 printf "Solution:\n";
-for {i in A}
-    for {j in A: j!=i}
-        for {k in Vehicles}
-            printf (if x[i,j,k] = 1 then "x[%i,%i,%i]\n" else ""), i, j, k;
+for {k in Vehicles}
+    for {i in (N union {k,k+m})}
+        for {j in (N union {k,k+m}): j!=i}
+            printf (if x[k,i,j] = 1 then "x[%i,%i,%i]\n" else ""), k, i, j;
 printf "cost: %.3f\n", cost;
 
 end; # end model
