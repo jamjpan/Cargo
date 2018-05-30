@@ -9,7 +9,7 @@ OBJECTS = \
 		  build/file.o \
 		  build/Solution.o \
 		  build/Inserter.o \
-		  build/Router.o \
+		  build/router.o \
 		  build/DA.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
@@ -60,12 +60,12 @@ build/Inserter.o: \
 	src/Inserter.cpp
 	$(CXX) $(CFLAGS) src/Inserter.cpp
 
-build/Router.o: \
-	include/libcargo/Router.h \
+build/router.o: \
+	include/libcargo/router.h \
 	include/libcargo/types.h \
 	include/gtree/gtree.h \
-	src/Router.cpp
-	$(CXX) $(CFLAGS) src/Router.cpp
+	src/router.cpp
+	$(CXX) $(CFLAGS) src/router.cpp
 
 build:
 	mkdir -p build
