@@ -25,18 +25,10 @@
 #include "types.h"
 #include "../gtree/gtree.h"
 
-namespace cargo
-{
+namespace cargo {
 
-class Router
-{
-  public:
-    Router(GTree::G_Tree &);
-    int RouteThrough(const Schedulel &, Routel &);
-
-  private:
-    GTree::G_Tree &gtree_;
-};
+// Given a schedule, return the route through the schedule and its cost
+int route_through(GTree::G_Tree &, const Schedule &, Route &);
 
 } // namespace cargo
 
