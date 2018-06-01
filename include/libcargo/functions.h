@@ -9,8 +9,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,18 +19,24 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_H_
-#define CARGO_INCLUDE_LIBCARGO_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
+#define CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
 
-namespace cargo {} // namespace cargo
+#include "classes.h"
+#include "types.h"
 
-#include "libcargo/cargo.h"
-#include "libcargo/classes.h"
-#include "libcargo/file.h"
-#include "libcargo/message.h"
-#include "libcargo/options.h"
-#include "libcargo/types.h"
-#include "gtree/gtree.h"
-#include "sqlite3/sqlite3.h"
+#include "../gtree/gtree.h"
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+namespace cargo {
+
+// Given a schedule, return the route through the schedule and its cost Cost is
+// integer because G_Tree only returns int. G_Tree should be const, but the
+// functions find, search don't have const attribute. I will modernize the
+// GTree code later.
+DistanceInt route_through(GTree::G_Tree&, const Schedule&,
+                          std::vector<NodeId>&);
+
+} // namespace cargo
+
+#endif // CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
+

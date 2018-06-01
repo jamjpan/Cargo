@@ -20,27 +20,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <iterator>
+#include <iostream>
+#include <limits>
 
-#include "libcargo/router.h"
+#include "libcargo/Inserter.h"
 
 namespace cargo {
 
-// Complexity: O(n*|rt|)
-//      - for loop executes O(n) times, for n stops
-//      - std::copy is exactly |rt| operations
-//      - assume path finding is O(1) with index
-int route_through(GTree::G_Tree &gtree, const Schedule &s, Route &r) {
-    Route r_;
-    int c = 0;
-    r_.push_back(s.front().node_id);
-    for (auto i = s.begin(); i != std::prev(s.end()); ++i) {
-        Route rt;
-        gtree.find_path(i->node_id, std::next(i)->node_id, rt);
-        std::copy(std::next(rt.begin()), rt.end(), std::back_inserter(r_));
-        c += gtree.search(i->node_id, std::next(i)->node_id);
-    }
-    r = r_;
-    return c;
-}
 
 } // namespace cargo

@@ -3,72 +3,61 @@ CXX = g++
 CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 #-------------------------------------------------------------------------------
 OBJECTS = \
-		  build/Simulator.o \
-		  build/gtree.o \
-		  build/sqlite3.o \
+		  build/cargo.o \
+		  build/classes.o \
 		  build/file.o \
-		  build/Solution.o \
-		  build/Inserter.o \
-		  build/router.o \
-		  build/DA.o
+		  build/functions.o \
+		  build/gtree.o \
+		  build/sqlite3.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
 $(OBJECTS): | build
 
-build/Simulator.o: \
-	include/libcargo/Simulator.h \
-	include/libcargo/types.h \
+build/cargo.o: \
+	include/libcargo/cargo.h \
+	include/libcargo/classes.h \
 	include/libcargo/file.h \
-	include/libcargo/options.h \
 	include/libcargo/message.h \
+	include/libcargo/options.h \
+	include/libcargo/types.h \
 	include/gtree/gtree.h \
-	src/Simulator.cpp
-	$(CXX) $(CFLAGS) src/Simulator.cpp
+	src/cargo.cc
+	$(CXX) $(CFLAGS) src/cargo.cc
+
+build/classes.o: \
+	include/libcargo/classes.h \
+	include/libcargo/types.h \
+	src/classes.cc
+	$(CXX) $(CFLAGS) src/classes.cc
+
+build/file.o: \
+	include/libcargo/file.h \
+	include/libcargo/classes.h \
+	include/libcargo/types.h \
+	src/file.cc
+	$(CXX) $(CFLAGS) src/file.cc
+
+build/functions.o: \
+	include/libcargo/functions.h \
+	include/libcargo/classes.h \
+	include/libcargo/types.h \
+	src/functions.cc
+	$(CXX) $(CFLAGS) src/functions.cc
 
 build/gtree.o: \
 	include/gtree/gtree.h \
-	src/gtree/gtree.cpp
-	$(CXX) $(CFLAGS) src/gtree/gtree.cpp
+	src/gtree/gtree.cc
+	$(CXX) $(CFLAGS) src/gtree/gtree.cc
 
 build/sqlite3.o: \
 	include/sqlite3/sqlite3.h \
 	src/sqlite3/sqlite3.c
 	$(CC) -DSQLITE_ENABLE_RTREE src/sqlite3/sqlite3.c
 
-build/DA.o: \
-	include/libcargo/DA.h \
-	src/DA.cpp
-	$(CXX) $(CFLAGS) src/DA.cpp
-
-build/file.o: \
-	include/libcargo/file.h \
-	src/file.cpp
-	$(CXX) $(CFLAGS) src/file.cpp
-
-build/Solution.o: \
-	include/libcargo/Solution.h \
-	include/libcargo/types.h \
-	include/libcargo/Simulator.h \
-	src/Solution.cpp
-	$(CXX) $(CFLAGS) src/Solution.cpp
-
-build/Inserter.o: \
-	include/libcargo/Inserter.h \
-	include/libcargo/types.h \
-	include/gtree/gtree.h \
-	src/Inserter.cpp
-	$(CXX) $(CFLAGS) src/Inserter.cpp
-
-build/router.o: \
-	include/libcargo/router.h \
-	include/libcargo/types.h \
-	include/gtree/gtree.h \
-	src/router.cpp
-	$(CXX) $(CFLAGS) src/router.cpp
-
 build:
 	mkdir -p build
 
 clean:
 	rm -rf build/ lib/libcargo.a
+

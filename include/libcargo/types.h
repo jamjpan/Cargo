@@ -19,16 +19,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_TYPES_H_
-#define CARGO_INCLUDE_TYPES_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_TYPES_H_
+#define CARGO_INCLUDE_LIBCARGO_TYPES_H_
 
 #include <chrono>
 #include <limits>
-#include <list>
-#include <map>
-#include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace cargo {
 
@@ -49,10 +45,12 @@ namespace cargo {
 // Google or-tools has a nice template class in int_type.h to prevent these
 // kinds of issues. We can consider using their template IntType class in the
 // future. But for now, using typedefs to at least provide some semantic
-// difference is better than nothing.
+// difference is better than nothing. But we don't have static type-checking.
 
 // ints are guaranteed at least 32-bits ~> 2 billion values.
 typedef int NodeId;
+typedef int OriginId;
+typedef int DestinationId;
 
 // these are part of the same "type-class", and are interchangeable.
 typedef int TripId;
@@ -71,81 +69,54 @@ struct Point {
     Latitude lat;
 };
 
+struct BoundingBox {
+    Point lower_left;
+    Point upper_right;
+};
+
+// All of these are in meters.
+typedef int DistanceInt;
+typedef float DistanceFloat;
+typedef double DistanceDouble;
+
 // Used as the internal simulation time; one SimTime is roughly equivalent to
 // one real second. Time windows are expressed as SimTime, with 0 being the
 // start of the simulation. Travel time is also expressed as SimTime, computed
-// as the real (haversine) distance divided by the real speed, in m/s.
+// as the real (haversine) distance divided by the real speed, in m/s, and
+// rounded.
 typedef int SimTime;
+typedef int EarlyTime;
+typedef int LateTime;
 
+typedef float Speed; // meters per second
+
+// These used to be in all uppercase, but according to the ISO C++ guidelines,
+// only macros should be in uppercase.
+// http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-naming
 enum class StopType {
-    CUSTOMER_ORIGIN,
-    CUSTOMER_DEST,
-    VEHICLE_ORIGIN,
-    VEHICLE_DEST,
+    CustomerOrigin,
+    CustomerDest,
+    VehicleOrigin,
+    Vehicledest,
 };
 
-// visit_time defaults to -1 and is populated when a vehicle visits the stop.
-struct Stop {
-    TripId trip_id;
-    NodeId node_id;
-    StopType type;
-    SimTime visit_time;
-    // Time limit for a stop, if type == ORIGIN, it's early time, otherwise late
-    // time
-    // @James addition variable
-    SimTime time_limit;
-
-    // bool operator==(const Stop& a) {
-    //     return (a.trip_id == trip_id && a.node_id == node_id && a.type ==
-    //     type
-    //             && a.time_limit == time_limit);
-    // }
+enum class CustomerStatus {
+    Waiting,
+    Onboard,
+    Arrived,
+    Canceled,
 };
 
-typedef std::vector<NodeId> Route;
-typedef std::vector<Stop> Schedule;
-typedef std::list<NodeId> Routel;
-typedef std::list<Stop> Schedulel;
-
-// Trip represents shared properties between customers and vehicles.
-struct Trip {
-    TripId id;
-    NodeId oid;
-    NodeId did;
-
-    // The time window is expressed as SimTimes. early tells the simulator when
-    // to broadcast this trip. late tells the solver the constraint for when
-    // the trip should arrive at destination.
-    SimTime early;
-    SimTime late;
-
-    // Positive corresponds to a customer request; negative
-    // corresponds to vehicle capacity.
-    int demand;
+enum class VehicleStatus {
+    Waiting,
+    Enroute,
+    Arrived,
 };
 
-// nnd is the next-node distance (negative, to indicate remaining distance).
-// lv_node and lv_stop are the indices to the last-visited node and stop. These
-// are advanced as the vehicle moves along its route.
-struct Vehicle : public Trip {
-    int load; // mutate this instead of vehicle.demand
-    int nnd;
-    Route route;
-    Schedule sched;
-    size_t lv_node;
-    size_t lv_stop;
-    bool is_active;
+typedef int Load; // a Load < 0 indicates a vehicle; > 0 indicates a customer
 
-    // Copy the properties of t into this vehicle.
-    Vehicle(const Trip &t)
-        : Trip(t), load(t.demand), nnd(0), lv_node(0), lv_stop(0),
-          is_active(true){};
-
-    // @James add default constructor for map use
-    Vehicle()
-        : Trip(Trip{-1, -1, -1, -1, -1, 0}), load(0), nnd(0), lv_node(0),
-          lv_stop(0), is_active(false){};
-};
+typedef size_t RouteIndex;
+typedef size_t ScheduleIndex;
 
 // Lookup nodes.
 typedef std::unordered_map<NodeId, Point> KeyValueNodes;
@@ -154,48 +125,31 @@ typedef std::unordered_map<NodeId, Point> KeyValueNodes;
 // to-from key combinations both exist in the store. Usage:
 //     EdgeMap em_;
 //     em[from_id][to_id] = weight;
-typedef std::unordered_map<NodeId, std::unordered_map<NodeId, double>>
+typedef std::unordered_map<NodeId, std::unordered_map<NodeId, DistanceDouble>>
     KeyValueEdges;
-
-// Lookup vehicles.
-typedef std::unordered_map<VehicleId, Vehicle> KeyValueVehicles;
-
-// Store assignments.
-typedef std::unordered_map<VehicleId, CustomerId> KeyValueAssignments;
 
 // Request broadcast time map
 typedef std::unordered_map<
     CustomerId, std::chrono::time_point<std::chrono::high_resolution_clock>>
     KeyValueBroadcastTime;
 
-// A problem instance is the set of trips keyed by their early time. When the
-// simulator time reaches SimTime, all the trips in the group are broadcasted.
-struct ProblemInstance {
-    std::string name;
-    std::string road_network;
-    std::unordered_map<SimTime, std::vector<Trip>> trips;
-};
-
 // Simulator status flags
-// TODO: These might not be necessary?
 enum class SimulatorStatus {
-    RUNNING,
-    FINISHED,
+    Running,
+    Done,
 };
-
-// Vehicle speed, in m/s
-typedef float Speed;
 
 // Filepath
 typedef std::string Filepath;
 
 // Infinity
-const int kIntInfinity = std::numeric_limits<int>::max();
-const double kDblInfinity = std::numeric_limits<double>::infinity();
+const int InfinityInt = std::numeric_limits<int>::max();
+const double InfinityDouble = std::numeric_limits<double>::infinity();
 
 // Math PI
-const double kPI = 3.141592653589793238462643383279502884L;
+const double MathPI = 3.141592653589793238462643383279502884L;
 
 } // namespace cargo
 
-#endif // CARGO_INCLUDE_TYPES_H_
+#endif // CARGO_INCLUDE_LIBCARGO_TYPES_H_
+

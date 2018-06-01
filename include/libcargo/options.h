@@ -19,33 +19,28 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_OPTIONS_H_
-#define CARGO_INCLUDE_OPTIONS_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_OPTIONS_H_
+#define CARGO_INCLUDE_LIBCARGO_OPTIONS_H_
 
 #include "types.h"
 
 namespace cargo {
-namespace opts {
 
 struct Options {
-    Filepath RoadNetworkPath;
-    Filepath GTreePath;
-    Filepath EdgeFilePath;
-    Filepath ProblemInstancePath;
+    Filepath path_to_roadnet;
+    Filepath path_to_gtree;
+    Filepath path_to_edges;
+    Filepath path_to_problem;
 
-    // The scale is a multiplier for the ratio between the SimTime and real
-    // time. A scale=2, for example, will set one SimTime to be equal to
-    // approximately 1/2 real seconds. The scale is unitless and has no
-    // real-world semantic meaning, hence it has a generic data type, float
-    float Scale;
+    // A multiplier for the ratio between the SimTime and real time. A
+    // multiplier of 2, for example, will set one SimTime to be equal to
+    // approximately 1/2 real seconds.
+    float time_multiplier;
 
-    // Units: m/s
-    Speed VehicleSpeed;
-    // @James GPS update timing
-    int GPSTiming;
+    Speed vehicle_speed; // meters per second
+    int gps_frequency; // GPS "update" rate
 };
 
-} // namespace opts
 } // namespace cargo
 
-#endif // CARGO_INCLUDE_OPTIONS_H_
+#endif // CARGO_INCLUDE_LIBCARGO_OPTIONS_H_

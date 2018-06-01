@@ -9,8 +9,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,18 +19,45 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_H_
-#define CARGO_INCLUDE_LIBCARGO_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_DBAPI_H_
+#define CARGO_INCLUDE_LIBCARGO_DBAPI_H_
 
-namespace cargo {} // namespace cargo
+#include <string>
+#include <vector>
 
-#include "libcargo/cargo.h"
-#include "libcargo/classes.h"
-#include "libcargo/file.h"
-#include "libcargo/message.h"
-#include "libcargo/options.h"
-#include "libcargo/types.h"
-#include "gtree/gtree.h"
-#include "sqlite3/sqlite3.h"
+#include "types.h"
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+#include "../sqlite3/sqlite3.h"
+
+namespace cargo {
+namespace db {
+
+
+
+
+class DA {
+public:
+    DA();
+    ~DA();
+    int AddVehicle(Vehicle *);
+    // vid lv_node nnd
+    int UpdateLocation(VehicleId, int, int);
+    int UpdateSchedule(VehicleId, Schedule *, Route *);
+    int UpdateStop(VehicleId, int, SimTime);
+    int InsertRequest(Trip *);
+    int GetOneRequest(Trip *);
+    int GetNRequest(std::vector<Trip *> &, int);
+    std::vector<long long int> StringToVector(std::string);
+    template <typename T> std::string VectorToString(std::vector<T> &);
+
+private:
+    sqlite3 *db;
+    char *zErrMsg;
+    int rc;
+};
+
+} // namespace db
+} // namespace cargo
+
+#endif // CARGO_INCLUDE_LIBCARGO_DBAPI_H_
+

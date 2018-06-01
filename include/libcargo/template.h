@@ -19,18 +19,14 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_H_
-#define CARGO_INCLUDE_LIBCARGO_H_
+#ifndef CARGO_INCLUDE_TEMPLATE_H_
+#define CARGO_INCLUDE_TEMPLATE_H_
 
-namespace cargo {} // namespace cargo
+#include "types.h"
 
-#include "libcargo/cargo.h"
-#include "libcargo/classes.h"
-#include "libcargo/file.h"
-#include "libcargo/message.h"
-#include "libcargo/options.h"
-#include "libcargo/types.h"
-#include "gtree/gtree.h"
-#include "sqlite3/sqlite3.h"
+namespace cargo {
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+
+} // namespace cargo
+
+#endif // CARGO_INCLUDE_TEMPLATE_H_

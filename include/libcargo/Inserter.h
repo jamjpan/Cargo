@@ -28,16 +28,8 @@
 
 namespace cargo {
 
-class Inserter {
-  public:
-    Inserter(GTree::G_Tree &);
-
-    Schedulel Inserter_jaw(const Schedulel &, const Stop, const Stop, Routel &);
-
-  private:
-    GTree::G_Tree &gtree_;
-    Router rtr_;
-};
+// Given a schedule and a customer, insert the customer in the best way
+int sop_insertion(GTree::G_Tree &, const Schedule &, const Trip &, Schedule &, Route &)
 
 } // namespace cargo
 

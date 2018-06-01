@@ -19,29 +19,29 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_FILE_H_
-#define CARGO_INCLUDE_FILE_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_FILE_H_
+#define CARGO_INCLUDE_LIBCARGO_FILE_H_
 
+#include "classes.h"
 #include "types.h"
 
 namespace cargo {
-namespace file {
 
 // These functions throw runtime_errors if the file cannot be read.
 
 // Returns number of nodes
-size_t ReadNodes(const Filepath &, KeyValueNodes &);
+size_t read_nodes(const Filepath &, KeyValueNodes &);
 
-size_t ReadNodes(const Filepath &, KeyValueNodes &, Longitude &, Longitude &,
-                 Latitude &, Latitude &);
+// Returns number of nodes, and output min/max lng/lat
+size_t read_nodes(const Filepath &, KeyValueNodes &, BoundingBox &);
 
 // Returns number of edges
-size_t ReadEdges(const Filepath &, KeyValueEdges &);
+size_t read_edges(const Filepath &, KeyValueEdges &);
 
 // Returns number of trips
-size_t ReadProblemInstance(const Filepath &, ProblemInstance &);
+size_t read_problem(const Filepath &, ProblemSet &);
 
-} // namespace file
 } // namespace cargo
 
-#endif // CARGO_INCLUDE_FILE_H_
+#endif // CARGO_INCLUDE_LIBCARGO_FILE_H_
+

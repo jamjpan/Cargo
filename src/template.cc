@@ -19,17 +19,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_ROUTER_H_
-#define CARGO_INCLUDE_ROUTER_H_
-
-#include "types.h"
-#include "../gtree/gtree.h"
+#include "libcargo/template.h"
 
 namespace cargo {
 
-// Given a schedule, return the route through the schedule and its cost
-int route_through(GTree::G_Tree &, const Schedule &, Route &);
-
 } // namespace cargo
-
-#endif // CARGO_INCLUDE_ROUTER_H_

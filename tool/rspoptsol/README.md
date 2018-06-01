@@ -12,3 +12,7 @@ I recommend using something other than glpsol for the a2-16 instance because it
 will take a long time. Using [SYMPHONY](https://projects.coin-or.org/SYMPHONY)
 seems to be a little faster. A commercial solver like Gurobi or CPLEX will
 likely be even faster, though I haven't tried.
+
+Update: after 72004 seconds (20 hrs), SYMPHONY managed to obtain a lower bound
+of 203.41, but did not yet find an upper bound or a solution. This is on a
+dual-core i5 processor machine with 8 GB of RAM.

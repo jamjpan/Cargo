@@ -19,11 +19,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_MESSAGE_H_
-#define CARGO_INCLUDE_MESSAGE_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_MESSAGE_H_
+#define CARGO_INCLUDE_LIBCARGO_MESSAGE_H_
 
-//http://stackoverflow.com/questions/9158150/ddg#9158263
-//the following are UBUNTU/LINUX ONLY terminal color codes.
+// From http://stackoverflow.com/questions/9158150/ddg#9158263
+// The following are UBUNTU/LINUX ONLY terminal color codes.
 #define RESET       "\033[0m"
 #define BLACK       "\033[30m"              /* Black        */
 #define RED         "\033[31m"              /* Red          */
@@ -52,40 +52,53 @@
 //     Message myMsg(MessageType::T);
 //     myMsg << "the answer is " << 42 << std::endl;
 namespace cargo {
-namespace msg {
 
 enum class MessageType {
-    DEFAULT,    // black
-    INFO,       // blue
-    WARNING,    // magenta
-    ERROR,      // red
-    SUCCESS,    // green
+    Default,    // black
+    Info,       // blue
+    Warning,    // magenta
+    Error,      // red
+    Success,    // green
 };
 
-struct Message : std::ostream, std::streambuf {
-    Message() : std::ostream(this), type(MessageType::DEFAULT) {}
+class Message : public std::ostream, public std::streambuf {
+public:
+    Message() : std::ostream(this), type(MessageType::Default) {}
     Message(MessageType t) : std::ostream(this), type(t) {}
 
+private:
     bool head = true;
     MessageType type;
 
-    int sync() {
+    int sync()
+    {
         std::cout << RESET;
         std::cout.flush();
         head = true;
         return 0;
     }
 
-    int overflow(int c) {
+    int overflow(int c)
+    {
         if (head) {
             auto now = std::chrono::system_clock::now();
             auto now_c = std::chrono::system_clock::to_time_t(now);
-            switch(type) {
-                case MessageType::DEFAULT:  std::cout << RESET;     break;
-                case MessageType::INFO:     std::cout << BLUE;      break;
-                case MessageType::WARNING:  std::cout << MAGENTA;   break;
-                case MessageType::ERROR:    std::cout << RED;       break;
-                case MessageType::SUCCESS:  std::cout << GREEN;     break;
+            switch (type) {
+            case MessageType::Default:
+                std::cout << RESET;
+                break;
+            case MessageType::Info:
+                std::cout << BLUE;
+                break;
+            case MessageType::Warning:
+                std::cout << MAGENTA;
+                break;
+            case MessageType::Error:
+                std::cout << RED;
+                break;
+            case MessageType::Success:
+                std::cout << GREEN;
+                break;
             }
             std::cout << std::put_time(std::localtime(&now_c), "[%F %T] ");
             head = false;
@@ -97,7 +110,6 @@ struct Message : std::ostream, std::streambuf {
     }
 };
 
-} // namespace msg
 } // namespace cargo
 
-#endif // CARGO_INCLUDE_MESSAGE_H_
+#endif // CARGO_INCLUDE_LIBCARGO_MESSAGE_H_

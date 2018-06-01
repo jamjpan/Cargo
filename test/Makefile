@@ -8,44 +8,28 @@ CARGO = -L../lib -lcargo
 #-------------------------------------------------------------------------------
 OBJECTS = \
 		  build/main.o \
-		  build/message_test.o \
-		  build/sqlite3_test.o \
-		  build/simulator_test.o \
-		  build/DA_test.o
-		#   build/router_test.o \
-		#   build/inserter_test.o 
+		  build/cargo_test.o \
+		  build/message_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
 $(OBJECTS): | build
 
 build/main.o: \
-	src/main.cpp
-	$(CXX) $(CFLAGS) src/main.cpp
+	src/main.cc
+	$(CXX) $(CFLAGS) src/main.cc
 
-build/simulator_test.o: \
-	src/simulator_test.cpp
-	$(CXX) $(CFLAGS) src/simulator_test.cpp
+build/cargo_test.o: \
+	../lib/libcargo.a \
+	../include/libcargo.h \
+	src/cargo_test.cc
+	$(CXX) $(CFLAGS) src/cargo_test.cc
 
 build/message_test.o: \
-	src/message_test.cpp
-	$(CXX) $(CFLAGS) src/message_test.cpp
-
-build/sqlite3_test.o: \
-	src/sqlite3_test.cpp
-	$(CXX) $(CFLAGS) src/sqlite3_test.cpp
-
-build/inserter_test.o: \
-	src/inserter_test.cpp
-	$(CXX) $(CFLAGS) src/inserter_test.cpp
-
-build/router_test.o: \
-	src/router_test.cpp
-	$(CXX) $(CFLAGS) src/router_test.cpp
-
-build/DA_test.o: \
-	src/DA_test.cpp
-	$(CXX) $(CFLAGS) src/DA_test.cpp
+	../lib/libcargo.a \
+	../include/libcargo.h \
+	src/message_test.cc
+	$(CXX) $(CFLAGS) src/message_test.cc
 
 build:
 	mkdir -p build

@@ -23,11 +23,12 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <algorithm>
 
 namespace cargo {
-namespace file {
 
-size_t ReadNodes(const Filepath &path, KeyValueNodes &N) {
+size_t read_nodes(const Filepath& path, KeyValueNodes& N)
+{
     std::ifstream ifs(path);
     if (!ifs.good())
         throw std::runtime_error("node path not found");
@@ -44,43 +45,23 @@ size_t ReadNodes(const Filepath &path, KeyValueNodes &N) {
     return N.size();
 }
 
-size_t ReadNodes(const Filepath &path, KeyValueNodes &N, Longitude &minX,
-                 Longitude &maxX, Latitude &minY, Latitude &maxY) {
-    std::ifstream ifs(path);
-    if (!ifs.good())
-        throw std::runtime_error("node path not found");
-    N.clear();
-    NodeId oid, did;
-    Latitude oy, dy;
-    Longitude ox, dx;
-    int _; // unused
-    Longitude minLong = 999, maxLong = -999;
-    Latitude minLat = 999, maxLat = -999;
-    while (ifs >> _ >> oid >> did >> ox >> oy >> dx >> dy) {
-        N[oid] = {ox, oy};
-        N[did] = {dx, dy};
-        for (int i = 0; i < 2; i++) {
-            if (ox < minLong)
-                minLong = ox;
-            if (ox > maxLong)
-                maxLong = ox;
-            if (oy < minLat)
-                minLat = oy;
-            if (oy > maxLat)
-                maxLat = oy;
-            ox = dx;
-            oy = dy;
-        }
+size_t read_nodes(const Filepath& path, KeyValueNodes& N, BoundingBox& bbox)
+{
+    read_nodes(path, N);
+    Longitude min_lng = 180, max_lng = -180;
+    Latitude min_lat = 90, max_lat = -90;
+    for (const auto &kv : N) {
+        max_lng = std::max(max_lng, kv.second.lng);
+        max_lat = std::max(max_lat, kv.second.lat);
+        min_lng = std::min(min_lng, kv.second.lng);
+        min_lat = std::min(min_lat, kv.second.lat);
     }
-    ifs.close();
-    minX = minLong;
-    maxX = maxLong;
-    minY = minLat;
-    maxY = maxLat;
+    bbox = {{min_lng, min_lat}, {max_lng, max_lat}};
     return N.size();
 }
 
-size_t ReadEdges(const Filepath &path, KeyValueEdges &M) {
+size_t read_edges(const Filepath& path, KeyValueEdges& M)
+{
     std::ifstream ifs(path);
     if (!ifs.good())
         throw std::runtime_error("edge path not found");
@@ -99,28 +80,33 @@ size_t ReadEdges(const Filepath &path, KeyValueEdges &M) {
     return count_edges;
 }
 
-size_t ReadProblemInstance(const Filepath &path, ProblemInstance &P) {
+size_t read_problem(const Filepath& path, ProblemSet &probset)
+{
     std::ifstream ifs(path);
     if (!ifs.good())
         throw std::runtime_error("problem path not found");
-    P.trips.clear();
-    std::string _;
+    std::unordered_map<SimTime, std::vector<Trip>> trips;
+    std::string _;       // unused
     size_t m, n;
     size_t count_trips = 0;
-    ifs >> P.name >> P.road_network >> _ >> m >> _ >> n;
+    ifs >> probset.name() >> probset.road_network() >> _ >> m >> _ >> n;
     ifs >> _;             // skip the blank line
     std::getline(ifs, _); // skip the header row
     TripId tid;
-    NodeId oid, did;
-    int q;
-    SimTime early, late;
+    OriginId oid;
+    DestinationId did;
+    Load q;
+    EarlyTime early;
+    LateTime late;
     while (ifs >> tid >> oid >> did >> q >> early >> late) {
-        P.trips[early].push_back({tid, oid, did, early, late, q});
+        Trip tr(tid, oid, did, early, late, q);
+        trips[early].push_back(tr);
         count_trips++;
     }
     ifs.close();
+    probset.set_trips(trips);
     return count_trips;
 }
 
-} // namespace file
 } // namespace cargo
+

@@ -19,40 +19,34 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <iterator>
-#include <iostream>
-#include <limits>
+#ifndef CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
+#define CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
 
-#include "libcargo/Inserter.h"
+#include "types.h"
+
+#include <cmath>
 
 namespace cargo {
+namespace distance {
 
-Inserter::Inserter(GTree::G_Tree &g) : gtree_(g), rtr_(g) {}
-
-Schedulel Inserter::Inserter_jaw(const Schedulel &s, const Stop o, const Stop d,
-                                Routel &r) {
-    Schedulel s_min {};
-    Routel r_min, r_;
-    int c_min = kIntInfinity;
-    int c_;
-
-    for (size_t i = 0; i < s.size(); ++i) {
-        Schedulel so = s;
-        so.insert(std::next(so.begin(), i), o);
-        for (size_t j = i+1; j <= so.size(); ++j) {
-            Schedulel sod = so;
-            sod.insert(std::next(sod.begin(), j), d);
-            c_ = rtr_.RouteThrough(sod, r_);
-            if (c_ < c_min) {
-                c_min = c_;
-                r_min = r_;
-                s_min = sod;
-            }
-        }
-    }
-
-    r = r_min;
-    return s_min;
+inline DistanceDouble euclidean(const Point& u, const Point& v)
+{
+    return std::hypot((u.lng - v.lng), (u.lat - v.lat));
 }
 
+inline DistanceDouble haversine(const Point& u, const Point& v)
+{
+    double r = 6372800.0; // radius of Earth (m)
+    double x = (u.lng - v.lng) * (MathPI / 180);
+    double y = (u.lat - v.lat) * (MathPI / 180);
+    double a = std::sin(y / 2) * std::sin(y / 2) +
+               std::sin(x / 2) * std::sin(x / 2) *
+                   std::cos(u.lat * (MathPI / 180)) *
+                   std::cos(v.lat * (MathPI / 180));
+    return r * (2 * std::asin(std::sqrt(a)));
+}
+
+} // namespace distance
 } // namespace cargo
+
+#endif // CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
