@@ -9,8 +9,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -22,21 +22,21 @@
 #ifndef CARGO_INCLUDE_INSERTER_H_
 #define CARGO_INCLUDE_INSERTER_H_
 
-#include "types.h"
-#include "Router.h"
 #include "../gtree/gtree.h"
+#include "router.h"
+#include "types.h"
 
 namespace cargo {
 
 class Inserter {
-  public:
+public:
     Inserter(GTree::G_Tree &);
 
     Schedulel Inserter_jaw(const Schedulel &, const Stop, const Stop, Routel &);
 
-  private:
+private:
     GTree::G_Tree &gtree_;
-    Router rtr_;
+    // Router rtr_;
 };
 
 } // namespace cargo
