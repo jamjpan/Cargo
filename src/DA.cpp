@@ -108,6 +108,7 @@ int DA::AddVehicle(Vehicle *vehicle) {
                 return -1;
             }
             stop_ids.push_back(sqlite3_last_insert_rowid(db));
+            sqlite3_reset(insert_stop);
         }
         rc = sqlite3_finalize(insert_stop);
         if (rc != SQLITE_OK) {

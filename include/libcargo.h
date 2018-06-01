@@ -9,8 +9,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -26,6 +26,9 @@
 
 namespace cargo {} // namespace cargo
 
+#include "distance/euclidean.h"
+#include "distance/haversine.h"
+#include "gtree/gtree.h"
 #include "libcargo/DA.h"
 #include "libcargo/Inserter.h"
 #include "libcargo/Router.h"
@@ -35,7 +38,6 @@ namespace cargo {} // namespace cargo
 #include "libcargo/message.h"
 #include "libcargo/options.h"
 #include "libcargo/types.h"
-#include "gtree/gtree.h"
 #include "queue/readerwriterqueue.h"
 #include "sqlite3/sqlite3.h"
 

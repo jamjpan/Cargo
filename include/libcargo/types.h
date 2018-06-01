@@ -64,6 +64,7 @@ typedef int CustomerId;
 // to a precision of roughly 110 centimeters(!), so 7 is more than enough.
 typedef float Longitude;
 typedef float Latitude;
+typedef float Distance;
 
 // Spatial data type.
 struct Point {
