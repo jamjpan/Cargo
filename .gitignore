@@ -13,4 +13,4 @@ lib/
 tool/gtreebuilder/gtreebuilder
 test/build/
 test/run_tests
-example/test
+example/greedy_insertion/greedy_insertion
