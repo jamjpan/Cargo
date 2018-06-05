@@ -52,23 +52,30 @@ static int circle_query_callback(sqlite3_rtree_query_info *p) {
     //     p->eWithin = FULLY_WITHIN;
     // else
     //     p->eWithin = NOT_WITHIN;
-    Distance d = distance::haversine(a, b);
     // std::cout << "d is: " << d << std::endl;
     // std::cout << "p is: " << p->eParentWithin << std::endl;
     // if (distance::haversine(a, b) < 300)
     // std::cout << p->iLevel << " " << p->mxLevel << std::endl;
-    if (d < 1000)
-        p->eWithin = FULLY_WITHIN;
-    else {
-        if (p->iLevel == p->mxLevel) {
-            p->eWithin = NOT_WITHIN;
-            std::cout << "hi" << std::endl;
-        } else {
-            p->eWithin = PARTLY_WITHIN;
-            p->rScore = p->iLevel;
-            std::cout << "hello" << std::endl;
+    bool coords[4];
+    int count = 0;
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 2; j < 4; ++j) {
+            Point b = {(float)p->aCoord[i], (float)p->aCoord[j]};
+            if (distance::haversine(a, b) < 500)
+                coords[count] = true;
+            else
+                coords[count] = false;
+            ++count;
         }
     }
+    int sum = (int)coords[0] + (int)coords[1] + (int)coords[2] + (int)coords[3];
+    std::cout << sum << std::endl;
+    if (sum == 4)
+        p->eWithin = FULLY_WITHIN;
+    else if (sum == 0)
+        p->eWithin = NOT_WITHIN;
+    else
+        p->eWithin = PARTLY_WITHIN;
     return SQLITE_OK;
 }
 
@@ -125,15 +132,14 @@ TEST_CASE("Sqlite3 Rtree", "[sqlite3]") {
                           NULL, NULL, &zErrMsg);
         if (rc != SQLITE_OK)
             std::cout << "exec error: " << zErrMsg << std::endl;
-        // rc = sqlite3_rtree_query_callback(db, "circle",
-        // circle_query_callback,
-        //                                   NULL, NULL);
-        // if (rc != SQLITE_OK)
-        //     std::cout << "rtree error: " << sqlite3_errmsg(db) << std::endl;
-        rc = sqlite3_rtree_geometry_callback(db, "circle",
-                                             circle_geometry_callback, NULL);
+        rc = sqlite3_rtree_query_callback(db, "circle", circle_query_callback,
+                                          NULL, NULL);
         if (rc != SQLITE_OK)
             std::cout << "rtree error: " << sqlite3_errmsg(db) << std::endl;
+        // rc = sqlite3_rtree_geometry_callback(db, "circle",
+        //                                      circle_geometry_callback, NULL);
+        // if (rc != SQLITE_OK)
+        //     std::cout << "rtree error: " << sqlite3_errmsg(db) << std::endl;
 
         sqlite3_stmt *insert_node;
         rc = sqlite3_prepare_v2(db,
