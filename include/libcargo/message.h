@@ -42,10 +42,12 @@
 #define BOLDCYAN    "\033[1m\033[36m"       /* Bold Cyan    */
 #define BOLDWHITE   "\033[1m\033[37m"       /* Bold White   */
 
-#include <iostream>
-#include <iomanip>
 #include <chrono>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
+#include <mutex>
+#include <string>
 
 // Provides colored output.
 // Usage:
@@ -63,12 +65,16 @@ enum class MessageType {
 
 class Message : public std::ostream, public std::streambuf {
 public:
-    Message() : std::ostream(this), type(MessageType::Default) {}
-    Message(MessageType t) : std::ostream(this), type(t) {}
+    Message() : std::ostream(this), type(MessageType::Default), name("noname") {}
+    Message(MessageType t) : std::ostream(this), type(t), name("noname") {}
+    Message(std::string n) : std::ostream(this), type(MessageType::Default), name(n) {}
+    Message(MessageType t, std::string n) : std::ostream(this), type(t), name(n) {}
 
 private:
     bool head = true;
     MessageType type;
+    std::string name;
+    static std::mutex mtx_;
 
     int sync()
     {
@@ -100,7 +106,8 @@ private:
                 std::cout << GREEN;
                 break;
             }
-            std::cout << std::put_time(std::localtime(&now_c), "[%F %T] ");
+            std::lock_guard<std::mutex> lock(mtx_);
+            std::cout << std::put_time(std::localtime(&now_c), "[%F %T]") << "[" << name << "] ";
             head = false;
         }
         std::cout << char(c);

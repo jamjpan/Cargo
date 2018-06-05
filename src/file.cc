@@ -19,11 +19,13 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include "libcargo/file.h"
-
 #include <fstream>
 #include <stdexcept>
-#include <algorithm>
+#include <algorithm> /* min(), max() */
+
+#include "libcargo/file.h"
+#include "libcargo/classes.h"
+#include "libcargo/types.h"
 
 namespace cargo {
 

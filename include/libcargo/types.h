@@ -25,6 +25,7 @@
 #include <chrono>
 #include <limits>
 #include <unordered_map>
+#include <utility> /* std::pair */
 
 namespace cargo {
 
@@ -57,12 +58,8 @@ typedef int TripId;
 typedef int VehicleId;
 typedef int CustomerId;
 
-// No need for double precision because these will never be operated on. Float
-// gives us 7 decimal digits. For lng/lat coordinates, the 6th digit corresponds
-// to a precision of roughly 110 centimeters(!), so 7 is more than enough.
-typedef float Longitude;
-typedef float Latitude;
-typedef float Distance;
+typedef double Longitude;
+typedef double Latitude;
 
 // Spatial data type.
 struct Point {
@@ -95,26 +92,28 @@ typedef float Speed; // meters per second
 // only macros should be in uppercase.
 // http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-naming
 enum class StopType {
-    CustomerOrigin,
-    CustomerDest,
-    VehicleOrigin,
-    Vehicledest,
+    CustomerOrigin, // = 0
+    CustomerDest,   // = 1
+    VehicleOrigin,  // = 2
+    VehicleDest,    // = 3
 };
 
 enum class CustomerStatus {
-    Waiting,
-    Onboard,
-    Arrived,
-    Canceled,
+    Waiting,        // = 0
+    Onboard,        // = 1
+    Arrived,        // = 2
+    Canceled,       // = 3
 };
 
 enum class VehicleStatus {
-    Waiting,
-    Enroute,
-    Arrived,
+    Waiting,        // = 0
+    Enroute,        // = 1
+    Arrived,        // = 2
 };
 
 typedef int Load; // a Load < 0 indicates a vehicle; > 0 indicates a customer
+
+typedef std::pair<DistanceInt, NodeId> Waypoint;
 
 typedef size_t RouteIndex;
 typedef size_t ScheduleIndex;
@@ -136,8 +135,8 @@ typedef std::unordered_map<
 
 // Simulator status flags
 enum class SimulatorStatus {
-    Running,
-    Done,
+    Running,        // = 0
+    Done,           // = 1
 };
 
 // Filepath
@@ -149,6 +148,11 @@ const double InfinityDouble = std::numeric_limits<double>::infinity();
 
 // Math PI
 const double MathPI = 3.141592653589793238462643383279502884L;
+
+// SQLite
+typedef int SqliteReturnCode;
+typedef char* SqliteErrorMessage;
+typedef const char* SqliteQuery;
 
 } // namespace cargo
 

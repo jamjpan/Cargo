@@ -23,6 +23,7 @@
 #define CARGO_INCLUDE_LIBCARGO_CLASSES_H_
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "types.h"
@@ -38,6 +39,7 @@ namespace cargo {
 class Stop {
 public:
     Stop(TripId, NodeId, StopType, EarlyTime, LateTime, SimTime);
+    Stop(TripId, NodeId, StopType, EarlyTime, LateTime); // visitedAt gets -1
     const TripId&               owner()                 const;
     const NodeId&               location()              const;
     const StopType&             type()                  const;
@@ -74,22 +76,24 @@ private:
 // route, for example construct one from segments, use std::vector<NodeId>
 class Route {
 public:
-    Route(VehicleId, std::vector<NodeId>);
+    Route(VehicleId, std::vector<Waypoint>);
     const VehicleId&            owner()                 const;
-    const std::vector<NodeId>&  data()                  const;
+    const std::vector<Waypoint>& data()                 const;
     size_t                      size()                  const;
-    NodeId                      at(RouteIndex)          const;
+    NodeId                      node_at(RouteIndex)     const;
+    DistanceInt                 dist_at(RouteIndex)     const;
+    Waypoint                    at(RouteIndex)          const;
 
 private:
     VehicleId owner_;
-    std::vector<NodeId> data_;
+    std::vector<Waypoint> data_;
 };
 
 // A Trip is the base class for a customer or vehicle.
 class Trip {
 public:
     Trip(TripId, OriginId, DestinationId, EarlyTime, LateTime, Load);
-    const TripId&               owner()                 const;
+    const TripId&               id()                    const;
     const OriginId&             origin()                const;
     const DestinationId&        destination()           const;
     const EarlyTime&            early()                 const;
@@ -97,7 +101,7 @@ public:
     Load                        load()                  const;
 
 protected:
-    TripId owner_;
+    TripId id_;
     OriginId origin_;
     DestinationId destination_;
     EarlyTime early_;
@@ -110,10 +114,14 @@ class Customer : public Trip {
 public:
     Customer(CustomerId, OriginId, DestinationId, EarlyTime, LateTime, Load,
              CustomerStatus);
+    Customer(CustomerId, OriginId, DestinationId, EarlyTime, LateTime, Load,
+             CustomerStatus, VehicleId);
     CustomerStatus              status()                const;
+    VehicleId                   assignedTo()            const;
 
 private:
     CustomerStatus status_;
+    VehicleId assignedTo_;
 
 };
 
@@ -123,22 +131,20 @@ private:
 class Vehicle : public Trip {
 public:
     Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load,
-            DistanceInt, Route, Schedule, RouteIndex, ScheduleIndex, VehicleStatus);
+            DistanceInt, Route, Schedule, RouteIndex, VehicleStatus);
     DistanceInt                 next_node_distance()    const;
     const Route&                route()                 const;
     const Schedule&             schedule()              const;
     RouteIndex                  idx_last_visited_node() const;
-    ScheduleIndex               idx_last_visited_stop() const;
     NodeId                      last_visited_node()     const;
-    Stop                        last_visited_stop()     const;
     VehicleStatus               status()                const;
+    void                        print()                 const;
 
 private:
     DistanceInt next_node_distance_;
     Route route_;
     Schedule schedule_;
     RouteIndex idx_last_visited_node_;
-    ScheduleIndex idx_last_visited_stop_;
     VehicleStatus status_;
 
 };

@@ -1,5 +1,3 @@
-// MIT License
-//
 // Copyright (c) 2018 the Cargo authors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -9,8 +7,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,13 +17,18 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <iterator>
-#include <iostream>
-#include <limits>
+#include "libcargo.h"
 
-#include "libcargo/Inserter.h"
+// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
+// For each request, the algorithm looks for the "greedy" vehicle based on the
+// heuristic, and assigns the request to this vehicle if it exists.
+class GreedyInsertion : public cargo::RSAlgorithm {
+public:
+    GreedyInsertion();
 
-namespace cargo {
+    virtual void match(); // Override the default match()
 
+private:
+    int nmatches;
+};
 
-} // namespace cargo

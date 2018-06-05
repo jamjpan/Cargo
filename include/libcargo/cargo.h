@@ -24,16 +24,19 @@
 
 #include "classes.h"
 #include "file.h"
+#include "functions.h"
 #include "message.h"
 #include "options.h"
+#include "rsalgorithm.h"
 #include "types.h"
-
 #include "../gtree/gtree.h"
+#include "../sqlite3/sqlite3.h"
 
 // Cargo is a simulator and requests generator. Its two functionalities are to
 // simulate the movement of vehicles, and to generate customer requests and
 // vehicles in "real time". These are generated from a "problem instance", a
 // special text file that lists customers, vehicles, and their properties.
+//
 // Vehicle movement is simulated based on vehicle speed, a road network,
 // vehicle routes, and time. Speed determines how much distance is covered at
 // every simulation timestep. Routes are sequences of nodes through the road
@@ -41,16 +44,25 @@
 // origin to their destination.
 //
 // Cargo will poll an internal sqlite3 database for new vehicle routes. These
-// routes can be updated through an RSAlgorithm (or manually!).
+// routes can be updated through an RSAlgorithm.
 namespace cargo {
 
 class Cargo {
 public:
-    Cargo(const Options &);
+    Cargo(const Options&);
+    ~Cargo();
     const BoundingBox&          bbox()                  const;
+    const SimTime&              final_request_time()    const;
+    const SimTime&              final_arrival_time()    const;
+    size_t                      active_vehicles()       const;
     const std::string&          name();
     const std::string&          road_network();
-    void                        run();
+    static Speed&               vspeed()                { return speed_; }
+    static SimTime              now()                   { return t_; }
+    static GTree::G_Tree&       gtree()                 { return gtree_;}
+    static sqlite3*             db()                    { return db_; }
+    void                        start(RSAlgorithm&);
+    void                        start();
 
 private:
     Message print_out;
@@ -59,25 +71,28 @@ private:
     Message print_error;
     Message print_success;
 
-    GTree::G_Tree gtree_;
-
     KeyValueNodes nodes_;
     KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
     BoundingBox bbox_;
     ProblemSet probset_;
 
-    // - t_ = current sim time
-    // - tmin_ = minimum sim duration (max trip.early)
-    // - tmax_ = maximum sim duration (max vehicle.late)
-    SimTime t_;
-    SimTime tmin_;
-    SimTime tmax_;
+    static GTree::G_Tree gtree_;
+    static sqlite3* db_;
+    static Speed speed_;
+    static SimTime t_;    // current sim time
+    SimTime tmin_; // minimum sim duration (max trip.early)
+    SimTime tmax_; // - tmax_ = maximum sim duration (max vehicle.late)
+    SimTime matching_period_;
 
     size_t active_vehicles_;
-
     int sleep_interval_;
 
-    void step();
+    void initialize(const Options &);
+
+    // Steps active vehicles by their speed.
+    // Returns number of stepped vehicles.
+    // Outputs number of deactivated vehicles.
+    int step(int&);
 };
 
 } // namespace cargo

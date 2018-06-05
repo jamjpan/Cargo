@@ -6,18 +6,18 @@
 using namespace cargo;
 
 TEST_CASE("Messages print nice colors", "[msg]") {
-    Message msg1(MessageType::Default);
-    Message info(MessageType::Info);
-    Message warn(MessageType::Warning);
-    Message err(MessageType::Error);
-    Message succ(MessageType::Success);
+    Message msg1(MessageType::Default, "msg_test");
+    Message info(MessageType::Info, "msg_test");
+    Message warn(MessageType::Warning, "msg_test");
+    Message err(MessageType::Error, "msg_test");
+    Message succ(MessageType::Success, "msg_test");
 
     msg1 << "Running message test...\n";
-    msg1 << "this is a default msg" << std::endl;
-    info << "this is an info " << "msg " << 42 << std::endl;
-    warn << "this is a warn" << "ing " << 4.2 << std::endl;
-    err <<  "this is an err" << "or msg " << 4*2 << std::endl;
-    succ << "this is succexss" << std::endl;
+    msg1 << "CARGO" << std::endl;
+    info << "ARGOC" << std::endl;
+    warn << "RGOCA" << std::endl;
+    err <<  "GOCAR" << std::endl;
+    succ << "OCARG" << std::endl;
     msg1 << "Message test complete." << std::endl;
 }
 

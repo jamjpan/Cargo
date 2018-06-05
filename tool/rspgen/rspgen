@@ -88,6 +88,8 @@ class TripGenerator:
                         sys.stdout.flush()
                         origin = self.random_pick_node()
                         dest = self.random_pick_node()
+                        while dest == origin:
+                            dest = self.random_pick_node()
                         trip_time = self.shortest_path_time(origin, dest, speed)
                         trip_early = random.randint(0, max_early)
                         trip_late = trip_time + trip_early + random.randint(0, max_delay)

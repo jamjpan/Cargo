@@ -6,13 +6,13 @@ LDL = -ldl
 METIS = -L/usr/local/lib -lmetis
 CARGO = -L../../lib -lcargo
 
-OBJS = NearestNeighbor.o
+OBJS = greedy_insertion.o
 
 all: $(OBJS)
-	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o test
+	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o greedy_insertion
 
-NearestNeighbor.o: NearestNeighbor.cpp
-	$(CXX) $(CFLAGS) NearestNeighbor.cpp
+greedy_insertion.o: greedy_insertion.cpp
+	$(CXX) $(CFLAGS) greedy_insertion.cpp
 
 clean:
 	rm *.o test

@@ -19,7 +19,13 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include "libcargo/classes.h"
+#include "libcargo/message.h"
+#include "libcargo/types.h"
 
 namespace cargo {
 
@@ -31,6 +37,15 @@ Stop::Stop(TripId o, NodeId loc, StopType t, EarlyTime e, LateTime l, SimTime v)
     early_ = e;
     late_ = l;
     visitedAt_ = v;
+}
+Stop::Stop(TripId o, NodeId loc, StopType t, EarlyTime e, LateTime l)
+{
+    owner_ = o;
+    location_ = loc;
+    type_ = t;
+    early_ = e;
+    late_ = l;
+    visitedAt_ = -1; // indicates "unvisited"
 }
 const TripId& Stop::owner() const { return owner_; }
 const NodeId& Stop::location() const { return location_; }
@@ -50,26 +65,28 @@ size_t Schedule::size() const { return data_.size(); }
 const Stop& Schedule::at(size_t i) const { return data_.at(i); }
 const Stop& Schedule::front() const { return data_.front(); }
 
-Route::Route(VehicleId o, std::vector<NodeId> n)
+Route::Route(VehicleId o, std::vector<Waypoint> n)
 {
     owner_ = o;
     data_ = n;
 }
 const VehicleId& Route::owner() const { return owner_; }
-const std::vector<NodeId>& Route::data() const { return data_; }
+const std::vector<Waypoint>& Route::data() const { return data_; }
 size_t Route::size() const { return data_.size(); }
-NodeId Route::at(size_t i) const { return data_.at(i); }
+NodeId Route::node_at(size_t i) const { return data_.at(i).second; }
+DistanceInt Route::dist_at(size_t i) const { return data_.at(i).first; }
+Waypoint Route::at(size_t i) const { return data_.at(i); }
 
 Trip::Trip(TripId o, NodeId oid, NodeId did, EarlyTime e, LateTime l, Load ld)
 {
-    owner_ = o;
+    id_ = o;
     origin_ = oid;
     destination_ = did;
     early_ = e;
     late_ = l;
     load_ = ld;
 }
-const TripId& Trip::owner() const { return owner_; }
+const TripId& Trip::id() const { return id_; }
 const OriginId& Trip::origin() const { return origin_; }
 const DestinationId& Trip::destination() const { return destination_; }
 const EarlyTime& Trip::early() const { return early_; }
@@ -81,17 +98,25 @@ Customer::Customer(CustomerId o, OriginId oid, DestinationId did, EarlyTime e,
     : Trip(o, oid, did, e, l, ld)
 {
     status_ = f;
+    assignedTo_ = -1;
+}
+Customer::Customer(CustomerId o, OriginId oid, DestinationId did, EarlyTime e,
+                   LateTime l, Load ld, CustomerStatus f, VehicleId a)
+    : Trip(o, oid, did, e, l, ld)
+{
+    status_ = f;
+    assignedTo_ = a;
 }
 CustomerStatus Customer::status() const { return status_; }
+VehicleId Customer::assignedTo() const { return assignedTo_; }
 
 Vehicle::Vehicle(VehicleId o, OriginId oid, DestinationId did, EarlyTime e,
                  LateTime l, Load ld, DistanceInt nnd, Route r, Schedule s,
-                 RouteIndex ri, ScheduleIndex si, VehicleStatus f)
+                 RouteIndex ri, VehicleStatus f)
     : Trip(o, oid, did, e, l, ld), route_(r), schedule_(s)
 {
     next_node_distance_ = nnd;
     idx_last_visited_node_ = ri;
-    idx_last_visited_stop_ = si;
     status_ = f;
 }
 DistanceInt Vehicle::next_node_distance() const { return next_node_distance_; }
@@ -101,19 +126,34 @@ RouteIndex Vehicle::idx_last_visited_node() const
 {
     return idx_last_visited_node_;
 }
-ScheduleIndex Vehicle::idx_last_visited_stop() const
-{
-    return idx_last_visited_stop_;
-}
 NodeId Vehicle::last_visited_node() const
 {
-    return route_.at(idx_last_visited_node_);
-}
-Stop Vehicle::last_visited_stop() const
-{
-    return schedule_.at(idx_last_visited_stop_);
+    return route_.node_at(idx_last_visited_node_);
 }
 VehicleStatus Vehicle::status() const { return status_; }
+void Vehicle::print() const {
+    Message print_out;
+    print_out
+        << "Vehicle " << this->id() << ":\n"
+        << "origin     \t" << this->origin() << "\n"
+        << "destination\t" << this->destination() << "\n"
+        << "early      \t" << this->early() << "\n"
+        << "late       \t" << this->late() << "\n"
+        << "load       \t" << this->load() << "\n"
+        << "nnd        \t" << this->next_node_distance() << "\n"
+        << "route      \t";
+    for (const auto& i : this->route().data())
+        print_out << "(" << i.first << "|" << i.second << ") ";
+    print_out << "\n";
+    print_out
+        << "schedule   \t";
+    for (const auto& i : this->schedule().data())
+        print_out << i.location() << " ";
+    print_out << "\n";
+    print_out
+        << "idx_lvn    \t" << this->idx_last_visited_node() << "\n"
+        << "status     \t" << (int)this->status() << std::endl;
+}
 
 ProblemSet::ProblemSet() {}
 std::string& ProblemSet::name() { return name_; }
