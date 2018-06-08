@@ -26,9 +26,9 @@ class GreedyInsertion : public cargo::RSAlgorithm {
 public:
     GreedyInsertion();
 
-    virtual void match(); // Override the default match()
+    virtual void match(); // Example of an override
 
 private:
-    int nmatches;
+    int nmatches; // Example of a custom variable
 };
 

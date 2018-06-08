@@ -26,17 +26,15 @@
 
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
 {
-    // Initialize stuff here
-    this->batch_time() = 1;
-    this->nmatches = 0;
+    this->batch_time() = 1; // Inherited from RSAlgorithm
+    this->nmatches = 0;     // Example of a custom variable
 }
 
 void GreedyInsertion::match()
 {
     for (const auto& cust : waiting_customers()) {
-        // Skip already assigned (but not yet picked up)
         if (cust.assigned())
-            continue;
+            continue; // <-- skip assigned (but not yet picked up)
 
         cargo::DistanceInt cost;
         cargo::DistanceInt best_cost = cargo::InfinityInt;
@@ -50,8 +48,8 @@ void GreedyInsertion::match()
         // TODO: use index to narrow the candidates
         for (const auto& veh : vehicles()) {
             cost = cargo::sop_insert(veh.schedule(), cust, schedule, route);
-            if (cost < best_cost &&
-                cargo::check_timewindow_constr(schedule, route)) {
+            if (cost < best_cost
+                    && cargo::check_timewindow_constr(schedule, route)) {
                 best_schedule = schedule;
                 best_route = route;
                 best_vehicle = veh.id();
@@ -60,9 +58,9 @@ void GreedyInsertion::match()
         }
         if (matched) {
             cargo::commit(cust.id(), best_vehicle, best_route, best_schedule);
+            nmatches++;
             print_success << "Match (Customer " << cust.id() << ", Vehicle "
                           << best_vehicle << ")" << std::endl;
-            nmatches++;
         }
     }
     print_out << "Matches: " << nmatches << std::endl;
@@ -72,11 +70,11 @@ int main()
 {
     cargo::Options opt;
     opt.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
-    opt.path_to_gtree = "../../data/roadnetwork/tiny.gtree";
-    opt.path_to_edges = "../../data/roadnetwork/tiny.edges";
+    opt.path_to_gtree   = "../../data/roadnetwork/tiny.gtree";
+    opt.path_to_edges   = "../../data/roadnetwork/tiny.edges";
     opt.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
     opt.time_multiplier = 2;
-    opt.vehicle_speed = 1;
+    opt.vehicle_speed   = 1;
     opt.matching_period = 10;
 
     GreedyInsertion gr;
