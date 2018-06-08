@@ -27,66 +27,57 @@
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
 {
     // Initialize stuff here
-    batch_time() = 5;
-    nmatches = 0;
+    this->batch_time() = 1;
+    this->nmatches = 0;
 }
 
-void GreedyInsertion::match() {
-    for (const auto& customer : waiting_customers()) {
-
-        // NULL converts to 0 when retrieved from the database. In the
-        // benchmarks, there is no vehicle ID = 0 for this reason.
-        // If assignedTo() == 0, then the customer is not yet assigned.
-        if (customer.assignedTo() > 0)
+void GreedyInsertion::match()
+{
+    for (const auto& cust : waiting_customers()) {
+        // Skip already assigned (but not yet picked up)
+        if (cust.assigned())
             continue;
 
         cargo::DistanceInt cost;
         cargo::DistanceInt best_cost = cargo::InfinityInt;
-        std::vector<cargo::Stop> schedule, best_schedule;
-        std::vector<cargo::Waypoint> route, best_route;
+        std::vector<cargo::Stop> schedule;
+        std::vector<cargo::Stop> best_schedule;
+        std::vector<cargo::Waypoint> route;
+        std::vector<cargo::Waypoint> best_route;
         cargo::VehicleId best_vehicle = 0;
+        bool matched = false;
+
         // TODO: use index to narrow the candidates
-        for (const auto& vehicle : vehicles()) {
-            cost = cargo::sop_insert(
-                    vehicle.schedule(), customer, true, true, schedule, route);
-            if (cost < best_cost
-                    && cargo::check_timewindow_constr(schedule, route)) {
+        for (const auto& veh : vehicles()) {
+            cost = cargo::sop_insert(veh.schedule(), cust, schedule, route);
+            if (cost < best_cost &&
+                cargo::check_timewindow_constr(schedule, route)) {
                 best_schedule = schedule;
                 best_route = route;
-                best_vehicle = vehicle.id();
+                best_vehicle = veh.id();
+                matched = true;
             }
         }
-        if (best_vehicle > 0) {
-            // TODO: simplify into one command
-            if (cargo::sql::assign_customer_to(customer.id(), best_vehicle) != SQLITE_OK) {
-                print_error << "Failed assign " << customer.id() << "to " << best_vehicle << "\n";
-                throw std::runtime_error(sqlite3_errmsg(cargo::Cargo::db()));
-            }
-            if (cargo::sql::replace_route(best_vehicle, best_route) != SQLITE_OK) {
-                print_error << "Failed update route for vehicle " << best_vehicle << "\n";
-                throw std::runtime_error(sqlite3_errmsg(cargo::Cargo::db()));
-            }
-            if (cargo::sql::update_schedule(best_vehicle, best_schedule) != SQLITE_OK) {
-                print_error << "Failed update schedule for vehicle " << best_vehicle << "\n";
-                throw std::runtime_error(sqlite3_errmsg(cargo::Cargo::db()));
-            }
-            print_success << "Match (Customer " << customer.id() << ", Vehicle "
-                << best_vehicle << ")" << std::endl;
+        if (matched) {
+            cargo::commit(cust.id(), best_vehicle, best_route, best_schedule);
+            print_success << "Match (Customer " << cust.id() << ", Vehicle "
+                          << best_vehicle << ")" << std::endl;
             nmatches++;
         }
     }
     print_out << "Matches: " << nmatches << std::endl;
 }
 
-int main() {
+int main()
+{
     cargo::Options opt;
     opt.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
     opt.path_to_gtree = "../../data/roadnetwork/tiny.gtree";
     opt.path_to_edges = "../../data/roadnetwork/tiny.edges";
     opt.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
-    opt.time_multiplier = 1;
+    opt.time_multiplier = 2;
     opt.vehicle_speed = 1;
-    opt.matching_period = 60;
+    opt.matching_period = 10;
 
     GreedyInsertion gr;
     cargo::Cargo cargo(opt);

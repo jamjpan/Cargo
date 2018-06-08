@@ -76,7 +76,7 @@ void RSAlgorithm::match() {
 void RSAlgorithm::listen() {
     // O(n); we have to update all the local vehicles
     vehicles_.clear();
-    sql::selectall_active_vehicles(vehicles_, Cargo::now());
+    sql::select_matchable_vehicles(vehicles_, Cargo::now());
     for (const auto& vehicle : vehicles_)
         if (appeared_vehicles_.insert(vehicle.id()).second == true)
             handle_vehicle(vehicle);

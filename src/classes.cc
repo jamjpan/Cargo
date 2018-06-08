@@ -109,6 +109,7 @@ Customer::Customer(CustomerId o, OriginId oid, DestinationId did, EarlyTime e,
 }
 CustomerStatus Customer::status() const { return status_; }
 VehicleId Customer::assignedTo() const { return assignedTo_; }
+bool Customer::assigned() const { return (assignedTo_ > 0); }
 
 Vehicle::Vehicle(VehicleId o, OriginId oid, DestinationId did, EarlyTime e,
                  LateTime l, Load ld, DistanceInt nnd, Route r, Schedule s,

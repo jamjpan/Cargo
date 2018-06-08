@@ -118,6 +118,7 @@ public:
              CustomerStatus, VehicleId);
     CustomerStatus              status()                const;
     VehicleId                   assignedTo()            const;
+    bool                        assigned()              const;
 
 private:
     CustomerStatus status_;

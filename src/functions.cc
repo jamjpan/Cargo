@@ -158,9 +158,8 @@ bool check_timewindow_constr(const Schedule& s, const Route& r)
     if (s.data().back().late() < r.data().back().first)
         return false;
 
-    // This algorithm walks along the schedule and the route sequentially.
-    // In the worst case, it walks the entire schedule and route, so there
-    // will be |schedule| + |route| checks.
+    // Walk along the schedule and the route.
+    // Total complexity is O(|schedule| + |route|)
     auto j = r.data().begin();
     for (auto i = s.data().begin(); i != s.data().end(); ++i) {
         while (j->second != i->location())
@@ -248,12 +247,28 @@ DistanceInt sop_insert(const Schedule& s, const Customer& cust, bool fix_start,
     return best_cost;
 }
 
-DistanceInt sop_insert(const std::vector<Stop>& s, const Customer& cust, bool fix_start,
-                       bool fix_end, std::vector<Stop>& best_schedule,
+DistanceInt sop_insert(const Schedule& s, const Customer& cust,
+                       std::vector<Stop>& best_schedule,
+                       std::vector<Waypoint>& best_route)
+{
+    return sop_insert(s, cust, true, true, best_schedule, best_route);
+}
+
+DistanceInt sop_insert(const std::vector<Stop>& s, const Customer& cust,
+                       bool fix_start, bool fix_end,
+                       std::vector<Stop>& best_schedule,
                        std::vector<Waypoint>& best_route)
 {
     Schedule schedule(-1, s); // give it a dummy owner
     return sop_insert(schedule, cust, fix_start, fix_end, best_schedule, best_route);
+}
+
+DistanceInt sop_insert(const std::vector<Stop>& s, const Customer& cust,
+                       std::vector<Stop>& best_schedule,
+                       std::vector<Waypoint>& best_route)
+{
+    Schedule schedule(-1, s); // give it a dummy owner
+    return sop_insert(schedule, cust, true, true, best_schedule, best_route);
 }
 
 } // namespace cargo
