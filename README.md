@@ -154,4 +154,5 @@ To compile, link the library (and don't forget to link METIS).
 - [ ] Logging class logs statistics to disk
 
 Help wanted! Please feel free to throw pull requests at me.
+* GTree is leaking memory
 
