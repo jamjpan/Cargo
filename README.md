@@ -85,7 +85,7 @@ Schema for the ground-truth simulation state tables is below.
    ┌──────────────────┐          │ stops            │
    │ nodes            │          ├──────────────────┤
    ├──────────────────┤          │ *owner (int)     │
-┌─→│ *id (int)        │←─────────| *location (int)  │
+┌─>│ *id (int)        │<─────────| *location (int)  │
 │  |  lng (real)      │          |  type (int)      │
 │  |  lat (real)      │          │  early (int)     │
 │  └──────────────────┘          │  late (int)      │
@@ -93,7 +93,7 @@ Schema for the ground-truth simulation state tables is below.
 │  ┌───────────────────────┐     └──────────────────┘
 │  │ vehicles              │
 │  ├───────────────────────┤
-│  │ *id (int)             │←─┐  ┌──────────────────┐
+│  │ *id (int)             │<─┐  ┌──────────────────┐
 └──│  origin_id (int)      │  │  │ schedules        │
 └──│  destination_id (int) │  │  ├──────────────────┤
 │  │  early (int)          │  ├──│ *owner (int)     │
