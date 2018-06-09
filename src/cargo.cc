@@ -97,6 +97,13 @@ const std::string& Cargo::road_network()
 //   meters; the bug occurs only if lvn is incremented due to step; and only if
 //   the vehicle where lvn is incremented is matched in that same time step.
 //
+// BUG: low performance
+//   step() takes about 100 ms per 550-600 vehicles, or about 6,000
+//   vehicles/sec. But the largest benchmarks might have well over 10,000
+//   vehicles stepping per second!
+// IMPACT: high
+//   Real-time simulation is a core feature of Cargo.
+//
 // ENHANCEMENT: unused data
 //   Are Vehicle, Route, Schedule (, Customer) classes really necessary? How
 //   much of the data is really used?
@@ -321,6 +328,7 @@ void Cargo::initialize(const Options& opt)
     //   Potential issue: inserting nodes takes a long time, ~16 min for CD1
     //   on my machine. Other performance issues will occur.
     print_out << "Creating in-memory database...\n";
+    SqliteErrorMessage err;
     if (sqlite3_open(":memory:", &db_) != SQLITE_OK) {
         print_error << "Failed (create db). Reason:\n";
         throw std::runtime_error(sqlite3_errmsg(db_));
@@ -331,8 +339,12 @@ void Cargo::initialize(const Options& opt)
         throw std::runtime_error(sqlite3_errmsg(db_));
     }
 
+    // Performance enhancements
+    sqlite3_exec(db_, "PRAGMA synchronous = OFF", NULL, NULL, &err);
+    sqlite3_exec(db_, "PRAGMA journal_mode = OFF", NULL, NULL, &err);
+    sqlite3_exec(db_, "PRAGMA locking_mode = EXCLUSIVE", NULL, NULL, &err);
+
     print_out << "\t Creating Cargo tables...";
-    SqliteErrorMessage err;
     if (sqlite3_exec(db_,
     sql::create_cargo_tables, NULL, NULL, &err) != SQLITE_OK) {
         print_error << "Failed (create cargo tables). Reason: " << err << "\n";
@@ -490,6 +502,11 @@ void Cargo::initialize(const Options& opt)
     sqlite3_finalize(insert_stop_stmt);
     sqlite3_finalize(insert_schedule_stmt);
     sqlite3_finalize(insert_route_stmt);
+
+    // Create indexes on heavily-used tables
+    sqlite3_exec(db_, "create index vehicles_index on vehicles(id)", NULL, NULL, &err);
+    sqlite3_exec(db_, "create index routes_index on routes(owner)", NULL, NULL, &err);
+    sqlite3_exec(db_, "create index schedules_index on schedules(owner)", NULL, NULL, &err);
 
     t_ = 0; // Ready to begin
     print_out << "Done\n";
