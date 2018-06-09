@@ -19,36 +19,46 @@ algorithms run on separate threads to mimic the real world. Features:
 * uses an in-memory Sqlite3 db to keep track of state
 
 ### Example
-
+This example implements a greedy-insertion matching strategy. The example
+overrides only the match() function, and uses the default handle_customer(),
+handle_vehicle(), and listen() functions.
 ```cpp
-void GreedyInsertion::match() {
-    for (const auto& customer : waiting_customers()) {
-        if (customer.assignedTo != 0) // customer already assigned
-            continue;
-        for (const auto& vehicle : vehicles()) {
-            cost = cargo::sop_insert(
-                vehicle.schedule(), customer,
-                true, true, schedule, route);
-        
+void GreedyInsertion::match()
+{
+    for (const auto& cust : waiting_customers()) {
+        if (cust.assigned())
+            continue; // <-- skip assigned (but not yet picked up)
+
+        cargo::DistanceInt cost;
+        cargo::DistanceInt best_cost = cargo::InfinityInt;
+        std::vector<cargo::Stop> schedule;
+        std::vector<cargo::Stop> best_schedule;
+        std::vector<cargo::Waypoint> route;
+        std::vector<cargo::Waypoint> best_route;
+        cargo::VehicleId best_vehicle = 0;
+        bool matched = false;
+
+        // TODO: use index to narrow the candidates
+        for (const auto& veh : vehicles()) {
+            cost = cargo::sop_insert(veh.schedule(), cust, schedule, route);
+            if (cost < best_cost
+                    && cargo::check_timewindow_constr(schedule, route)) {
+                best_schedule = schedule;
+                best_route = route;
+                best_vehicle = veh.id();
+                matched = true;
+            }
+        }
+        if (matched) {
+            cargo::commit(cust.id(), best_vehicle, best_route, best_schedule);
+            nmatches++;
+            print_success << "Match (Customer " << cust.id() << ", Vehicle "
+                          << best_vehicle << ")" << std::endl;
         }
     }
+    print_out << "Matches: " << nmatches << std::endl;
 }
-
 ```
-
-### Simulator
-
-The purposes of the simulator are to
-- broadcast requests and vehicles in real time, and
-- simulate the ground-truth movement of the vehicles.
-
-### Solution
-
-todo
-
-### Logger
-
-todo
 
 ### Similar projects
 
@@ -58,9 +68,9 @@ todo
 
 ## Prerequisites
 
-Users should have pthreads. The simulator's Run() loop blocks an
-entire thread. The recommended usage is to execute the loop on a separate
-thread, and execute a Solution on the main thread.
+Users should have pthreads. Cargo runs on the main thread while a
+user-implemented RSAlgorithm, passed as a parameter to Cargo::start, runs
+on a separate thread.
 
 Users must have the [METIS graph partitioning
 library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) installed.
@@ -69,43 +79,42 @@ paths, and METIS is required to build this dependency.
 
 ## Schema
 
-Schema for the ground-truth simulation state tables is below. The tables
-are represented as `std::unordered_map`s.
+Schema for the ground-truth simulation state tables is below.
 ```
-┌──────────────────┐                             ┌───────────────────┐
-│ VEHICLES         │                             │ ASSIGNMENTS       │
-├──────────────────┤                             ├───────────────────┤
-│ id (int)         │                             │ customer_id (int) │
-│ load (int)       │                             │ vehicle_id (int)  │
-│ nnd (double)     │ // next-node distance       └───────────────────┘
-│ early (int)      │ // in sim time units
-│ late (int)       │ // in sim time units
-│ origin (int)     │
-│ dest (int)       │
-│ route (vec)      │ // route, vector<int>
-│ sched (vec)      │ // vector<int> of stop IDs <─────┐
-│ lv_node (itr)    │ // route::itr last-visited node  │
-│ lv_stop (itr)    │ // sched::itr last-visited stop  │
-└──────────────────┘                                  │
-                                                      │
-┌──────────────────┐                                  │
-│ STOPS            │                                  │
-├──────────────────┤                                  │
-│ id (int)         │ ─────────────────────────────────┘
-│ trip_id (int)    │ // corresponds to cust/veh
-│ node_id (int)    │
-│ type (int)       │ // 1=cust-origin;2=cust-dest;3=veh-origin;4=veh-dest
-│ visit_time (int) │ // defaults to early if type=1,3; late if type=2,4
-└──────────────────┘
+                                 ┌──────────────────┐
+   ┌──────────────────┐          │ stops            │
+   │ nodes            │          ├──────────────────┤
+   ├──────────────────┤          │ *owner (int)     │
+┌─→│ *id (int)        │←─────────| *location (int)  │
+│  |  lng (real)      │          |  type (int)      │
+│  |  lat (real)      │          │  early (int)     │
+│  └──────────────────┘          │  late (int)      │
+│                                │  visitedAt (int) │
+│  ┌───────────────────────┐     └──────────────────┘
+│  │ vehicles              │
+│  ├───────────────────────┤
+│  │ *id (int)             │←─┐  ┌──────────────────┐
+└──│  origin_id (int)      │  │  │ schedules        │
+└──│  destination_id (int) │  │  ├──────────────────┤
+│  │  early (int)          │  ├──│ *owner (int)     │
+│  │  late (int)           │  │  |  data (text)     │
+│  │  load (int)           │  │  └──────────────────┘
+│  │  status (int)         │  │
+│  └───────────────────────┘  │  ┌──────────────────────────────┐
+│                             │  │ routes                       │
+│  ┌───────────────────────┐  │  ├──────────────────────────────┤
+│  │ customers             │  ├──│ *owner (int)                 │
+│  ├───────────────────────┤  │  |  data (text)                 │
+│  │ *id (int)             │  │  |  idx_last_visited_node (int) │
+└──│  origin_id (int)      │  │  │  next_node_distance (int)    │
+└──│  destination_id (int) │  │  └──────────────────────────────┘
+   │  early (int)          │  │
+   │  late (int)           │  │
+   │  load (int)           │  │
+   │  status (int)         │  │
+   │  assignedTo (int)     │──┘
+   └───────────────────────┘
 ```
-### State updates:
-
-todo
-
-### Grid index:
-
-todo
-
 ## Usage
 
 Build the library using `make`. The library will be placed into `lib/libcargo.a`
@@ -113,21 +122,24 @@ after building. Then, in your own project, include the header to access the
 libcargo API. The `include/` folder should be placed somewhere your compiler
 can access.
 ```cpp
-// myproj.cpp
 #include "libcargo.h"
-int main() {
-    cargo::opts::Options myOpts;
-    myOpts.RoadNetworkPath = "...";
-    ... // set options
+#include "myalgorithm.h"
+int main()
+{
+    cargo::Options opt;
+    opt.path_to_roadnet = "my.rnet";
+    opt.path_to_gtree   = "my.gtree";
+    opt.path_to_edges   = "my.edges";
+    opt.path_to_problem = "some.instance";
+    opt.time_multiplier = 1;  // 1=real-time, 2=double-time, etc.
+    opt.vehicle_speed   = 10; // meters per second
+    opt.matching_period = 60; // seconds
 
-    cargo::Simulator mySim;
-    mySim.SetOptions(myOpts);
-    mySim.Initialize();
-
-    mySim.Run(); // this should be on a separate thread
+    MyAlgorithm alg;
+    cargo::Cargo cargo(opt);
+    cargo.start(alg);
 }
 ```
-
 To compile, link the library (and don't forget to link METIS).
 `g++ myproj.cpp -L/path/to/cargo -lcargo -L/path/to/metis -lmetis`
 
@@ -135,10 +147,11 @@ To compile, link the library (and don't forget to link METIS).
 
 - [x] Distance functions (Euclidean and Haversine)
 - [x] Message class provides four levels of colored terminal output
-- [ ] Semantic types match the ridesharing problem's vocabulary and entities
+- [x] Semantic types match the ridesharing problem's vocabulary and entities
 - [ ] Simulator tracks the state of the simulation at every time step
-- [ ] Simulator broadcasts new vehicle and customer arrivals to matching algs
+- [x] Simulator broadcasts new vehicle and customer arrivals to matching algs
 - [ ] Implement some matching algs
 - [ ] Logging class logs statistics to disk
 
 Help wanted! Please feel free to throw pull requests at me.
+
