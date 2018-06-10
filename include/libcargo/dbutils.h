@@ -141,7 +141,7 @@ const SqliteQuery nnd_stmt =
     "update routes set next_node_distance = ? where owner = ?;";
 
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle> &, const SimTime &);
-SqliteReturnCode selectall_waiting_customers(std::vector<Customer> &, const SimTime &);
+SqliteReturnCode select_waiting_customers(std::vector<Customer> &, const SimTime &);
 SqliteReturnCode commit_assignment(const CustomerId &, const VehicleId &, std::vector<Waypoint> &, const std::vector<Stop> &);
 
 } // namespace sql

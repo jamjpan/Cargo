@@ -31,16 +31,6 @@
 
 namespace cargo {
 
-RSAlgorithm::RSAlgorithm()
-    : print_out("rs"), print_info(MessageType::Info, "rs"),
-      print_warning(MessageType::Warning, "rs"),
-      print_error(MessageType::Error, "rs"),
-      print_success(MessageType::Success, "rs")
-{
-    name_ = "noname";
-    done_ = false;
-    batch_time_ = 1;
-}
 RSAlgorithm::RSAlgorithm(const std::string& name)
     : print_out(name), print_info(MessageType::Info, name),
       print_warning(MessageType::Warning, name),
@@ -82,7 +72,7 @@ void RSAlgorithm::listen() {
             handle_vehicle(vehicle);
 
     waiting_customers_.clear();
-    sql::selectall_waiting_customers(waiting_customers_, Cargo::now());
+    sql::select_waiting_customers(waiting_customers_, Cargo::now());
     for (const auto& customer : waiting_customers_)
         handle_customer(customer);
 

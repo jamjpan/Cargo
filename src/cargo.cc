@@ -67,15 +67,18 @@ Cargo::Cargo(const Options& opt)
 {
     print_out << "Initializing Cargo\n";
     this->initialize(opt); // <-- load db
-    sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::ssv_stmt, -1, &ssv_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::dav_stmt, -1, &dav_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::pup_stmt, -1, &pup_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::vis_stmt, -1, &vis_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::sch_stmt, -1, &sch_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::lvn_stmt, -1, &lvn_stmt, NULL);
-    sqlite3_prepare_v2(db_, sql::nnd_stmt, -1, &nnd_stmt, NULL);
+    if (sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::ssv_stmt, -1, &ssv_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::dav_stmt, -1, &dav_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::pup_stmt, -1, &pup_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::vis_stmt, -1, &vis_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK) {
+        print_error << "Failed (create step stmts). Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+    }
     print_success << "Cargo initialized!" << std::endl;
 }
 
@@ -90,6 +93,8 @@ Cargo::~Cargo()
     sqlite3_finalize(sch_stmt);
     sqlite3_finalize(lvn_stmt);
     sqlite3_finalize(nnd_stmt);
+    if (err != NULL)
+        sqlite3_free(err);
     sqlite3_close(db_); // Calls std::terminate on failure
     print_out << "Database closed." << std::endl;
 }
@@ -282,7 +287,7 @@ int Cargo::step(int& ndeact)
 
 void Cargo::start()
 {
-    RSAlgorithm no_algorithm;
+    RSAlgorithm no_algorithm("noname");
     start(no_algorithm);
 }
 
@@ -547,12 +552,6 @@ void Cargo::initialize(const Options& opt)
     sqlite3_finalize(insert_stop_stmt);
     sqlite3_finalize(insert_schedule_stmt);
     sqlite3_finalize(insert_route_stmt);
-
-    // Create indexes on heavily-used tables
-    sqlite3_exec(db_, "create index vehicles_index on vehicles(id)", NULL, NULL, &err);
-    sqlite3_exec(db_, "create index customers on customers(id)", NULL, NULL, &err);
-    sqlite3_exec(db_, "create index routes_index on routes(owner)", NULL, NULL, &err);
-    sqlite3_exec(db_, "create index schedules_index on schedules(owner)", NULL, NULL, &err);
 
     t_ = 0; // Ready to begin
     print_out << "Done\n";

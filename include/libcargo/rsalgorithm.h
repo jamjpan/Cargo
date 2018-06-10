@@ -46,7 +46,6 @@ namespace cargo {
 // and add a sleep time corresponding to the batch time.
 class RSAlgorithm {
 public:
-    RSAlgorithm();
     RSAlgorithm(const std::string&);
 
     const std::string&          name()                  const;
