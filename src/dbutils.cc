@@ -98,8 +98,6 @@ std::string serialize_schedule(const std::vector<Stop>& vec)
     return result;
 }
 
-// commit() is a convenience function. It doesn't return a SqliteReturnCode.
-// If it errors, it will the error directly.
 void commit(const CustomerId& cust_id, const VehicleId& veh_id,
             std::vector<cargo::Waypoint>& new_route,
             const std::vector<cargo::Stop>& new_schedule)
@@ -116,36 +114,36 @@ namespace sql {
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle>& vec, const SimTime& now)
 {
     SqliteReturnCode rc;
-    sqlite3_stmt* ssv_stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(), select_step_vehicles, -1,
-                                 &ssv_stmt, NULL)) != SQLITE_OK)
+    sqlite3_stmt* stmt;
+    if ((rc = sqlite3_prepare_v2(Cargo::db(), ssv_stmt, -1,
+                                 &stmt, NULL)) != SQLITE_OK)
         return rc;
-    sqlite3_bind_int(ssv_stmt, 1, now);
-    sqlite3_bind_int(ssv_stmt, 2, (int)VehicleStatus::Arrived);
-    while ((rc = sqlite3_step(ssv_stmt)) == SQLITE_ROW) {
+    sqlite3_bind_int(stmt, 1, now);
+    sqlite3_bind_int(stmt, 2, (int)VehicleStatus::Arrived);
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
         Route route(
-                sqlite3_column_int(ssv_stmt, 0),
-                deserialize_route(stringify(sqlite3_column_text(ssv_stmt, 8))));
+                sqlite3_column_int(stmt, 0),
+                deserialize_route(stringify(sqlite3_column_text(stmt, 8))));
         Schedule schedule(
-                sqlite3_column_int(ssv_stmt, 0),
-                deserialize_schedule(stringify(sqlite3_column_text(ssv_stmt, 12))));
+                sqlite3_column_int(stmt, 0),
+                deserialize_schedule(stringify(sqlite3_column_text(stmt, 12))));
         Vehicle vehicle(
-                sqlite3_column_int(ssv_stmt, 0),
-                sqlite3_column_int(ssv_stmt, 1),
-                sqlite3_column_int(ssv_stmt, 2),
-                sqlite3_column_int(ssv_stmt, 3),
-                sqlite3_column_int(ssv_stmt, 4),
-                sqlite3_column_int(ssv_stmt, 5),
-                sqlite3_column_int(ssv_stmt, 10),
+                sqlite3_column_int(stmt, 0),
+                sqlite3_column_int(stmt, 1),
+                sqlite3_column_int(stmt, 2),
+                sqlite3_column_int(stmt, 3),
+                sqlite3_column_int(stmt, 4),
+                sqlite3_column_int(stmt, 5),
+                sqlite3_column_int(stmt, 10),
                 route,
                 schedule,
-                sqlite3_column_int(ssv_stmt, 9),
-                static_cast<VehicleStatus>(sqlite3_column_int(ssv_stmt, 6)));
+                sqlite3_column_int(stmt, 9),
+                static_cast<VehicleStatus>(sqlite3_column_int(stmt, 6)));
         vec.push_back(vehicle);
     }
     if (rc != SQLITE_DONE)
         return rc;
-    sqlite3_finalize(ssv_stmt);
+    sqlite3_finalize(stmt);
     return SQLITE_OK;
 }
 
@@ -174,21 +172,6 @@ SqliteReturnCode selectall_waiting_customers(std::vector<Customer>& vec, const S
         vec.push_back(customer);
     }
     if (rc != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode deactivate_vehicle(const VehicleId& id)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update vehicles set status = ? where id = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, (int)VehicleStatus::Arrived);
-    sqlite3_bind_int(stmt, 2, id);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
         return rc;
     sqlite3_finalize(stmt);
     return SQLITE_OK;
@@ -252,124 +235,6 @@ SqliteReturnCode commit_assignment(const CustomerId& cust_id, const VehicleId& v
         return rc;
     sqlite3_finalize(stmt);
 
-    return SQLITE_OK;
-}
-
-SqliteReturnCode update_schedule(const VehicleId& veh_id, const Schedule& s)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update schedules set data = ? where owner = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    std::string sch = serialize_schedule(s.data());
-    sqlite3_bind_text(stmt, 1, sch.c_str(), sch.length(), SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 2, veh_id);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode update_schedule(const VehicleId& veh_id, const std::vector<Stop>& s)
-{
-    Schedule sch(veh_id, s);
-    return update_schedule(veh_id, sch);
-}
-
-SqliteReturnCode pickup_customer(const VehicleId& veh_id, const CustomerId& cust_id)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update vehicles set load = load+1 where id = ?; "
-    "update customers set status = ? where id = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, veh_id);
-    sqlite3_bind_int(stmt, 2, (int)CustomerStatus::Onboard);
-    sqlite3_bind_int(stmt, 3, cust_id);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode dropoff_customer(const VehicleId& veh_id, const CustomerId& cust_id)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update vehicles set load = load-1 where id = ?; "
-    "update customers set status = ? where id = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, veh_id);
-    sqlite3_bind_int(stmt, 2, (int)CustomerStatus::Arrived);
-    sqlite3_bind_int(stmt, 3, cust_id);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode update_visitedAt(const TripId& id, const NodeId& loc, const SimTime& t)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update stops set visitedAt = ? where owner = ? and location = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, t);
-    sqlite3_bind_int(stmt, 2, id);
-    sqlite3_bind_int(stmt, 3, loc);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode update_next_node_distance(const VehicleId& id, const DistanceInt& nnd)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update routes set next_node_distance = ? where owner = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, nnd);
-    sqlite3_bind_int(stmt, 2, id);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode update_idx_last_visited_node(const VehicleId& id, const RouteIndex& lvn)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update routes set idx_last_visited_node = ? where owner = ?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, lvn);
-    sqlite3_bind_int(stmt, 2, id);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
-    return SQLITE_OK;
-}
-
-SqliteReturnCode timeout_customers(const SimTime& now, const SimTime& matching_period)
-{
-    SqliteReturnCode rc;
-    sqlite3_stmt* stmt;
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update customers set status = ? where assignedTo is null and ? > early+?;", -1, &stmt, NULL)) != SQLITE_OK)
-        return rc;
-    sqlite3_bind_int(stmt, 1, (int)CustomerStatus::Canceled);
-    sqlite3_bind_int(stmt, 2, now);
-    sqlite3_bind_int(stmt, 3, matching_period);
-    if ((rc = sqlite3_step(stmt)) != SQLITE_DONE)
-        return rc;
-    sqlite3_finalize(stmt);
     return SQLITE_OK;
 }
 

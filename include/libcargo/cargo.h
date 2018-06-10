@@ -87,6 +87,20 @@ private:
     size_t active_vehicles_;
     int sleep_interval_;
 
+    sqlite3_stmt* tim_stmt; // timeout customers
+
+    sqlite3_stmt* ssv_stmt; // select step vehicles
+    sqlite3_stmt* dav_stmt; // deactivate vehicle
+    sqlite3_stmt* pup_stmt; // pickup
+    sqlite3_stmt* drp_stmt; // dropoff
+    sqlite3_stmt* vis_stmt; // visitedAt
+    sqlite3_stmt* sch_stmt; // schedule
+    sqlite3_stmt* lvn_stmt; // last-visited node
+    sqlite3_stmt* nnd_stmt; // nearest-node distance
+
+    SqliteReturnCode rc;
+    SqliteErrorMessage err;
+
     void initialize(const Options &);
 
     // Steps active vehicles by their speed.

@@ -101,31 +101,48 @@ const SqliteQuery create_cargo_tables =
         "foreign key (owner) references vehicles(id)"
     ") without rowid;";
 
-const SqliteQuery select_step_vehicles =
-    "select * "
-    "from   (vehicles inner join routes on vehicles.id=routes.owner"
-    "                 inner join schedules on vehicles.id=schedules.owner) "
-    "where  ? >= vehicles.early and "
-    "       ? != vehicles.status;";
-
 const SqliteQuery select_vehicle =
     "select * "
     "from   (vehicles inner join routes on vehicles.id=routes.owner"
     "                 inner join schedules on vehicles.id=schedules.owner) "
     "where  ? = vehicles.id;";
 
+const SqliteQuery tim_stmt =
+    "update customers set status = ? where assignedTo is null and ? > early+?;";
+
+const SqliteQuery ssv_stmt =
+    "select * "
+    "from   (vehicles inner join routes on vehicles.id=routes.owner"
+    "                 inner join schedules on vehicles.id=schedules.owner) "
+    "where  ? >= vehicles.early and "
+    "       ? != vehicles.status;";
+
+const SqliteQuery dav_stmt =
+    "update vehicles set status = ? where id = ?;";
+
+const SqliteQuery pup_stmt =
+    "update vehicles set load = load+1 where id = ?; "
+    "update customers set status = ? where id = ?;";
+
+const SqliteQuery drp_stmt =
+    "update vehicles set load = load-1 where id = ?; "
+    "update customers set status = ? where id = ?;";
+
+const SqliteQuery vis_stmt =
+    "update stops set visitedAt = ? where owner = ? and location = ?;";
+
+const SqliteQuery sch_stmt =
+    "update schedules set data = ? where owner = ?;";
+
+const SqliteQuery lvn_stmt =
+    "update routes set idx_last_visited_node = ? where owner = ?;";
+
+const SqliteQuery nnd_stmt =
+    "update routes set next_node_distance = ? where owner = ?;";
+
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle> &, const SimTime &);
 SqliteReturnCode selectall_waiting_customers(std::vector<Customer> &, const SimTime &);
-SqliteReturnCode deactivate_vehicle(const VehicleId &);
 SqliteReturnCode commit_assignment(const CustomerId &, const VehicleId &, std::vector<Waypoint> &, const std::vector<Stop> &);
-SqliteReturnCode update_schedule(const VehicleId &, const Schedule &);
-SqliteReturnCode update_schedule(const VehicleId &, const std::vector<Stop> &);
-SqliteReturnCode pickup_customer(const VehicleId &, const CustomerId &);
-SqliteReturnCode dropoff_customer(const VehicleId &, const CustomerId &);
-SqliteReturnCode update_visitedAt(const TripId &, const NodeId &, const SimTime &);
-SqliteReturnCode update_next_node_distance(const VehicleId &, const DistanceInt &);
-SqliteReturnCode update_idx_last_visited_node(const VehicleId &, const RouteIndex &);
-SqliteReturnCode timeout_customers(const SimTime &, const SimTime &);
 
 } // namespace sql
 } // namespace cargo
