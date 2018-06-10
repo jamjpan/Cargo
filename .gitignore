@@ -14,3 +14,4 @@ tool/gtreebuilder/gtreebuilder
 test/build/
 test/run_tests
 example/greedy_insertion/greedy_insertion
+example/trip_vehicle_grouping/trip_vehicle_grouping
