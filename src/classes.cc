@@ -19,6 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -64,6 +65,12 @@ const std::vector<Stop>& Schedule::data() const { return data_; }
 size_t Schedule::size() const { return data_.size(); }
 const Stop& Schedule::at(size_t i) const { return data_.at(i); }
 const Stop& Schedule::front() const { return data_.front(); }
+void Schedule::print() const
+{
+    for (const auto& stop : data_)
+        std::cout << stop.location() << " ";
+    std::cout << std::endl;
+}
 
 Route::Route(VehicleId o, std::vector<Waypoint> n)
 {
@@ -76,6 +83,12 @@ size_t Route::size() const { return data_.size(); }
 NodeId Route::node_at(size_t i) const { return data_.at(i).second; }
 DistanceInt Route::dist_at(size_t i) const { return data_.at(i).first; }
 Waypoint Route::at(size_t i) const { return data_.at(i); }
+void Route::print() const
+{
+    for (const auto& wp : data_)
+        std::cout << "(" << wp.first << "|" << wp.second << ") ";
+    std::cout << std::endl;
+}
 
 Trip::Trip(TripId o, NodeId oid, NodeId did, EarlyTime e, LateTime l, Load ld)
 {

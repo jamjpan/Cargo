@@ -126,6 +126,10 @@ const std::string& Cargo::road_network()
 //   vehicles stepping per second!
 // IMPACT: high
 //   Real-time simulation is a core feature of Cargo.
+// CAUSE:
+//   cachegrind reports deserialize_route takes up a lot of time.
+// POSSIBLE FIX:
+//   maybe not all routes (vehicles) objects need to be created?
 //
 // ENHANCEMENT: unused data
 //   Are Vehicle, Route, Schedule (, Customer) classes really necessary? How
@@ -168,8 +172,8 @@ int Cargo::step(int& ndeact)
         bool moved = (nnd <= 0) ? true : false;
         int nstops = 0;
         // Print vehicles
-        // vehicle.print();
-        // print_out << "new nnd: " << nnd << "\n";
+        vehicle.print();
+        print_out << "new nnd: " << nnd << "\n";
 
         // Loop runs |schedule| times in the worst case.
         while (nnd <= 0 && active) {
@@ -296,6 +300,19 @@ void Cargo::start(RSAlgorithm& rsalg)
     print_out << "Starting Cargo\n";
     print_out << "Starting algorithm " << rsalg.name() << "\n";
 
+    if (sqlite3_prepare_v2(db_, sql::usn_stmt, -1, &usn_stmt, NULL) != SQLITE_OK) {
+        print_error << "Failed (create insert name stmt). Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+    }
+    // ENHANCEMENT allow custom (multiple) run_ids
+    sqlite3_bind_text(usn_stmt, 1, rsalg.name().c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(usn_stmt, 2, 1); // <-- run_id = 1
+    if (sqlite3_step(usn_stmt) != SQLITE_DONE) {
+        print_error << "Failed (insert name stmt). Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+    }
+    sqlite3_finalize(usn_stmt);
+
     // Algorithm thread
     std::thread thread_rsalg([&rsalg]() { while (!rsalg.done()) {
         rsalg.listen();
@@ -348,6 +365,10 @@ void Cargo::start(RSAlgorithm& rsalg)
 
 void Cargo::initialize(const Options& opt)
 {
+    int total_customers = 0;
+    int total_vehicles = 0;
+    int base_cost = 0;
+
     print_out << "Starting initialization sequence\n";
     print_out << "Reading nodes...";
     size_t nnodes = read_nodes(opt.path_to_roadnet, nodes_, bbox_);
@@ -398,7 +419,6 @@ void Cargo::initialize(const Options& opt)
     if (sqlite3_exec(db_,
     sql::create_cargo_tables, NULL, NULL, &err) != SQLITE_OK) {
         print_error << "Failed (create cargo tables). Reason: " << err << "\n";
-        // sqlite3_free(&err); -- throws invalid pointer?
         print_out << sql::create_cargo_tables << "\n";
         throw std::runtime_error("create cargo tables failed.");
     }
@@ -440,13 +460,12 @@ void Cargo::initialize(const Options& opt)
         throw std::runtime_error(sqlite3_errmsg(db_));
     }
 
-    this->active_vehicles_ = 0;
     for (const auto& kv : probset_.trips()) {
         for (const auto& trip : kv.second) {
             StopType stop_type = StopType::CustomerOrigin; // default
             if (trip.load() < 0) {
                 // Insert vehicle
-                active_vehicles_++;
+                total_vehicles++;
                 stop_type = StopType::VehicleOrigin;
                 sqlite3_reset(insert_vehicle_stmt);
                 sqlite3_bind_int(insert_vehicle_stmt, 1, trip.id());
@@ -466,7 +485,7 @@ void Cargo::initialize(const Options& opt)
                 Stop b(trip.id(), trip.destination(), StopType::VehicleDest, trip.early(), trip.late());
                 std::vector<Waypoint> route;
                 Schedule s(trip.id(), {a, b});
-                route_through(s, route);
+                base_cost += route_through(s, route);
                 std::string rtstr = serialize_route(route);
                 int nnd = route.at(1).first;
                 sqlite3_reset(insert_route_stmt);
@@ -493,6 +512,12 @@ void Cargo::initialize(const Options& opt)
             }
             else if (trip.load() > 0) {
                 // Insert customer
+                total_customers++;
+                Stop a(trip.id(), trip.origin(), StopType::CustomerOrigin, trip.early(), trip.late(), trip.early());
+                Stop b(trip.id(), trip.destination(), StopType::CustomerDest, trip.early(), trip.late());
+                std::vector<Waypoint> route;
+                Schedule s(trip.id(), {a, b});
+                base_cost += route_through(s, route);
                 stop_type = StopType::CustomerOrigin;
                 sqlite3_reset(insert_customer_stmt);
                 sqlite3_bind_int(insert_customer_stmt, 1, trip.id());
@@ -544,6 +569,8 @@ void Cargo::initialize(const Options& opt)
         }
     }
 
+    active_vehicles_ = total_vehicles;
+
     // Minimum sim time equals time of last trip appearing, plus matching pd.
     tmin_ += matching_period_;
 
@@ -552,6 +579,25 @@ void Cargo::initialize(const Options& opt)
     sqlite3_finalize(insert_stop_stmt);
     sqlite3_finalize(insert_schedule_stmt);
     sqlite3_finalize(insert_route_stmt);
+
+    print_out << "\t Initializing statistics...";
+    sqlite3_stmt* init_stats_stmt;
+    if (sqlite3_prepare_v2(db_,
+    "insert into statistics values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", -1, &init_stats_stmt, NULL) != SQLITE_OK) {
+        print_error << "Failed (init stats stmt). Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+    }
+    sqlite3_bind_int(init_stats_stmt, 1, 1); // <-- run_id = 1
+    sqlite3_bind_text(init_stats_stmt, 2, name().c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(init_stats_stmt, 3, total_customers);
+    sqlite3_bind_int(init_stats_stmt, 4, total_vehicles);
+    sqlite3_bind_int(init_stats_stmt, 5, base_cost);
+    if (sqlite3_step(init_stats_stmt) != SQLITE_DONE) {
+        print_error << "Failed (init stats). Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+    }
+    sqlite3_finalize(init_stats_stmt);
+    print_out << "Done\n";
 
     t_ = 0; // Ready to begin
     print_out << "Done\n";

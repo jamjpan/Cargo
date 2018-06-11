@@ -176,16 +176,24 @@ bool check_timewindow_constr(const std::vector<Stop>& s, const std::vector<Waypo
     return check_timewindow_constr(sch, route);
 }
 
-DistanceInt sop_insert(const Schedule& s, const Customer& cust, bool fix_start,
-                       bool fix_end, std::vector<Stop>& best_schedule,
-                       std::vector<Waypoint>& best_route)
+DistanceInt sop_insert(const Vehicle& veh, const Customer& cust,
+        std::vector<Stop>& best_schedule, std::vector<Waypoint>& best_route)
+{
+    return sop_insert(veh, cust, true, true, best_schedule, best_route);
+}
+DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
+        bool fix_end, std::vector<Stop>& best_schedule, std::vector<Waypoint>& best_route)
 {
     DistanceInt best_cost = InfinityInt;
     best_schedule.clear();
     best_route.clear();
 
-    std::vector<Stop> schedule = s.data(); // copy
+    std::vector<Stop> schedule = veh.schedule().data(); // copy
     std::vector<Waypoint> route;
+
+    // The dist to next node in veh's route matches the first stop in veh.schedule()
+    // (the first stop is always the next node, see cargo::step())
+    // DistanceInt curr_traveled = veh.route().dist_at(veh.idx_last_visited_node()+1);
 
     auto check_best = [&](DistanceInt cost) {
         if (cost < best_cost) {
@@ -233,42 +241,23 @@ DistanceInt sop_insert(const Schedule& s, const Customer& cust, bool fix_start,
             } else
                 std::iter_swap(j, j+inc);
             // print_schedule(schedule)
-            check_best(route_through(schedule, route));
+            check_best(route_through(schedule, route)/*+curr_traveled*/);
         }
         std::iter_swap(i, i+1);
         if (inc == 1 && i < schedule.end()-2-fix_end) {
             // print_schedule(schedule)
-            check_best(route_through(schedule, route));
+            check_best(route_through(schedule, route)/*+curr_traveled*/);
         }
         inc = -inc;
         if (inc == 1)
             reset = true;
     }
+
+    // Add curr_traveled to the new nodes in the route
+    // for (auto& wp : best_route)
+    //    wp.first += curr_traveled;
+
     return best_cost;
-}
-
-DistanceInt sop_insert(const Schedule& s, const Customer& cust,
-                       std::vector<Stop>& best_schedule,
-                       std::vector<Waypoint>& best_route)
-{
-    return sop_insert(s, cust, true, true, best_schedule, best_route);
-}
-
-DistanceInt sop_insert(const std::vector<Stop>& s, const Customer& cust,
-                       bool fix_start, bool fix_end,
-                       std::vector<Stop>& best_schedule,
-                       std::vector<Waypoint>& best_route)
-{
-    Schedule schedule(-1, s); // give it a dummy owner
-    return sop_insert(schedule, cust, fix_start, fix_end, best_schedule, best_route);
-}
-
-DistanceInt sop_insert(const std::vector<Stop>& s, const Customer& cust,
-                       std::vector<Stop>& best_schedule,
-                       std::vector<Waypoint>& best_route)
-{
-    Schedule schedule(-1, s); // give it a dummy owner
-    return sop_insert(schedule, cust, true, true, best_schedule, best_route);
 }
 
 } // namespace cargo

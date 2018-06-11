@@ -78,7 +78,8 @@ void RSAlgorithm::listen() {
 
     // Adjust the batch time here. Set to 0 if you want streaming.
     // But beware, your CPU fans will spin.
-    print_info << "Going to sleep now for " << batch_time_ << " seconds.\n";
+    if (batch_time_ > 0)
+        print_info << "Going to sleep now for " << batch_time_ << " seconds.\n";
     std::this_thread::sleep_for(std::chrono::milliseconds(batch_time_*1000));
 }
 

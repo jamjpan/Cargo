@@ -99,6 +99,19 @@ const SqliteQuery create_cargo_tables =
         "idx_last_visited_node int not null,"
         "next_node_distance int not null,"
         "foreign key (owner) references vehicles(id)"
+    ") without rowid;"
+    "create table statistics("
+        "run_id         int primary key,"
+        "problem_name   text,"
+        "n_customers    int,"
+        "m_vehicles     int,"
+        "base_cost      int,"
+        "solution_name  text,"
+        "solution_cost  int,"
+        "matched_customers int,"
+        "matched_vehicles int,"
+        "sum_pickup     int,"
+        "sum_delay      int"
     ") without rowid;";
 
 const SqliteQuery select_vehicle =
@@ -106,6 +119,9 @@ const SqliteQuery select_vehicle =
     "from   (vehicles inner join routes on vehicles.id=routes.owner"
     "                 inner join schedules on vehicles.id=schedules.owner) "
     "where  ? = vehicles.id;";
+
+const SqliteQuery usn_stmt =
+    "update statistics set solution_name = ? where run_id = ?;";
 
 const SqliteQuery tim_stmt =
     "update customers set status = ? where assignedTo is null and ? > early+?;";

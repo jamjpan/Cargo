@@ -122,94 +122,27 @@ TEST_CASE("functions", "[functions]") {
         Stop bat(1,3,StopType::CustomerDest,0,10);
         Customer cust(1, 8, 3, 0, 10, 1, CustomerStatus::Waiting);
 
-        Schedule s(3, {A, a, B, C, b, c});
-
+        std::vector<Waypoint> route;
+        Schedule veh_sch(1, {A, a, B, b, C, c});
+        route_through(veh_sch, route);
+        Route veh_route(1, route);
+        int nnd = route.at(1).first;
+        Vehicle veh(1,0,6,0,10,-3,nnd,veh_route,veh_sch,0,VehicleStatus::Enroute);
+        msg << "Vehicle route: ";
+        veh.route().print();
+        // Pretend the vehicle moved a little
+        // (veh2 is at the fourth waypoint in its route, and headed toward AaBbCc)
+        // (the route is wrong but it's ok, it will be replaced anyway)
+        Vehicle veh2(2,0,6,0,10,-3,0,veh_route,veh_sch,4,VehicleStatus::Enroute);
+        veh2.print();
         std::vector<Stop> best_schedule;
         std::vector<Waypoint> best_route;
-        DistanceInt best_cost = sop_insert(s, cust, false, false, best_schedule, best_route);
-        msg << best_cost << "\n";
-        for (const auto& stop : best_schedule)
-            msg << stop.location() << ", ";
-        msg << "\n";
-        for (const auto& wp : best_route)
-            msg << wp.second << ", ";
-        msg << "\n";
-
-        Stop vo1(1, 0, StopType::VehicleOrigin,0,15);
-        Stop vd1(1, 6, StopType::VehicleDest,0,15);
-        Schedule s2(1, {vo1, A, a, B, C, b, c, vd1});
-        best_cost = sop_insert(s2, cust, true, true, best_schedule, best_route);
-        msg << best_cost << "\n";
-        for (const auto& stop : best_schedule)
-            msg << stop.location() << ", ";
-        msg << "\n";
-        for (const auto& wp : best_route)
-            msg << wp.second << ", ";
-        msg << "\n";
+        DistanceInt veh2_best_cost = sop_insert(veh2, cust, true, true, best_schedule, best_route);
+        Schedule new_sch(1,best_schedule);
+        Route new_route(1,best_route);
+        msg << "best cost: " << veh2_best_cost << "\n";
+        new_sch.print();
+        new_route.print();
     }
-
-    //SECTION("de/serialize works") {
-    //    msg << "[TEST] De/serialize works\n";
-    //    std::vector<int> test_vec {1,2,3,4,5};
-    //    std::string test_str = serialize_ints(test_vec);
-    //    msg << "{1,2,3,4,5} => " << test_str << "\n";
-
-    //    std::vector<int> result = deserialize_route(test_str);
-    //    msg << test_str << " => {";
-    //    for (const auto& i : result)
-    //        msg << i << ",";
-    //    msg << "}\n";
-
-    //    Stop a(1,2,StopType::CustomerOrigin,3,4,5);
-    //    Stop b(6,7,StopType::CustomerDest,8,9,10);
-    //    test_str = serialize_stops({a, b});
-    //    msg << "stop a, stop b => " << test_str << "\n";
-    //    std::vector<Stop> result2 = deserialize_schedule(test_str);
-    //    for (const auto& stop : result2)
-    //        msg << "Stop " << stop.owner() << "; " << stop.location() << "; "
-    //            << std::to_string((int)stop.type()) << "; " << stop.early()
-    //            << "; " << stop.late() << "; " << stop.visitedAt() << "\n";
-    //}
-
-    //SECTION("de/serialize vector of 1,000,000 ints") {
-    //    msg << "[TEST] Serialize vector of 1,000,000 ints\n";
-    //    std::vector<int> test_vec;
-    //    for (int i = 0; i < 1000000; ++i)
-    //        test_vec.push_back(i);
-    //    auto t_start = clock();
-    //    std::string test_str = serialize_ints(test_vec);
-    //    auto t_end = clock();
-    //    msg << std::fixed << std::setprecision(4) << "\tCPU time used: "
-    //              << 1000.0 * (t_end - t_start) / CLOCKS_PER_SEC << " ms\n";
-
-    //    msg << "[TEST] Deserialize string of 1,000,000 ints\n";
-    //    t_start = clock();
-    //    deserialize_route(test_str);
-    //    t_end = clock();
-    //    msg << std::fixed << std::setprecision(4) << "\tCPU time used: "
-    //              << 1000.0 * (t_end - t_start) / CLOCKS_PER_SEC << " ms\n";
-    //}
-
-    //SECTION("de/serialize vector of 1,000 stops") {
-    //    msg << "[TEST] Serialize vector of 1,000 stops\n";
-    //    std::vector<Stop> test_vec;
-    //    for (int i = 0; i < 1000; ++i) {
-    //        Stop a(i,2,StopType::CustomerOrigin,3,4,5);
-    //        test_vec.push_back(a);
-    //    }
-    //    auto t_start = clock();
-    //    std::string test_str = serialize_stops(test_vec);
-    //    auto t_end = clock();
-    //    msg << std::fixed << std::setprecision(4) << "\tCPU time used: "
-    //              << 1000.0 * (t_end - t_start) / CLOCKS_PER_SEC << " ms\n";
-
-    //    msg << "[TEST] Deserialize string of 1,000 stops\n";
-    //    t_start = clock();
-    //    deserialize_schedule(test_str);
-    //    t_end = clock();
-    //    msg << std::fixed << std::setprecision(4) << "\tCPU time used: "
-    //              << 1000.0 * (t_end - t_start) / CLOCKS_PER_SEC << " ms\n";
-    //}
-
 }
 

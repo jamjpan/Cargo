@@ -26,7 +26,7 @@
 
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
 {
-    this->batch_time() = 1; // Inherited from RSAlgorithm
+    this->batch_time() = 0; // Inherited from RSAlgorithm
     this->nmatches = 0;     // Example of a custom variable
 }
 
@@ -46,13 +46,21 @@ void GreedyInsertion::match()
         bool matched = false;
 
         // TODO: use index to narrow the candidates
+        // BUG wrong times in the route?
+        //   The schedule returned by veh.schedule() only includes future
+        //   stops. The route returned by sop_insert sets the time at the
+        //   first stop in this schedule to be 0, and all subsequent stop
+        //   distances are relative to this first stop. But in reality, the
+        //   vehicle has already spent some time to get to this first stop.
+        //   This time should be added to all the waypoints in the route.
         for (const auto& veh : vehicles()) {
-            cost = cargo::sop_insert(veh.schedule(), cust, schedule, route);
+            cost = cargo::sop_insert(veh, cust, schedule, route);
             if (cost < best_cost
                     && cargo::check_timewindow_constr(schedule, route)) {
                 best_schedule = schedule;
                 best_route = route;
                 best_vehicle = veh.id();
+                best_cost = cost;
                 matched = true;
             }
         }
@@ -61,9 +69,23 @@ void GreedyInsertion::match()
             nmatches++;
             print_success << "Match (Customer " << cust.id() << ", Vehicle "
                           << best_vehicle << ")" << std::endl;
+            print_warning << "best cost: " << best_cost << "\n";
+            print_warning << "best route: ";
+            for (const auto& wp : best_route)
+                std::cout << "(" << wp.first << "|" << wp.second << ") ";
+            std::cout << std::endl;
+            print_warning << "best schedule: ";
+            for (const auto& s : best_schedule)
+                std::cout << s.location() << " ";
+            std::cout << std::endl;
         }
     }
-    print_out << "Matches: " << nmatches << std::endl;
+}
+
+void GreedyInsertion::listen()
+{
+    RSAlgorithm::listen(); // call base listen()
+    /* Custom stuff here */
 }
 
 int main()

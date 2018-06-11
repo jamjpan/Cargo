@@ -76,19 +76,23 @@ private:
     BoundingBox bbox_;
     ProblemSet probset_;
 
+    /* Globally accessible vars */
     static GTree::G_Tree gtree_;
     static sqlite3* db_;
     static Speed speed_;
-    static SimTime t_;    // current sim time
+    static SimTime t_; // current sim time
+
     SimTime tmin_; // minimum sim duration (max trip.early)
-    SimTime tmax_; // - tmax_ = maximum sim duration (max vehicle.late)
+    SimTime tmax_; // maximum sim duration (max vehicle.late)
     SimTime matching_period_;
 
     size_t active_vehicles_;
     int sleep_interval_;
 
+    SqliteReturnCode rc;
+    SqliteErrorMessage err;
+    sqlite3_stmt* usn_stmt; // update solution name
     sqlite3_stmt* tim_stmt; // timeout customers
-
     sqlite3_stmt* ssv_stmt; // select step vehicles
     sqlite3_stmt* dav_stmt; // deactivate vehicle
     sqlite3_stmt* pup_stmt; // pickup
@@ -97,9 +101,6 @@ private:
     sqlite3_stmt* sch_stmt; // schedule
     sqlite3_stmt* lvn_stmt; // last-visited node
     sqlite3_stmt* nnd_stmt; // nearest-node distance
-
-    SqliteReturnCode rc;
-    SqliteErrorMessage err;
 
     void initialize(const Options &);
 

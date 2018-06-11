@@ -66,6 +66,7 @@ public:
     size_t                      size()                  const;
     const Stop&                 at(ScheduleIndex)       const;
     const Stop&                 front()                 const;
+    void                        print()                 const;
 
 private:
     VehicleId owner_;
@@ -83,6 +84,7 @@ public:
     NodeId                      node_at(RouteIndex)     const;
     DistanceInt                 dist_at(RouteIndex)     const;
     Waypoint                    at(RouteIndex)          const;
+    void                        print()                 const;
 
 private:
     VehicleId owner_;

@@ -47,10 +47,8 @@ bool check_timewindow_constr(const std::vector<Stop>&, const std::vector<Waypoin
 // fixing the end points. Set the first bool to true to fix the start, and
 // set the second bool to true to fix the end.
 // O(|schedule|^2*c_route_through)
-DistanceInt sop_insert(const Schedule&, const Customer&, bool, bool, std::vector<Stop>&, std::vector<Waypoint>&);
-DistanceInt sop_insert(const Schedule&, const Customer&, std::vector<Stop>&, std::vector<Waypoint>&);
-DistanceInt sop_insert(const std::vector<Stop>&, const Customer&, bool, bool, std::vector<Stop>&, std::vector<Waypoint>&);
-DistanceInt sop_insert(const std::vector<Stop>&, const Customer&, std::vector<Stop>&, std::vector<Waypoint>&);
+DistanceInt sop_insert(const Vehicle&, const Customer&, std::vector<Stop>&, std::vector<Waypoint>&);
+DistanceInt sop_insert(const Vehicle&, const Customer&, bool, bool, std::vector<Stop>&, std::vector<Waypoint>&);
 
 } // namespace cargo
 
