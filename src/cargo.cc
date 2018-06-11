@@ -140,10 +140,8 @@ const std::string& Cargo::road_network()
 int Cargo::step(int& ndeact)
 {
     while (RSAlgorithm::committing())
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     stepping_ = true;
-    std::cerr << "Cargo::step() has locked stepping_" << std::endl;
     int nrows = ndeact = 0;
 
     sqlite3_bind_int(ssv_stmt, 1, t_);
@@ -294,7 +292,6 @@ int Cargo::step(int& ndeact)
     sqlite3_reset(ssv_stmt);
 
     stepping_ = false; // "unlock"
-    std::cerr << "Cargo::step() has unlocked stepping_" << std::endl;
     return nrows;
 }
 
@@ -366,6 +363,7 @@ void Cargo::start(RSAlgorithm& rsalg)
         t_ += 1;
     }
     rsalg.kill();
+    rsalg.end();
     thread_rsalg.join();
 
     print_out << "Finished algorithm " << rsalg.name() << "\n";

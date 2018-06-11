@@ -191,8 +191,9 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
     // The distances to other stops in the augmented schedule passed to
     // route_through will be relative to this first stop. The already-traveled
     // distance (the head) should be added.
-    DistanceInt head = veh.route().at(veh.idx_last_visited_node()+1).first
-        - veh.route().at(veh.idx_last_visited_node()).first;
+    // DistanceInt head = veh.route().at(veh.idx_last_visited_node()+1).first
+    //    - veh.route().at(veh.idx_last_visited_node()).first;
+    DistanceInt head = veh.route().dist_at(veh.idx_last_visited_node()+1);
 
     DistanceInt best_cost = InfinityInt;
     best_schedule.clear();
@@ -200,10 +201,6 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
 
     std::vector<Stop> schedule = veh.schedule().data(); // copy
     std::vector<Waypoint> route;
-
-    // The dist to next node in veh's route matches the first stop in veh.schedule()
-    // (the first stop is always the next node, see cargo::step())
-    // DistanceInt curr_traveled = veh.route().dist_at(veh.idx_last_visited_node()+1);
 
     auto check_best = [&](DistanceInt cost) {
         if (cost < best_cost) {

@@ -33,17 +33,17 @@
 
 namespace cargo {
 
-// RSAlgorithm is a base ridesharing algorithm and demonstrates how algorithms
-// can be implemented in Cargo. The listen() method is called continuously in a
-// loop. It first retrieves customers and vehicles from the db, then calls
-// handle_customer() and handle_vehicle() for each of them. The
-// handle_customer() method calls match(). The handle_vehicle() method updates
-// the local vehicles_ vector with the new vehicle information. The local
-// vehicles_ is a complete copy of the vehicles table in the db. The default
-// match() method does nothing and is meant to be overridden.
-//
-// Batch processing is sometimes desired. To implement it, override listen()
-// and add a sleep time corresponding to the batch time.
+// RSAlgorithm is a base ridesharing algorithm.
+//   * listen() is called continuously. It retrieves customers and vehicles from
+//     the db, calls handle_customer() and handle_vehicle(), match(), then sleeps.
+//   * Sleep time (batch_time()) is overridable.
+//   * vehicles() and waiting_customers() gives access to vehicles and customers
+//     at each simulation step.
+//       - sql::select_matchable_vehicles selects vehicles
+//       - sql::select_waiting_customers selects customers
+//       - both can be overriden with custom sql; implement the custom sql
+//         against the global Cargo::db() database object, and call the sql in
+//         a custom listen()
 class RSAlgorithm {
 public:
     RSAlgorithm(const std::string&);
@@ -54,18 +54,16 @@ public:
                 const std::vector<cargo::Stop>)         const;
     static bool                 committing()            { return committing_; }
     void                        kill();
+    /* Set batch_time() = 0 for streaming mode */
     int&                        batch_time();
+    /* Retrieve customers/vehicles */
     std::vector<Customer>&      waiting_customers();
     std::vector<Vehicle>&       vehicles();
-    virtual void                handle_customer(const Customer&);
-    virtual void                handle_vehicle(const Vehicle&);
+    /* Overridable */
+    virtual void                handle_customer(const Customer);
+    virtual void                handle_vehicle(const Vehicle);
     virtual void                match();
-
-    // The base listen() method will
-    //   - poll for active vehicles, then call handle_vehicle() on each
-    //     retrieved vehicle
-    //   - poll for customers where t_ > early and status is waiting, then call
-    //     handle_customer() on each retrieved customer
+    virtual void                end();
     virtual void                listen();
 
     Message print_out;
@@ -83,7 +81,6 @@ private:
     std::vector<Customer> waiting_customers_;
     std::vector<Vehicle> vehicles_;
     std::unordered_set<VehicleId> appeared_vehicles_;
-
 };
 
 } // namespace cargo

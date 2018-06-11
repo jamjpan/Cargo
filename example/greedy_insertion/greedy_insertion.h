@@ -22,15 +22,16 @@
 // Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
 // For each request, the algorithm looks for the "greedy" vehicle based on the
 // heuristic, and assigns the request to this vehicle if it exists.
-class GreedyInsertion : public cargo::RSAlgorithm {
+class GreedyInsertion : public cargo::RSAlgorithm { // <-- inherit from the base
 public:
     GreedyInsertion();
 
-    /* Example overrides */
-    virtual void match();
+    /* Overrides */
+    virtual void handle_customer(const cargo::Customer);
+    virtual void end();
     virtual void listen();
 
 private:
-    int nmatches; // Example of a custom variable
+    int nmatches; // A custom variable
 };
 

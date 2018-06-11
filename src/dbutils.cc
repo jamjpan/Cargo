@@ -176,37 +176,12 @@ SqliteReturnCode select_waiting_customers(std::vector<Customer>& vec, const SimT
 SqliteReturnCode commit_assignment(const Customer& cust, const Vehicle& veh,
         std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule)
 {
-    // Get existing route
-    // std::vector<Waypoint> existing_route;
-    // RouteIndex lvn;
     SqliteReturnCode rc;
-    // sqlite3_stmt* sro_stmt; // select route
     sqlite3_stmt* uro_stmt; // update route
     sqlite3_stmt* sch_stmt; // update sched
     sqlite3_stmt* nnd_stmt;
     sqlite3_stmt* lvn_stmt;
     sqlite3_stmt* com_stmt; // assign cust to veh
-
-    // if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    // "select * from routes where owner = ?;", -1, &sro_stmt, NULL)) != SQLITE_OK) {
-    //     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    //     return rc;
-    // }
-    // sqlite3_bind_int(sro_stmt, 1, veh_id);
-    // while ((rc = sqlite3_step(sro_stmt)) == SQLITE_ROW) {
-    //     existing_route = deserialize_route(stringify(sqlite3_column_text(sro_stmt, 1)));
-    //     lvn = sqlite3_column_int(sro_stmt, 2);
-    // }
-    // if (rc != SQLITE_DONE) {
-    //     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    //     return rc;
-    // }
-
-    // // Add current segment to head of the new route
-    // DistanceInt head = existing_route.at(lvn+1).first - existing_route.at(lvn).first;
-    // for (auto& wp : new_route)
-    //     wp.first += head;
-    // new_route.insert(new_route.begin(), existing_route.at(lvn));
 
     // Commit the new route (current_node_idx, nnd are unchanged)
     if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL)) != SQLITE_OK) {
@@ -246,13 +221,13 @@ SqliteReturnCode commit_assignment(const Customer& cust, const Vehicle& veh,
         return rc;
     }
 
-    // Re-commit the lvn
+    // Reset the lvn
     if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::lvn_stmt, -1, &lvn_stmt, NULL)) != SQLITE_OK) {
         std::cout << "Error in prepare lvn " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
-    sqlite3_bind_int(lvn_stmt, 1, veh.idx_last_visited_node());
+    sqlite3_bind_int(lvn_stmt, 1, 0);
     sqlite3_bind_int(lvn_stmt, 2, veh.id());
     if ((rc = sqlite3_step(lvn_stmt)) != SQLITE_DONE) {
         std::cout << "Error in lvn " << rc << std::endl;

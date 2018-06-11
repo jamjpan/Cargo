@@ -26,75 +26,74 @@
 
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
 {
-    this->batch_time() = 1; // Inherited from RSAlgorithm
-    this->nmatches = 0;     // Example of a custom variable
+    batch_time() = 1; // Setting batch to 1 second
+    nmatches = 0;
 }
 
-void GreedyInsertion::match()
+void GreedyInsertion::handle_customer(const cargo::Customer cust)
 {
-    for (const auto& cust : waiting_customers()) {
-        if (cust.assigned())
-            continue; // <-- skip assigned (but not yet picked up)
+    print_warning << "GreedyInsertion handling customer " << cust.id() << "\n";
+    if (cust.assigned())
+        return; // <-- skip assigned (but not yet picked up)
 
-        cargo::DistanceInt cost;
-        cargo::DistanceInt best_cost = cargo::InfinityInt;
-        std::vector<cargo::Stop> schedule;
-        std::vector<cargo::Stop> best_schedule;
-        std::vector<cargo::Waypoint> route;
-        std::vector<cargo::Waypoint> best_route;
-        cargo::Vehicle best_vehicle;
-        bool matched = false;
+    cargo::DistanceInt cost;
+    cargo::DistanceInt best_cost = cargo::InfinityInt;
+    std::vector<cargo::Stop> schedule;
+    std::vector<cargo::Stop> best_schedule;
+    std::vector<cargo::Waypoint> route;
+    std::vector<cargo::Waypoint> best_route;
+    cargo::Vehicle best_vehicle;
+    bool matched = false;
 
-        // TODO: use index to narrow the candidates
-        for (const auto& veh : vehicles()) {
-            cost = cargo::sop_insert(veh, cust, schedule, route);
-            if (cost < best_cost
-                    && cargo::check_timewindow_constr(schedule, route)) {
-                best_schedule = schedule;
-                best_route = route;
-                best_vehicle = veh;
-                best_cost = cost;
-                matched = true;
-            }
-        }
-        if (matched) {
-            std::cerr << "GreedyInsertion found a match, calling commit" << std::endl;
-            commit(cust, best_vehicle, best_route, best_schedule);
-            nmatches++;
-            print_success << "Match (Customer " << cust.id() << ", Vehicle "
-                          << best_vehicle.id() << ")" << std::endl;
-            print_warning << "best cost: " << best_cost << "\n";
-            print_warning << "best route: ";
-            for (const auto& wp : best_route)
-                std::cout << "(" << wp.first << "|" << wp.second << ") ";
-            std::cout << std::endl;
-            print_warning << "best schedule: ";
-            for (const auto& s : best_schedule)
-                std::cout << s.location() << " ";
-            std::cout << std::endl;
+    // TODO: use index to narrow the candidates
+    for (const auto& veh : vehicles()) {
+        print_warning << "\tevaluating vehicle " << veh.id() << "\n";
+        cost = cargo::sop_insert(veh, cust, schedule, route);
+        for (const auto& wp : route)
+            std::cout << "(" << wp.first << "|" << wp.second << ")";
+        std::cout << std::endl;
+        bool within_time = cargo::check_timewindow_constr(schedule, route);
+        print_warning << "\t\tcost: " << cost << " in-time: " << within_time << "\n";
+        if ((cost < best_cost) && within_time) {
+            best_schedule = schedule;
+            best_route = route;
+            best_vehicle = veh;
+            best_cost = cost;
+            matched = true;
         }
     }
+    if (matched) {
+        commit(cust, best_vehicle, best_route, best_schedule);
+        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle.id() << ")\n";
+        nmatches++;
+    }
+}
+
+void GreedyInsertion::end()
+{
+    print_success << "Matches: "<<nmatches<<std::endl;
 }
 
 void GreedyInsertion::listen()
 {
     RSAlgorithm::listen(); // call base listen()
-    /* Custom stuff here */
+    print_info << "Idled "<< batch_time() <<" seconds." << std::endl;
 }
 
 int main()
 {
-    cargo::Options opt;
-    opt.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
-    opt.path_to_gtree   = "../../data/roadnetwork/tiny.gtree";
-    opt.path_to_edges   = "../../data/roadnetwork/tiny.edges";
-    opt.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
-    opt.time_multiplier = 2;
-    opt.vehicle_speed   = 1;
-    opt.matching_period = 10;
+    cargo::Options op;
+    op.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
+    op.path_to_gtree   = "../../data/roadnetwork/tiny.gtree";
+    op.path_to_edges   = "../../data/roadnetwork/tiny.edges";
+    op.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
+    op.time_multiplier = 2;
+    op.vehicle_speed   = 1;
+    op.matching_period = 10;
+
+    cargo::Cargo cargo(op);
 
     GreedyInsertion gr;
-    cargo::Cargo cargo(opt);
     cargo.start(gr);
 }
 
