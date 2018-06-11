@@ -25,7 +25,7 @@ develop and test ridesharing algorithms.
 * Several problem instances are provided (`data/benchmark`)
 
 Here's an example road network, `cd1`:
-![Chengdu, China road network](data/roadnetwork/fig/cd1.png "Chengdu, China road network")
+<img src="data/roadnetwork/fig/cd1.png" alt="Chengdu, China" style="width:480px;"/>
 
 ### Comes with extra tools
 * `tool/gtreebuilder` - build a GTree spatial index (Zhong 2015) for fast
