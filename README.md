@@ -1,85 +1,138 @@
-# Cargo - A Ridesharing Algorithms Library
-
-## Introduction
+# Cargo - Real-time Ridesharing Simulation and Algorithms Library
 
 Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
 to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
 
-Cargo aims to provide a set of abstractions to make it easy to develop
-ridesharing algorithms. The customer/vehicle simulator and ridesharing
-algorithms run on separate threads to mimic the real world. Features:
-* simulate vehicles moving on a road network in real time
-* broadcast customers and vehicles in real time
-* provides a generic RSAlgorithm class; users override three method:
-  handle_customer(), handle_vehicle(), and match()
-* provides shortest-path route finding and vehicle scheduling algorithms
-* find candidate vehicles using rtree
-* provides time-window and precedence-constraint checking
-* (todo) provides a generic logger interface to record statistics of a session
-* uses an in-memory Sqlite3 db to keep track of state
+Cargo is a C++11 library that provides a set of abstractions to make it easy to
+develop and test ridesharing algorithms.
+
+### Develop algorithms using built-in classes and functions
+* Built-in classes: Stop, Schedule, Route, Trip, Customer, Vehicle, etc.
+* Built-in functions: constraints checking, schedule insertion, schedule routing,
+  shortest-paths, etc.
+* Five overridable methods:
+  - `RSAlgorithm::handle_customer()`: called for every customer request
+  - `RSAlgorithm::handle_vehicle()`: called whenever a new vehicle appears
+  - `RSAlgorithm::match()`: called at some configurable frequency
+  - `RSAlgorithm::listen()`: fine-tune an algorithm's polling (batch vs streaming)
+  - `RSAlgorithm::end()`: called at the end of the simulation
+
+### Test algorithms on the Cargo real-time simulation platform
+* Simulation state is stored in an in-memory Sqlite3 database
+* `Cargo::step()` runs every second (configurable) to update locations of vehicles
+* `RSAlgorithm::listen()` polls every second (configurable) for new vehicles/customers
+* Three carefully prepared road networks are provided (`data/roadnetwork`)
+* Several problem instances are provided (`data/benchmark`)
+
+Here's an example road network, `cd1`:
+![Chengdu, China road network](data/roadnetwork/fig/cd1.png "Chengdu, China road network")
+
+### Comes with extra tools
+* `tool/gtreebuilder` - build a GTree spatial index (Zhong 2015) for fast
+  shortest-path finding
+* `tool/probplot` - plot road networks and problem sets using matplotlib
+* `tool/rspgen` - generate ridesharing problem instances
+* `tool/rspoptsol` - solve problem instances optimally using a mixed-integer
+  mathematical program model
 
 ### Example
 This example implements a greedy-insertion matching strategy. The example
-overrides only the match() function, and uses the default handle_customer(),
-handle_vehicle(), and listen() functions.
+overrides handle_customer() in order to match each customer as it arrives.
+Check the `example` folder for more.
 ```cpp
-void GreedyInsertion::match()
+void GreedyInsertion::handle_customer(const cargo::Customer cust)
 {
-    for (const auto& cust : waiting_customers()) {
-        if (cust.assigned())
-            continue; // <-- skip assigned (but not yet picked up)
+    // Customers that are already assigned, but not yet picked up, still
+    // trigger a handle_customer(). Here, we skip those that are already
+    // assigned.
+    if (cust.assigned())
+        return;
 
-        cargo::DistanceInt cost;
-        cargo::DistanceInt best_cost = cargo::InfinityInt;
-        std::vector<cargo::Stop> schedule;
-        std::vector<cargo::Stop> best_schedule;
-        std::vector<cargo::Waypoint> route;
-        std::vector<cargo::Waypoint> best_route;
-        cargo::VehicleId best_vehicle = 0;
-        bool matched = false;
+    cargo::DistanceInt cost;
+    cargo::DistanceInt best_cost = cargo::InfinityInt;
+    std::vector<cargo::Stop> schedule;
+    std::vector<cargo::Stop> best_schedule;
+    std::vector<cargo::Waypoint> route;
+    std::vector<cargo::Waypoint> best_route;
+    cargo::Vehicle best_vehicle;
+    bool matched = false;
 
-        // TODO: use index to narrow the candidates
-        for (const auto& veh : vehicles()) {
-            cost = cargo::sop_insert(veh.schedule(), cust, schedule, route);
-            if (cost < best_cost
-                    && cargo::check_timewindow_constr(schedule, route)) {
-                best_schedule = schedule;
-                best_route = route;
-                best_vehicle = veh.id();
-                matched = true;
-            }
-        }
-        if (matched) {
-            cargo::commit(cust.id(), best_vehicle, best_route, best_schedule);
-            nmatches++;
-            print_success << "Match (Customer " << cust.id() << ", Vehicle "
-                          << best_vehicle << ")" << std::endl;
+    // vehicles() provides all available vehicles. Loop through them, and
+    // assign this customer to the vehicle with the least-cost after inserting
+    // the customer into the vehicle's schedule using the "cheap insertion"
+    // heuristic (Jaw 1986) (sop_insert()).
+    // TODO: use index to narrow the candidates
+    for (const auto& veh : vehicles()) {
+        cost = cargo::sop_insert(veh, cust, schedule, route);
+        bool within_time = cargo::check_timewindow_constr(schedule, route);
+        if ((cost < best_cost) && within_time) {
+            best_schedule = schedule;
+            best_route = route;
+            best_vehicle = veh;
+            best_cost = cost;
+            matched = true;
         }
     }
-    print_out << "Matches: " << nmatches << std::endl;
+    // Commit the match to the database so that Cargo::step() will move the
+    // vehicle along its new route during the next simulation time step.
+    if (matched) {
+        commit(cust, best_vehicle, best_route, best_schedule);
+        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle.id() << ")\n";
+        nmatches++;
+    }
 }
 ```
 
 ### Similar projects
 
-- [Open-VRP](https://github.com/mck-/Open-VRP)
-- [jsprit](https://github.com/graphhopper/jsprit)
-- [VRPH](https://projects.coin-or.org/VRPH)
+* [Open-VRP](https://github.com/mck-/Open-VRP)
+* [jsprit](https://github.com/graphhopper/jsprit)
+* [VRPH](https://projects.coin-or.org/VRPH)
 
-## Prerequisites
+## Building and usage
 
-Users should have pthreads. Cargo runs on the main thread while a
-user-implemented RSAlgorithm, passed as a parameter to Cargo::start, runs
-on a separate thread.
+So far, Cargo has only been tested on Linux. Build using
+```
+make
+```
+This command will output the static library file into `lib/libcargo.a`.
 
-Users must have the [METIS graph partitioning
-library](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) installed.
-Cargo provides a gtree (Zhong et al 2015)  spatial index for computing shortest
-paths, and METIS is required to build this dependency.
+To use the library in your own project, copy `include/*` and `libcargo.a`
+into someplace where your compiler can find. For example:
+```
+myproject/
+  include/libcargo.a
+  include/*
+  myalgorithm.cc
+```
+Then, compile using `-Iinclude`  and link the library using `-Linclude -lcargo`.
+Cargo depends on gtree, which depends on [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview). Cargo also uses pthreads.
+
+Look at the Makefiles in the examples for guidance.
+
+Here is what myalgorithm.cc might look like:
+```cpp
+#include "libcargo.h"
+#include "myalgorithm.h" // <-- MyAlgorithm should inherit from RSAlgorithm
+int main()
+{
+    cargo::Options opt;
+    opt.path_to_roadnet = "my.rnet";
+    opt.path_to_gtree   = "my.gtree";
+    opt.path_to_edges   = "my.edges";
+    opt.path_to_problem = "some.instance";
+    opt.time_multiplier = 1;  // 1=real-time, 2=double-time, etc.
+    opt.vehicle_speed   = 10; // meters per second
+    opt.matching_period = 60; // seconds
+
+    MyAlgorithm alg;
+    cargo::Cargo cargo(opt);
+    cargo.start(alg); // <-- cargo takes care of starting up threads,
+                      //     calling alg.listen(), etc.
+}
+```
 
 ## Schema
-
-Schema for the ground-truth simulation state tables is below.
 ```
                                  ┌──────────────────┐
    ┌──────────────────┐          │ stops            │
@@ -115,44 +168,15 @@ Schema for the ground-truth simulation state tables is below.
    │  assignedTo (int)     │──┘
    └───────────────────────┘
 ```
-## Usage
 
-Build the library using `make`. The library will be placed into `lib/libcargo.a`
-after building. Then, in your own project, include the header to access the
-libcargo API. The `include/` folder should be placed somewhere your compiler
-can access.
-```cpp
-#include "libcargo.h"
-#include "myalgorithm.h"
-int main()
-{
-    cargo::Options opt;
-    opt.path_to_roadnet = "my.rnet";
-    opt.path_to_gtree   = "my.gtree";
-    opt.path_to_edges   = "my.edges";
-    opt.path_to_problem = "some.instance";
-    opt.time_multiplier = 1;  // 1=real-time, 2=double-time, etc.
-    opt.vehicle_speed   = 10; // meters per second
-    opt.matching_period = 60; // seconds
+## Coming soon:
+* Simulation statistics (number of matches, avg. trip delay, etc.)
+* Plotting and animation
+* Performance improvements
+* Better problem instances, with matching models for rspoptsol
+* Optimal solutions to the instances
+* More examples
 
-    MyAlgorithm alg;
-    cargo::Cargo cargo(opt);
-    cargo.start(alg);
-}
-```
-To compile, link the library (and don't forget to link METIS).
-`g++ myproj.cpp -L/path/to/cargo -lcargo -L/path/to/metis -lmetis`
-
-## To do (check means passed tests):
-
-- [x] Distance functions (Euclidean and Haversine)
-- [x] Message class provides four levels of colored terminal output
-- [x] Semantic types match the ridesharing problem's vocabulary and entities
-- [ ] Simulator tracks the state of the simulation at every time step
-- [x] Simulator broadcasts new vehicle and customer arrivals to matching algs
-- [ ] Implement some matching algs
-- [ ] Logging class logs statistics to disk
-
-Help wanted! Please feel free to throw pull requests at me.
-* GTree is leaking memory
+If you discover a bug, please [Submit an Issue](https://github.com/jamjpan/Cargo/issues/new)
+Better yet, fix it and submit a pull request.
 
