@@ -48,9 +48,7 @@ def probplot(args):
 
     """ Algorithm for plotting problem instance
     1. If Q < 0, plot node[origin], node[destination] with triangle markers,
-       connected by a straight line
     2. If Q > 0, plot node[origin], node[destination] with circle markers,
-       destinations are unfilled
     """
     if args["input"]:
         with open(args["input"]) as f_prob:
