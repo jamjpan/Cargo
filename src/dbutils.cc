@@ -173,81 +173,126 @@ SqliteReturnCode select_waiting_customers(std::vector<Customer>& vec, const SimT
     return SQLITE_OK;
 }
 
-SqliteReturnCode commit_assignment(const CustomerId& cust_id, const VehicleId& veh_id,
+SqliteReturnCode commit_assignment(const Customer& cust, const Vehicle& veh,
         std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule)
 {
     // Get existing route
-    std::vector<Waypoint> existing_route;
-    RouteIndex lvn;
+    // std::vector<Waypoint> existing_route;
+    // RouteIndex lvn;
     SqliteReturnCode rc;
-    sqlite3_stmt* sro_stmt; // select route
+    // sqlite3_stmt* sro_stmt; // select route
     sqlite3_stmt* uro_stmt; // update route
     sqlite3_stmt* sch_stmt; // update sched
+    sqlite3_stmt* nnd_stmt;
+    sqlite3_stmt* lvn_stmt;
     sqlite3_stmt* com_stmt; // assign cust to veh
 
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "select * from routes where owner = ?;", -1, &sro_stmt, NULL)) != SQLITE_OK) {
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-        return rc;
-    }
-    sqlite3_bind_int(sro_stmt, 1, veh_id);
-    while ((rc = sqlite3_step(sro_stmt)) == SQLITE_ROW) {
-        existing_route = deserialize_route(stringify(sqlite3_column_text(sro_stmt, 1)));
-        lvn = sqlite3_column_int(sro_stmt, 2);
-    }
-    if (rc != SQLITE_DONE) {
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-        return rc;
-    }
+    // if ((rc = sqlite3_prepare_v2(Cargo::db(),
+    // "select * from routes where owner = ?;", -1, &sro_stmt, NULL)) != SQLITE_OK) {
+    //     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    //     return rc;
+    // }
+    // sqlite3_bind_int(sro_stmt, 1, veh_id);
+    // while ((rc = sqlite3_step(sro_stmt)) == SQLITE_ROW) {
+    //     existing_route = deserialize_route(stringify(sqlite3_column_text(sro_stmt, 1)));
+    //     lvn = sqlite3_column_int(sro_stmt, 2);
+    // }
+    // if (rc != SQLITE_DONE) {
+    //     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    //     return rc;
+    // }
 
-    // Add current segment to head of the new route
-    DistanceInt head = existing_route.at(lvn+1).first - existing_route.at(lvn).first;
-    for (auto& wp : new_route)
-        wp.first += head;
-    new_route.insert(new_route.begin(), existing_route.at(lvn));
+    // // Add current segment to head of the new route
+    // DistanceInt head = existing_route.at(lvn+1).first - existing_route.at(lvn).first;
+    // for (auto& wp : new_route)
+    //     wp.first += head;
+    // new_route.insert(new_route.begin(), existing_route.at(lvn));
 
     // Commit the new route (current_node_idx, nnd are unchanged)
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update routes set data = ? where owner = ?;", -1, &uro_stmt, NULL)) != SQLITE_OK) {
+    if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL)) != SQLITE_OK) {
+        std::cout << "Error in prepare commit new route " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
     std::string new_route_str = serialize_route(new_route);
-    sqlite3_bind_text(uro_stmt, 1, new_route_str.c_str(), new_route_str.length(), SQLITE_STATIC);
-    sqlite3_bind_int(uro_stmt, 2, veh_id);
+    sqlite3_bind_text(uro_stmt, 1, new_route_str.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(uro_stmt, 2, veh.id());
     if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit new route " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+        return rc;
+    }
+
+    // ENHANCEMENT check if assignment is valid
+    //   If the vehicle has moved a lot during RSAlgorithm::match(), then the
+    //   lvn will be different in the db compared to what it is here (because
+    //   here was selected before the vehicle moved). How to handle this case?
+    //   Reject the assignment, or "roll back" the vehicle?
+    //
+    //   We roll back the vehicle for now, consider adding the check and rejceting
+    //   the assignment in the future.
+
+    // Re-commit the nnd
+    if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::nnd_stmt, -1, &nnd_stmt, NULL)) != SQLITE_OK) {
+        std::cout << "Error in prepare nnd " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+        return rc;
+    }
+    sqlite3_bind_int(nnd_stmt, 1, veh.next_node_distance());
+    sqlite3_bind_int(nnd_stmt, 2, veh.id());
+    if ((rc = sqlite3_step(nnd_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in nnd " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+        return rc;
+    }
+
+    // Re-commit the lvn
+    if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::lvn_stmt, -1, &lvn_stmt, NULL)) != SQLITE_OK) {
+        std::cout << "Error in prepare lvn " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+        return rc;
+    }
+    sqlite3_bind_int(lvn_stmt, 1, veh.idx_last_visited_node());
+    sqlite3_bind_int(lvn_stmt, 2, veh.id());
+    if ((rc = sqlite3_step(lvn_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in lvn " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
 
     // Commit the new schedule
     if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL)) != SQLITE_OK) {
+        std::cout << "Error in prepare commit new shcedule " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
     sqlite3_bind_text(sch_stmt, 1, serialize_schedule(new_schedule).c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(sch_stmt, 2, veh_id);
+    sqlite3_bind_int(sch_stmt, 2, veh.id());
     if ((rc = sqlite3_step(sch_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit new schedule " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
 
     // Commit the assignment
-    if ((rc = sqlite3_prepare_v2(Cargo::db(),
-    "update customers set assignedTo = ? where id = ?;", -1, &com_stmt, NULL)) != SQLITE_OK) {
+    if ((rc = sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL)) != SQLITE_OK) {
+        std::cout << "Error in prepare commit assignment " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
-    sqlite3_bind_int(com_stmt, 1, veh_id);
-    sqlite3_bind_int(com_stmt, 2, cust_id);
+    sqlite3_bind_int(com_stmt, 1, veh.id());
+    sqlite3_bind_int(com_stmt, 2, cust.id());
     if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit assignment " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
         return rc;
     }
 
-    sqlite3_finalize(sro_stmt);
+    // sqlite3_finalize(sro_stmt);
     sqlite3_finalize(uro_stmt);
     sqlite3_finalize(sch_stmt);
+    sqlite3_finalize(nnd_stmt);
+    sqlite3_finalize(lvn_stmt);
     sqlite3_finalize(com_stmt);
 
     return SQLITE_OK;

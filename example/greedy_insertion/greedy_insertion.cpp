@@ -26,7 +26,7 @@
 
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
 {
-    this->batch_time() = 0; // Inherited from RSAlgorithm
+    this->batch_time() = 1; // Inherited from RSAlgorithm
     this->nmatches = 0;     // Example of a custom variable
 }
 
@@ -42,34 +42,27 @@ void GreedyInsertion::match()
         std::vector<cargo::Stop> best_schedule;
         std::vector<cargo::Waypoint> route;
         std::vector<cargo::Waypoint> best_route;
-        cargo::VehicleId best_vehicle = 0;
+        cargo::Vehicle best_vehicle;
         bool matched = false;
 
         // TODO: use index to narrow the candidates
-        // BUG wrong times in the route?
-        //   The schedule returned by veh.schedule() only includes future
-        //   stops. The route returned by sop_insert sets the time at the
-        //   first stop in this schedule to be 0, and all subsequent stop
-        //   distances are relative to this first stop. But in reality, the
-        //   vehicle has already spent some time to get to this first stop.
-        //   This time should be added to all the waypoints in the route.
         for (const auto& veh : vehicles()) {
             cost = cargo::sop_insert(veh, cust, schedule, route);
             if (cost < best_cost
                     && cargo::check_timewindow_constr(schedule, route)) {
                 best_schedule = schedule;
                 best_route = route;
-                best_vehicle = veh.id();
+                best_vehicle = veh;
                 best_cost = cost;
                 matched = true;
             }
         }
         if (matched) {
             std::cerr << "GreedyInsertion found a match, calling commit" << std::endl;
-            commit(cust.id(), best_vehicle, best_route, best_schedule);
+            commit(cust, best_vehicle, best_route, best_schedule);
             nmatches++;
             print_success << "Match (Customer " << cust.id() << ", Vehicle "
-                          << best_vehicle << ")" << std::endl;
+                          << best_vehicle.id() << ")" << std::endl;
             print_warning << "best cost: " << best_cost << "\n";
             print_warning << "best route: ";
             for (const auto& wp : best_route)

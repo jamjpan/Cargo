@@ -57,13 +57,14 @@ public:
     size_t                      active_vehicles()       const;
     const std::string&          name();
     const std::string&          road_network();
+    void                        start(RSAlgorithm&);
+    void                        start();
+    /* Other vars */
     static Speed&               vspeed()                { return speed_; }
     static SimTime              now()                   { return t_; }
     static GTree::G_Tree&       gtree()                 { return gtree_;}
     static sqlite3*             db()                    { return db_; }
     static bool                 stepping()              { return stepping_; }
-    void                        start(RSAlgorithm&);
-    void                        start();
 
 private:
     Message print_out;

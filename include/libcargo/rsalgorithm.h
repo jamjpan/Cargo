@@ -50,7 +50,7 @@ public:
 
     const std::string&          name()                  const;
     bool                        done()                  const;
-    void commit(const CustomerId, const VehicleId, std::vector<cargo::Waypoint>,
+    void commit(const Customer, const Vehicle, std::vector<cargo::Waypoint>,
                 const std::vector<cargo::Stop>)         const;
     static bool                 committing()            { return committing_; }
     void                        kill();

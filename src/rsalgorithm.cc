@@ -46,7 +46,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
-void RSAlgorithm::commit(const CustomerId cust_id, const VehicleId veh_id,
+void RSAlgorithm::commit(const Customer cust, const Vehicle veh,
         std::vector<cargo::Waypoint> new_route,
         const std::vector<cargo::Stop> new_schedule) const
 {
@@ -64,8 +64,8 @@ void RSAlgorithm::commit(const CustomerId cust_id, const VehicleId veh_id,
     for (const auto& s : new_schedule)
         std::cout << s.location() << " ";
     std::cout << std::endl;
-    if (cargo::sql::commit_assignment(cust_id, veh_id, new_route, new_schedule) != SQLITE_OK) {
-        std::cerr << "Failed commit " << cust_id << "to " << veh_id << "\n";
+    if (cargo::sql::commit_assignment(cust, veh, new_route, new_schedule) != SQLITE_OK) {
+        std::cerr << "Failed commit " << cust.id() << "to " << veh.id() << "\n";
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
     }
     std::cerr << "Commit done." << std::endl;

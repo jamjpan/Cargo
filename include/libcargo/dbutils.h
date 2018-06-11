@@ -146,15 +146,21 @@ const SqliteQuery vis_stmt =
 const SqliteQuery sch_stmt =
     "update schedules set data = ? where owner = ?;";
 
+const SqliteQuery uro_stmt =
+    "update routes set data = ? where owner = ?;";
+
 const SqliteQuery lvn_stmt =
     "update routes set idx_last_visited_node = ? where owner = ?;";
 
 const SqliteQuery nnd_stmt =
     "update routes set next_node_distance = ? where owner = ?;";
 
+const SqliteQuery com_stmt =
+    "update customers set assignedTo = ? where id = ?;";
+
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle> &, const SimTime &);
 SqliteReturnCode select_waiting_customers(std::vector<Customer> &, const SimTime &);
-SqliteReturnCode commit_assignment(const CustomerId &, const VehicleId &, std::vector<Waypoint> &, const std::vector<Stop> &);
+SqliteReturnCode commit_assignment(const Customer &, const Vehicle &, std::vector<Waypoint> &, const std::vector<Stop> &);
 
 } // namespace sql
 } // namespace cargo

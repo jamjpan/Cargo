@@ -60,6 +60,7 @@ private:
 // schedule, for example construct one, use std::vector<Stop>
 class Schedule {
 public:
+    Schedule() = default;
     Schedule(VehicleId, std::vector<Stop>);
     const VehicleId&            owner()                 const;
     const std::vector<Stop>&    data()                  const;
@@ -77,6 +78,7 @@ private:
 // route, for example construct one from segments, use std::vector<NodeId>
 class Route {
 public:
+    Route() = default;
     Route(VehicleId, std::vector<Waypoint>);
     const VehicleId&            owner()                 const;
     const std::vector<Waypoint>& data()                 const;
@@ -94,6 +96,7 @@ private:
 // A Trip is the base class for a customer or vehicle.
 class Trip {
 public:
+    Trip() = default;
     Trip(TripId, OriginId, DestinationId, EarlyTime, LateTime, Load);
     const TripId&               id()                    const;
     const OriginId&             origin()                const;
@@ -133,6 +136,7 @@ private:
 // stored in the database.
 class Vehicle : public Trip {
 public:
+    Vehicle() = default;
     Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load,
             DistanceInt, Route, Schedule, RouteIndex, VehicleStatus);
     DistanceInt                 next_node_distance()    const;

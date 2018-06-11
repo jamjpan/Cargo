@@ -184,6 +184,16 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust,
 DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
         bool fix_end, std::vector<Stop>& best_schedule, std::vector<Waypoint>& best_route)
 {
+    // The distances to the nodes in the routes found by route_through need
+    // to be corrected.  veh.schedule() passed here contains only un-visited
+    // stops. The first stop in the schedule is the vehicle's next node
+    // (because of step()).  route_through will give this stop a distance of 0.
+    // The distances to other stops in the augmented schedule passed to
+    // route_through will be relative to this first stop. The already-traveled
+    // distance (the head) should be added.
+    DistanceInt head = veh.route().at(veh.idx_last_visited_node()+1).first
+        - veh.route().at(veh.idx_last_visited_node()).first;
+
     DistanceInt best_cost = InfinityInt;
     best_schedule.clear();
     best_route.clear();
@@ -240,22 +250,21 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
                 reset = false;
             } else
                 std::iter_swap(j, j+inc);
-            // print_schedule(schedule)
-            check_best(route_through(schedule, route)/*+curr_traveled*/);
+            check_best(route_through(schedule, route)+head);
         }
         std::iter_swap(i, i+1);
         if (inc == 1 && i < schedule.end()-2-fix_end) {
-            // print_schedule(schedule)
-            check_best(route_through(schedule, route)/*+curr_traveled*/);
+            check_best(route_through(schedule, route)+head);
         }
         inc = -inc;
         if (inc == 1)
             reset = true;
     }
 
-    // Add curr_traveled to the new nodes in the route
-    // for (auto& wp : best_route)
-    //    wp.first += curr_traveled;
+    // Add head to the new nodes in the route
+    for (auto& wp : best_route)
+        wp.first += head;
+    best_route.insert(best_route.begin(), veh.route().at(veh.idx_last_visited_node()));
 
     return best_cost;
 }
