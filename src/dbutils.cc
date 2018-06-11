@@ -98,17 +98,6 @@ std::string serialize_schedule(const std::vector<Stop>& vec)
     return result;
 }
 
-void commit(const CustomerId& cust_id, const VehicleId& veh_id,
-            std::vector<cargo::Waypoint>& new_route,
-            const std::vector<cargo::Stop>& new_schedule)
-{
-
-    if (cargo::sql::commit_assignment(cust_id, veh_id, new_route, new_schedule) != SQLITE_OK) {
-        std::cerr << "Failed commit " << cust_id << "to " << veh_id << "\n";
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    }
-}
-
 namespace sql {
 
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle>& vec, const SimTime& now)

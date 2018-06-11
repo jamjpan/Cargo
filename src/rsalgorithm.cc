@@ -31,6 +31,8 @@
 
 namespace cargo {
 
+bool RSAlgorithm::committing_ = false;
+
 RSAlgorithm::RSAlgorithm(const std::string& name)
     : print_out(name), print_info(MessageType::Info, name),
       print_warning(MessageType::Warning, name),
@@ -44,6 +46,31 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
+void RSAlgorithm::commit(const CustomerId cust_id, const VehicleId veh_id,
+        std::vector<cargo::Waypoint> new_route,
+        const std::vector<cargo::Stop> new_schedule) const
+{
+    committing_ = true;
+    std::cout << "RSAlgorithm::commit() called" << std::endl;
+    std::cerr << "Commit sees stepping is: " << Cargo::stepping() << std::endl;
+    while (Cargo::stepping())
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(10));
+    std::cerr << "Commit sees stepping now is: " << Cargo::stepping() << std::endl;
+    std::cerr << "Commit running with:" << std::endl;
+    for (const auto& wp : new_route)
+        std::cout << "(" << wp.first << "|" << wp.second << ") ";
+    std::cout << std::endl;
+    for (const auto& s : new_schedule)
+        std::cout << s.location() << " ";
+    std::cout << std::endl;
+    if (cargo::sql::commit_assignment(cust_id, veh_id, new_route, new_schedule) != SQLITE_OK) {
+        std::cerr << "Failed commit " << cust_id << "to " << veh_id << "\n";
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+    std::cerr << "Commit done." << std::endl;
+    committing_ = false;
+}
 void RSAlgorithm::kill() { done_ = true; }
 int& RSAlgorithm::batch_time() { return batch_time_; }
 std::vector<Customer>& RSAlgorithm::waiting_customers() { return waiting_customers_; }

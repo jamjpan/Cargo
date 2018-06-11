@@ -50,6 +50,9 @@ public:
 
     const std::string&          name()                  const;
     bool                        done()                  const;
+    void commit(const CustomerId, const VehicleId, std::vector<cargo::Waypoint>,
+                const std::vector<cargo::Stop>)         const;
+    static bool                 committing()            { return committing_; }
     void                        kill();
     int&                        batch_time();
     std::vector<Customer>&      waiting_customers();
@@ -75,6 +78,7 @@ private:
     std::string name_;
     bool done_;
     int batch_time_; // seconds
+    static bool committing_; // "lock"
 
     std::vector<Customer> waiting_customers_;
     std::vector<Vehicle> vehicles_;

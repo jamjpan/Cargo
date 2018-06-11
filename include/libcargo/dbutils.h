@@ -37,10 +37,6 @@ std::string serialize_route(const std::vector<Waypoint> &);
 std::string serialize_schedule(const std::vector<Stop> &);
 std::vector<Waypoint> deserialize_route(const std::string &);
 std::vector<Stop> deserialize_schedule(const std::string &);
-void commit(const CustomerId &, const VehicleId &,
-            std::vector<cargo::Waypoint> &,
-            const std::vector<cargo::Stop>&);
-
 inline std::string stringify(const unsigned char* text) {
     return std::string(reinterpret_cast<const char*>(text));
 }

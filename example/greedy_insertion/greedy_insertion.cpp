@@ -65,7 +65,8 @@ void GreedyInsertion::match()
             }
         }
         if (matched) {
-            cargo::commit(cust.id(), best_vehicle, best_route, best_schedule);
+            std::cerr << "GreedyInsertion found a match, calling commit" << std::endl;
+            commit(cust.id(), best_vehicle, best_route, best_schedule);
             nmatches++;
             print_success << "Match (Customer " << cust.id() << ", Vehicle "
                           << best_vehicle << ")" << std::endl;

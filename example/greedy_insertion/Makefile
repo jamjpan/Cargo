@@ -15,4 +15,4 @@ greedy_insertion.o: greedy_insertion.cpp
 	$(CXX) $(CFLAGS) greedy_insertion.cpp
 
 clean:
-	rm *.o test
+	rm *.o greedy_insertion

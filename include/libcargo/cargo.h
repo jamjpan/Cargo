@@ -61,6 +61,7 @@ public:
     static SimTime              now()                   { return t_; }
     static GTree::G_Tree&       gtree()                 { return gtree_;}
     static sqlite3*             db()                    { return db_; }
+    static bool                 stepping()              { return stepping_; }
     void                        start(RSAlgorithm&);
     void                        start();
 
@@ -81,6 +82,7 @@ private:
     static sqlite3* db_;
     static Speed speed_;
     static SimTime t_; // current sim time
+    static bool stepping_; // lock
 
     SimTime tmin_; // minimum sim duration (max trip.early)
     SimTime tmax_; // maximum sim duration (max vehicle.late)

@@ -54,6 +54,9 @@ SimTime Cargo::t_ = 0;
 // Initialize the Messages mutex
 std::mutex Message::mtx_;
 
+// Initialize stepping
+bool Cargo::stepping_ = false;
+
 // ENHANCEMENT: just one message object, allowing an option
 //   e.g. Message print("cargo");              // construct the object
 //        print << "text\n"                    // print default text
@@ -136,26 +139,31 @@ const std::string& Cargo::road_network()
 //   much of the data is really used?
 int Cargo::step(int& ndeact)
 {
+    while (RSAlgorithm::committing())
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(10));
+    stepping_ = true;
+    std::cerr << "Cargo::step() has locked stepping_" << std::endl;
     int nrows = ndeact = 0;
 
     sqlite3_bind_int(ssv_stmt, 1, t_);
     sqlite3_bind_int(ssv_stmt, 2, (int)VehicleStatus::Arrived);
     // Loop runs |vehicles| times in the worst case.
-    sqlite3_exec(db_, "begin transaction;", NULL, NULL, &err);
     while ((rc = sqlite3_step(ssv_stmt)) == SQLITE_ROW) {
+        VehicleId veh_id = sqlite3_column_int(ssv_stmt, 0);
         nrows++;
         // Print columns
         // for (int i = 0; i < sqlite3_column_count(ssv_stmt); ++i)
         //     print_info << "["<<i<<"] "<< sqlite3_column_name(ssv_stmt, i) << "\n";
         Route route(
-            sqlite3_column_int(ssv_stmt, 0),
+            veh_id,
             deserialize_route(stringify(sqlite3_column_text(ssv_stmt, 8))));
         Schedule schedule(
-            sqlite3_column_int(ssv_stmt, 0),
+            veh_id,
             deserialize_schedule(stringify(sqlite3_column_text(ssv_stmt, 12))));
         std::vector<Stop> new_schedule_data = schedule.data(); // <-- mutable
         Vehicle vehicle(
-            sqlite3_column_int(ssv_stmt, 0),
+            veh_id,
             sqlite3_column_int(ssv_stmt, 1),
             sqlite3_column_int(ssv_stmt, 2),
             sqlite3_column_int(ssv_stmt, 3),
@@ -282,10 +290,11 @@ int Cargo::step(int& ndeact)
         print_error << "Failure in select step vehicles. Reason:\n";
         throw std::runtime_error(sqlite3_errmsg(db_));
     }
-    sqlite3_exec(db_, "end transaction;", NULL, NULL, &err);
     sqlite3_clear_bindings(ssv_stmt);
     sqlite3_reset(ssv_stmt);
 
+    stepping_ = false; // "unlock"
+    std::cerr << "Cargo::step() has unlocked stepping_" << std::endl;
     return nrows;
 }
 
