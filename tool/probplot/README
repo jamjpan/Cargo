@@ -1,0 +1,5 @@
+Usage:
+plotprobset <rnet_file> [-i problem_instance]
+
+Requires matplotlib
+

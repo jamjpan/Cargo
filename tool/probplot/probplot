@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+""" Authors:
+Juntao Hu <hujuntao@buaa.edu.cn>
+James J. Pan <jamesjpan@outlook.com>
+"""
+import argparse
+import matplotlib.path as mpath
+import matplotlib.lines as mlines
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+
+def get_parser():
+    p = argparse.ArgumentParser(description="RSP problems plotter")
+    p.add_argument("rnet_file")
+    p.add_argument("-i", "--input", metavar="PROB_FILE", help="problem instance")
+    p.add_argument("-o", "--out", metavar="OUTPUT", help="output dest (default: a.png)", default="a.png")
+    return p;
+
+def probplot(args):
+    """ Algorithm for plotting the road network
+    1. Store nodes and their coordinates nodes = { node_id: (x, y), ... }
+    2. Store edges as adjacency list { from_id: [to_1, to_2, ...], ... }
+    3. For each key in edges, MOVETO the key; for each value in edges[key], LINETO the value
+    """
+    node = {}
+    edge = {}
+    with open(args["rnet_file"]) as f_rnet:
+        for line in f_rnet:
+            col = line.strip().split()
+            node[int(col[1])] = key = (float(col[3]),float(col[4]))
+            node[int(col[2])] = val = (float(col[5]),float(col[6]))
+            if key not in edge:
+                edge[key] = []
+            edge[key].append(val)
+
+    fig, ax = plt.subplots()
+    Path = mpath.Path
+    path_data = []
+    for key in edge:
+        path_data.append((Path.MOVETO, key))
+        for val in edge[key]:
+            path_data.append((Path.LINETO, val))
+            path_data.append((Path.MOVETO, key))
+    codes, verts = zip(*path_data)
+    path = mpath.Path(verts, codes)
+    patch = patches.PathPatch(path, lw=0.2, color="#bdbdbd")
+    ax.add_patch(patch)
+
+    """ Algorithm for plotting problem instance
+    1. If Q < 0, plot node[origin], node[destination] with triangle markers,
+       connected by a straight line
+    2. If Q > 0, plot node[origin], node[destination] with circle markers,
+       destinations are unfilled
+    """
+    if args["input"]:
+        with open(args["input"]) as f_prob:
+            lines = f_prob.readlines()[7:] # skip header lines
+            for line in lines:
+                col = line.strip().split()
+                o, d, q = int(col[1]), int(col[2]), int(col[3])
+                if q < 0:
+                    plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), 'g--')
+                    plt.plot(node[o][0], node[o][1], 'g^')
+                    plt.plot(node[d][0], node[d][1], marker="^", markerfacecolor='none', markeredgecolor='g')
+                else:
+                    plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), 'k--')
+                    plt.plot(node[o][0], node[o][1], marker="o", color="#000000")
+                    plt.plot(node[d][0], node[d][1], marker="o", markerfacecolor='none', markeredgecolor='k')
+        vo_line = mlines.Line2D([],[],color='green',linestyle='None',marker='^',label='Vehicle origin')
+        vd_line = mlines.Line2D([],[],color='green',linestyle='None',marker='^',markerfacecolor='None',label='Vehicle destination')
+        co_line = mlines.Line2D([],[],color='black',linestyle='None',marker='o',label='Customer origin')
+        cd_line = mlines.Line2D([],[],color='black',linestyle='None',marker='o',markerfacecolor='None',label='Customer destination')
+        plt.legend(handles=[vo_line, vd_line, co_line, cd_line])
+        plt.annotate('lines indicate (origin, destination) pairs', xy=(10,10), xycoords='figure pixels')
+
+    ax.axis('equal')
+    plt.show()
+
+if __name__ == "__main__":
+    probplot(vars(get_parser().parse_args()))
+
