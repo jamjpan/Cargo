@@ -160,7 +160,7 @@ bool check_precedence_constr(const Schedule& s)
 bool check_timewindow_constr(const Schedule& s, const Route& r)
 {
     // Check the end point first
-    if (s.data().back().late() < r.data().back().first)
+    if (s.data().back().late() < r.data().back().first/(float)Cargo::vspeed())
         return false;
 
     // Walk along the schedule and the route.
