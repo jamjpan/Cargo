@@ -6,13 +6,13 @@ to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
 Cargo is a C++11 library that provides a set of abstractions to make it easy to
 develop and test online ridesharing algorithms.
 
-Supports
+Supports:
 * Dynamically arriving vehicles and customers
 * Vehicles with different capacities, customers with different loads
 * Multiple depots
 * Time windows on origins and destinations
 
-Does not (currently) support
+Does not (currently) support:
 * Variable-cost roads (traffic)
 * Directed road networks
 * Vehicles "waiting" at a stop
@@ -38,7 +38,7 @@ Does not (currently) support
 * Several problem instances are provided (`data/benchmark`)
 
 Here's an example road network of Chengdu, China:
-<img src="data/roadnetwork/fig/cd1.png" alt="Chengdu, China" style="width:240px;"/>
+<img src="data/roadnetwork/fig/cd1.png" alt="Chengdu, China" width="240"/>
 
 ### Options
 * Time multiplier (run the simulation in 1x, 2x, etc. speed)
