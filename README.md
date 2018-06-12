@@ -37,8 +37,11 @@ Does not (currently) support:
 * Three carefully prepared road networks are provided (`data/roadnetwork`)
 * Several problem instances are provided (`data/benchmark`)
 
-Here's an example road network of Chengdu, China:
-<img src="data/roadnetwork/fig/cd1.png" alt="Chengdu, China" width="240"/>
+Provided road networks:
+
+<img src="data/roadnetwork/fig/mny.png" alt="Manhattan" width="280"/>
+<img src="data/roadnetwork/fig/cd1.png" alt="Chengdu, China" width="280"/>
+<img src="data/roadnetwork/fig/bj5.png" alt="Beijing, China" width="280"/>
 
 ### Options
 * Time multiplier (run the simulation in 1x, 2x, etc. speed)
