@@ -89,12 +89,13 @@ void RSAlgorithm::end()
 
 void RSAlgorithm::listen()
 {
-    // O(|vehicles|); we have to update all the local vehicles
+    std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+    t0 = std::chrono::high_resolution_clock::now();
+
     vehicles_.clear();
     sql::select_matchable_vehicles(vehicles_, Cargo::now());
     for (const auto& vehicle : vehicles_)
-        if (appeared_vehicles_.insert(vehicle.id()).second == true)
-            handle_vehicle(vehicle);
+        handle_vehicle(vehicle);
 
     waiting_customers_.clear();
     sql::select_waiting_customers(waiting_customers_, Cargo::now());
@@ -103,8 +104,12 @@ void RSAlgorithm::listen()
 
     match();
 
-    // Set batch_time() to 0 if you want streaming.
-    std::this_thread::sleep_for(std::chrono::milliseconds(batch_time_*1000));
+    t1 = std::chrono::high_resolution_clock::now();
+    int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
+    if (dur > batch_time_*1000)
+        print_warning << "listen() ("<<dur<<" ms) exceeds batch time ("<<batch_time_*1000<<" ms)\n";
+    else
+        std::this_thread::sleep_for(std::chrono::milliseconds(batch_time_*1000-dur));
 }
 
 } // namespace cargo

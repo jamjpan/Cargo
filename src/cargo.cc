@@ -39,23 +39,15 @@
 
 namespace cargo {
 
-// Initialize an empty tree. 
-GTree::G_Tree Cargo::gtree_ = GTree::get();
-
-// Initialize an empty sqlite3*.
-sqlite3* Cargo::db_ = nullptr;
-
-// Initialize vehicle speed.
-Speed Cargo::speed_ = 0;
-
-// Initialize start time.
-SimTime Cargo::t_ = 0;
-
-// Initialize the Messages mutex
-std::mutex Message::mtx_;
-
-// Initialize stepping
-bool Cargo::stepping_ = false;
+// Initialize global vars
+KeyValueNodes   Cargo::nodes_       = {};
+BoundingBox     Cargo::bbox_        = {{},{}};
+GTree::G_Tree   Cargo::gtree_       = GTree::get();
+sqlite3*        Cargo::db_          = nullptr;
+Speed           Cargo::speed_       = 0;
+SimTime         Cargo::t_           = 0;
+bool            Cargo::stepping_    = false;
+std::mutex      Message::mtx_;
 
 // ENHANCEMENT: just one message object, allowing an option
 //   e.g. Message print("cargo");              // construct the object
@@ -102,7 +94,6 @@ Cargo::~Cargo()
     print_out << "Database closed." << std::endl;
 }
 
-const BoundingBox& Cargo::bbox() const { return bbox_; }
 const SimTime& Cargo::final_request_time() const { return tmin_; }
 const SimTime& Cargo::final_arrival_time() const { return tmax_; }
 size_t Cargo::active_vehicles() const { return active_vehicles_; }
@@ -178,8 +169,8 @@ int Cargo::step(int& ndeact)
         bool moved = (nnd <= 0) ? true : false;
         int nstops = 0;
         // Print vehicles
-        vehicle.print();
-        print_out << "new nnd: " << nnd << "\n";
+        // vehicle.print();
+        // print_out << "new nnd: " << nnd << "\n";
 
         // Loop runs |schedule| times in the worst case.
         while (nnd <= 0 && active) {
@@ -326,10 +317,10 @@ void Cargo::start(RSAlgorithm& rsalg)
 
     // Cargo thread
     // (Don't call any rsalg methods here)
-    std::chrono::time_point<std::chrono::high_resolution_clock> t_start, t_end;
-    int ndeact, nstepped, elapsed;
+    std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+    int ndeact, nstepped, dur;
     while (active_vehicles_ > 0 || t_ <= tmin_) {
-        t_start = std::chrono::high_resolution_clock::now();
+        t0 = std::chrono::high_resolution_clock::now();
 
         // Timeout customers where t_ > early + matching_period_
         sqlite3_bind_int(tim_stmt, 1, (int)CustomerStatus::Canceled);
@@ -350,16 +341,13 @@ void Cargo::start(RSAlgorithm& rsalg)
                    << " vehicles; remaining=" << active_vehicles_ << ";"
                    << std::endl;
 
-        t_end = std::chrono::high_resolution_clock::now();
+        t1 = std::chrono::high_resolution_clock::now();
 
-        elapsed = std::round(
-            std::chrono::duration<double, std::milli>(t_end - t_start).count());
-        if (elapsed > sleep_interval_)
-            print_warning << "Elapsed (" << elapsed << " ms) exceeds interval ("
-                          << sleep_interval_ << " ms)\n";
+        dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
+        if (dur > sleep_interval_)
+            print_warning<<"step() ("<<dur<<" ms) exceeds interval ("<<sleep_interval_<<" ms)\n";
         else
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(sleep_interval_ - elapsed));
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_interval_-dur));
         t_ += 1;
     }
     rsalg.kill();
@@ -494,6 +482,9 @@ void Cargo::initialize(const Options& opt)
                 Schedule s(trip.id(), {a, b});
                 base_cost += route_through(s, route);
                 std::string rtstr = serialize_route(route);
+                /* debug */
+                if (route.size() == 1)
+                    print_error << trip.id() << std::endl;
                 int nnd = route.at(1).first;
                 sqlite3_reset(insert_route_stmt);
                 sqlite3_bind_int(insert_route_stmt, 1, trip.id());

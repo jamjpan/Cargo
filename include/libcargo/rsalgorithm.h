@@ -80,7 +80,6 @@ private:
 
     std::vector<Customer> waiting_customers_;
     std::vector<Vehicle> vehicles_;
-    std::unordered_set<VehicleId> appeared_vehicles_;
 };
 
 } // namespace cargo

@@ -28,6 +28,7 @@ namespace cargo {} // namespace cargo
 #include "libcargo/classes.h"
 #include "libcargo/dbutils.h"
 #include "libcargo/distance.h"
+#include "libcargo/grid.h"
 #include "libcargo/file.h"
 #include "libcargo/message.h"
 #include "libcargo/options.h"

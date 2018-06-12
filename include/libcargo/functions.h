@@ -27,6 +27,8 @@
 
 namespace cargo {
 
+DistanceInt pickup_range(const Customer&, const SimTime);
+
 // Given a schedule, return the route through the schedule and its cost. Cost is
 // integer because G_Tree only returns int.
 // O(|schedule|*|nodes|)

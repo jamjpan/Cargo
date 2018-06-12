@@ -32,6 +32,11 @@
 
 namespace cargo {
 
+DistanceInt pickup_range(const Customer& cust, const SimTime now)
+{
+    return (cust.late()-(shortest_path_dist(cust.origin(), cust.destination())/Cargo::vspeed())-now)*Cargo::vspeed();
+}
+
 // Complexity: O(|schedule|*|route|)
 //   - for loop body executes n-1 times, for n stops
 //   - std::copy is exactly |route| operations

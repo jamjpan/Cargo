@@ -3,6 +3,11 @@ CXX = g++
 CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 #-------------------------------------------------------------------------------
 OBJECTS = \
+		  include/libcargo.h \
+		  include/libcargo/grid.h \
+		  include/libcargo/distance.h \
+		  include/libcargo/message.h \
+		  include/libcargo/types.h \
 		  build/cargo.o \
 		  build/classes.o \
 		  build/dbutils.o \
@@ -53,7 +58,9 @@ build/functions.o: \
 	include/libcargo/functions.h \
 	include/libcargo/cargo.h \
 	include/libcargo/classes.h \
+	include/libcargo/distance.h \
 	include/libcargo/types.h \
+	include/gtree/gtree.h \
 	src/functions.cc
 	$(CXX) $(CFLAGS) src/functions.cc
 

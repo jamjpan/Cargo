@@ -43,12 +43,27 @@ inline DistanceDouble haversine(const Point& u, const Point& v)
                std::sin(x / 2) * std::sin(x / 2) *
                    std::cos(u.lat * (MathPI / 180)) *
                    std::cos(v.lat * (MathPI / 180));
-    return r * (2 * std::asin(std::sqrt(a)));
+    return r * (2 * std::asin(std::sqrt(a))); // meters
 }
 
 inline DistanceInt shortest_path_dist(const NodeId& u, const NodeId& v)
 {
-    return Cargo::gtree().search(u, v);
+    return Cargo::gtree().search(u, v); // meters
+}
+
+// Convert meters to number of longitude degrees
+// Really messes up at the poles
+// https://stackoverflow.com/a/1253545
+inline double metersTolngdegs(const DistanceDouble& meters, const Latitude& lat)
+{
+    return meters*(1.0/111320*std::cos(lat*MathPI/180));
+}
+
+// Convert meters to number of latitude degrees
+// https://stackoverflow.com/a/1253545
+inline double metersTolatdegs(const DistanceDouble& meters)
+{
+    return meters*(1.0/110574);
 }
 
 } // namespace cargo

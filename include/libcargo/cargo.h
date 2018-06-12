@@ -51,7 +51,8 @@ class Cargo {
 public:
     Cargo(const Options&);
     ~Cargo();
-    const BoundingBox&          bbox()                  const;
+    // These basically aren't ever used, they can only get called in main()
+    // Only start() is used, really.
     const SimTime&              final_request_time()    const;
     const SimTime&              final_arrival_time()    const;
     size_t                      active_vehicles()       const;
@@ -60,6 +61,8 @@ public:
     void                        start(RSAlgorithm&);
     void                        start();
     /* Other vars */
+    static Point                node2pt(const NodeId& i){ return nodes_.at(i); }
+    static BoundingBox          bbox()                  { return bbox_; }
     static Speed&               vspeed()                { return speed_; }
     static SimTime              now()                   { return t_; }
     static GTree::G_Tree&       gtree()                 { return gtree_;}
@@ -73,12 +76,12 @@ private:
     Message print_error;
     Message print_success;
 
-    KeyValueNodes nodes_;
     KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
-    BoundingBox bbox_;
     ProblemSet probset_;
 
     /* Globally accessible vars */
+    static KeyValueNodes nodes_;
+    static BoundingBox bbox_;
     static GTree::G_Tree gtree_;
     static sqlite3* db_;
     static Speed speed_;

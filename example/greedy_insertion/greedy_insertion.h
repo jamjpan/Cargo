@@ -26,12 +26,15 @@ class GreedyInsertion : public cargo::RSAlgorithm { // <-- inherit from the base
 public:
     GreedyInsertion();
 
-    /* Overrides */
+    /* My Overrides */
     virtual void handle_customer(const cargo::Customer);
+    virtual void handle_vehicle(const cargo::Vehicle);
     virtual void end();
     virtual void listen();
 
 private:
-    int nmatches; // A custom variable
+    /* My Custom Variables */
+    int nmatches;
+    cargo::Grid<cargo::Vehicle> grid_;
 };
 

@@ -21,10 +21,11 @@
 #include <iostream> /* std::endl */
 #include <vector>
 
-#include "greedy_insertion.h"
 #include "libcargo.h"
+#include "greedy_insertion.h"
 
-GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
+GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
+    grid_(100) // <-- initialize my 100x100 grid
 {
     batch_time() = 1; // Setting batch to 1 second
     nmatches = 0;
@@ -32,7 +33,6 @@ GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion")
 
 void GreedyInsertion::handle_customer(const cargo::Customer cust)
 {
-    print_warning << "GreedyInsertion handling customer " << cust.id() << "\n";
     if (cust.assigned())
         return; // <-- skip assigned (but not yet picked up)
 
@@ -45,15 +45,11 @@ void GreedyInsertion::handle_customer(const cargo::Customer cust)
     cargo::Vehicle best_vehicle;
     bool matched = false;
 
-    // TODO: use index to narrow the candidates
-    for (const auto& veh : vehicles()) {
-        print_warning << "\tevaluating vehicle " << veh.id() << "\n";
+    cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
+    std::vector<cargo::Vehicle> vehicles = grid_.within_about(range, cust.origin());
+    for (const auto& veh : vehicles) {
         cost = cargo::sop_insert(veh, cust, schedule, route);
-        for (const auto& wp : route)
-            std::cout << "(" << wp.first << "|" << wp.second << ")";
-        std::cout << std::endl;
         bool within_time = cargo::check_timewindow_constr(schedule, route);
-        print_warning << "\t\tcost: " << cost << " in-time: " << within_time << "\n";
         if ((cost < best_cost) && within_time) {
             best_schedule = schedule;
             best_route = route;
@@ -69,6 +65,12 @@ void GreedyInsertion::handle_customer(const cargo::Customer cust)
     }
 }
 
+void GreedyInsertion::handle_vehicle(const cargo::Vehicle veh)
+{
+    /* Insert vehicles into my grid */
+    grid_.insert(veh, veh.last_visited_node());
+}
+
 void GreedyInsertion::end()
 {
     print_success << "Matches: "<<nmatches<<std::endl;
@@ -76,20 +78,28 @@ void GreedyInsertion::end()
 
 void GreedyInsertion::listen()
 {
-    RSAlgorithm::listen(); // call base listen()
-    print_info << "Idled "<< batch_time() <<" seconds." << std::endl;
+    grid_.clear();          // clear my index
+    RSAlgorithm::listen();  // then call the base listen()
 }
 
 int main()
 {
     cargo::Options op;
-    op.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
-    op.path_to_gtree   = "../../data/roadnetwork/tiny.gtree";
-    op.path_to_edges   = "../../data/roadnetwork/tiny.edges";
-    op.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
-    op.time_multiplier = 2;
-    op.vehicle_speed   = 1;
-    op.matching_period = 10;
+    op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
+    op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
+    op.path_to_edges   = "../../data/roadnetwork/mny.edges";
+    op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
+    op.time_multiplier = 1;
+    op.vehicle_speed   = 10;
+    op.matching_period = 60;
+
+    // op.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
+    // op.path_to_gtree   = "../../data/roadnetwork/tiny.gtree";
+    // op.path_to_edges   = "../../data/roadnetwork/tiny.edges";
+    // op.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
+    // op.time_multiplier = 1;
+    // op.vehicle_speed   = 1;
+    // op.matching_period = 10;
 
     cargo::Cargo cargo(op);
 

@@ -11,7 +11,7 @@ OBJS = greedy_insertion.o
 all: $(OBJS)
 	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o greedy_insertion
 
-greedy_insertion.o: greedy_insertion.cpp
+greedy_insertion.o: ../../lib/libcargo.a greedy_insertion.h greedy_insertion.cpp
 	$(CXX) $(CFLAGS) greedy_insertion.cpp
 
 clean:
