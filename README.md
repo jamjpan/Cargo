@@ -114,6 +114,8 @@ void GreedyInsertion::handle_customer(const cargo::Customer cust)
   algorithms, not dynamic; not road-network based)
 * [VRPH](https://projects.coin-or.org/VRPH) (C++; not dynamic; not road-network
   based)
+* See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
+  about simulation
 
 ## Building and usage
 
