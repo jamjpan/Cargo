@@ -199,6 +199,10 @@ int Cargo::step(int& ndeact)
                     sqlite3_reset(dav_stmt);
                     active = false; // <-- stops the while loop
                     ndeact += 1;
+
+                    // Record vehicle status
+                    // (vehicle is done now)
+                    stat_vehicle_routes_[t_][veh_id] = route.node_at(lvn);
                 }
                 // Vehicle is at customer pickup
                 else if (stop.type() == StopType::CustomerOrigin) {
@@ -243,6 +247,7 @@ int Cargo::step(int& ndeact)
             if (active)
                 nnd += (route.dist_at(lvn+1) - route.dist_at(lvn));
         } // end while
+
         if (active) {
             if (nstops > 0) {
                 // Update schedule (remove the just-visited stops) O(|schedule|)
@@ -539,6 +544,10 @@ void Cargo::initialize(const Options& opt)
                     print_error << "Failed (insert vehicle). Reason:\n";
                     throw std::runtime_error(sqlite3_errmsg(db_));
                 }
+
+                // Put into stat_vehicle_routes_[0], just so we have it
+                stat_vehicle_routes_[0][trip.id()] = 0;
+
                 // Insert route
                 Stop a(trip.id(), trip.origin(), StopType::VehicleOrigin, trip.early(), trip.late(), trip.early());
                 Stop b(trip.id(), trip.destination(), StopType::VehicleDest, trip.early(), trip.late());

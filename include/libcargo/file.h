@@ -21,6 +21,8 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_FILE_H_
 #define CARGO_INCLUDE_LIBCARGO_FILE_H_
+#include <unordered_map>
+#include <map>
 
 #include "classes.h"
 #include "types.h"
@@ -49,12 +51,9 @@ void write_solution(
     const int,          // base cost
     const DistanceInt,  // final_cost
     const Filepath&,
-    const std::unordered_map<
-        SimTime, std::unordered_map<VehicleId, NodeId>>&,
-    const std::unordered_map<
-        SimTime, std::unordered_map<CustomerId, CustomerStatus>>&,
-    const std::unordered_map<
-        SimTime, std::unordered_map<CustomerId, VehicleId>>&);
+    const std::unordered_map<SimTime, std::map<VehicleId, NodeId>>&,
+    const std::unordered_map<SimTime, std::map<CustomerId, CustomerStatus>>&,
+    const std::unordered_map<SimTime, std::map<CustomerId, VehicleId>>&);
 
 } // namespace cargo
 

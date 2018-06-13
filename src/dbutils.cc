@@ -163,7 +163,6 @@ SqliteReturnCode select_waiting_customers(std::vector<Customer>& vec, const SimT
             sqlite3_column_int(stmt, 5),
             static_cast<CustomerStatus>(sqlite3_column_int(stmt, 6)),
             sqlite3_column_int(stmt, 7));
-        customer.print();
         vec.push_back(customer);
     }
     if (rc != SQLITE_DONE) {

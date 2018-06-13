@@ -19,9 +19,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <fstream>
-#include <stdexcept>
 #include <algorithm> /* min(), max() */
+#include <fstream>
+#include <map>
+#include <stdexcept>
+#include <unordered_map>
 
 #include "libcargo/file.h"
 #include "libcargo/classes.h"
@@ -111,19 +113,11 @@ size_t read_problem(const Filepath& path, ProblemSet &probset)
 }
 
 void write_solution(
-    const std::string& name,
-    const std::string& rn,
-    const int m,
-    const int n,
-    const int base_cost,
-    const DistanceInt final_cost,
-    const Filepath& path,
-    const std::unordered_map<
-        SimTime, std::unordered_map<VehicleId, NodeId>>& r,
-    const std::unordered_map<
-        SimTime, std::unordered_map<CustomerId, CustomerStatus>>& s,
-    const std::unordered_map<
-        SimTime, std::unordered_map<CustomerId, VehicleId>>& a)
+    const std::string& name, const std::string& rn, const int m, const int n,
+    const int base_cost, const DistanceInt final_cost, const Filepath& path,
+    const std::unordered_map<SimTime, std::map<VehicleId, NodeId>>& r,
+    const std::unordered_map<SimTime, std::map<CustomerId, CustomerStatus>>& s,
+    const std::unordered_map<SimTime, std::map<CustomerId, VehicleId>>& a)
 {
     std::ofstream ofs(path, std::ios::out);
     ofs << name << '\n'
@@ -137,7 +131,7 @@ void write_solution(
 
     // Print out vehicle IDs and store
     std::vector<VehicleId> veh_ids_;
-    for (const auto& i : r.at(0)) {
+    for (const auto& i : r.at(0)) { // <-- not all vehicles!@!@!@!@!
         ofs << "\tVEH" << i.first;
         veh_ids_.push_back(i.first);
     }
