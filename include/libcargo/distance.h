@@ -56,7 +56,7 @@ inline DistanceInt shortest_path_dist(const NodeId& u, const NodeId& v)
 // https://stackoverflow.com/a/1253545
 inline double metersTolngdegs(const DistanceDouble& meters, const Latitude& lat)
 {
-    return meters*(1.0/111320*std::cos(lat*MathPI/180));
+    return meters/(111320*std::cos(lat*MathPI/180));
 }
 
 // Convert meters to number of latitude degrees
