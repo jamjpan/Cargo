@@ -33,38 +33,39 @@
 
 namespace cargo {
 
-// RSAlgorithm is a base ridesharing algorithm.
-//   * listen() is called continuously. It retrieves customers and vehicles from
-//     the db, calls handle_customer() and handle_vehicle(), match(), then sleeps.
-//   * Sleep time (batch_time()) is overridable.
-//   * vehicles() and waiting_customers() gives access to vehicles and customers
-//     at each simulation step.
-//       - sql::select_matchable_vehicles selects vehicles
-//       - sql::select_waiting_customers selects customers
-//       - both can be overriden with custom sql; implement the custom sql
-//         against the global Cargo::db() database object, and call the sql in
-//         a custom listen()
+// The abstract interface for ridesharing algorithms. Users can implement the
+// handle_customer(), handle_vehicle(), match(), end(), and listen() methods.
+//
+// Only listen() has a default behavior. The behavior is to select all active
+// vehicles into vehicles_ (retrievable with vehicles()), select all waiting
+// customers into waiting_customers_ (retrievable with waiting_customers()),
+// then sleep for batch_time_ (settable with batch_time()). The method is
+// called continuously inside Cargo::step().
 class RSAlgorithm {
 public:
+    // Pass along a name string to your RSAlgorithm
     RSAlgorithm(const std::string&);
 
-    const std::string&          name()                  const;
-    bool                        done()                  const;
-    void commit(const Customer, const Vehicle, std::vector<cargo::Waypoint>,
-                const std::vector<cargo::Stop>)         const;
-    static bool                 committing()            { return committing_; }
-    void                        kill();
-    /* Set batch_time() = 0 for streaming mode */
-    int&                        batch_time();
-    /* Retrieve customers/vehicles */
-    std::vector<Customer>&      waiting_customers();
-    std::vector<Vehicle>&       vehicles();
-    /* Overridable */
-    virtual void                handle_customer(const Customer);
-    virtual void                handle_vehicle(const Vehicle);
+    virtual void                handle_customer(const Customer &);
+    virtual void                handle_vehicle(const Vehicle &);
     virtual void                match();
     virtual void                end();
     virtual void                listen();
+
+    // Write assignment to the db
+    void commit(const Customer &, const Vehicle &,
+                const std::vector<cargo::Waypoint> &,
+                const std::vector<cargo::Stop> &)       const;
+
+    const std::string&          name()                  const;
+    bool                        done()                  const;
+    static bool                 committing()            { return committing_; }
+    void                        kill();         // <-- sets done_ to true
+    int&                        batch_time();   // <-- set to 0 for streaming
+
+    // Customers and vehicles are refreshed whenever listen() is called
+    std::vector<Customer>&      waiting_customers();
+    std::vector<Vehicle>&       vehicles();
 
     Message print_out;
     Message print_info;

@@ -46,15 +46,16 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
-void RSAlgorithm::commit(const Customer cust, const Vehicle veh,
-        std::vector<cargo::Waypoint> new_route,
-        const std::vector<cargo::Stop> new_schedule) const
+void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
+        const std::vector<cargo::Waypoint>& new_route,
+        const std::vector<cargo::Stop>& new_schedule) const
 {
     committing_ = true;         // lock
     while (Cargo::stepping())   // wait for lock
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     if (cargo::sql::commit_assignment(cust, veh, new_route, new_schedule) != SQLITE_OK) {
-        std::cerr << "Failed commit " << cust.id() << "to " << veh.id() << "\n";
+        // Why this is not working..?
+        // print_error << "Failed commit " << cust.id() << "to " << veh.id() << "\n";
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
     }
     committing_ = false;        // unlock
@@ -64,13 +65,13 @@ int& RSAlgorithm::batch_time() { return batch_time_; }
 std::vector<Customer>& RSAlgorithm::waiting_customers() { return waiting_customers_; }
 std::vector<Vehicle>& RSAlgorithm::vehicles() { return vehicles_; }
 
-void RSAlgorithm::handle_customer(const Customer customer)
+void RSAlgorithm::handle_customer(const Customer &)
 {
     /* Use handle_customer() for streaming-matching, or other necessary
      * customer processing. */
 }
 
-void RSAlgorithm::handle_vehicle(const Vehicle vehicle)
+void RSAlgorithm::handle_vehicle(const Vehicle &)
 {
     /* Use handle_vehicle() to add new vehicles to a spatial index
      * or other kind of vehicle processing. */
@@ -90,6 +91,8 @@ void RSAlgorithm::end()
 void RSAlgorithm::listen()
 {
     std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+
+    // Start timing -------------------------------
     t0 = std::chrono::high_resolution_clock::now();
 
     vehicles_.clear();
@@ -105,6 +108,8 @@ void RSAlgorithm::listen()
     match();
 
     t1 = std::chrono::high_resolution_clock::now();
+    // Stop timing --------------------------------
+    // Don't sleep if time exceeds batch time
     int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
     if (dur > batch_time_*1000)
         print_warning << "listen() ("<<dur<<" ms) exceeds batch time ("<<batch_time_*1000<<" ms)\n";
