@@ -124,6 +124,7 @@ public:
     CustomerStatus              status()                const;
     VehicleId                   assignedTo()            const;
     bool                        assigned()              const;
+    void                        print()                 const;
 
 private:
     CustomerStatus status_;

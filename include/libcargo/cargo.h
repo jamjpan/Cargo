@@ -21,6 +21,7 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_CARGO_H_
 #define CARGO_INCLUDE_LIBCARGO_CARGO_H_
+#include <unordered_map>
 
 #include "classes.h"
 #include "file.h"
@@ -79,6 +80,17 @@ private:
     KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
     ProblemSet probset_;
 
+    SimTime tmin_; // minimum sim duration (max trip.early)
+    SimTime tmax_; // maximum sim duration (max vehicle.late)
+    SimTime matching_period_;
+
+    size_t base_cost_;
+    size_t total_vehicles_;
+    size_t total_customers_;
+    size_t active_vehicles_;
+    int sleep_interval_;
+    std::unordered_map<TripId, DistanceInt> trip_costs_;
+
     /* Globally accessible vars */
     static KeyValueNodes nodes_;
     static BoundingBox bbox_;
@@ -88,15 +100,26 @@ private:
     static SimTime t_; // current sim time
     static bool stepping_; // lock
 
-    SimTime tmin_; // minimum sim duration (max trip.early)
-    SimTime tmax_; // maximum sim duration (max vehicle.late)
-    SimTime matching_period_;
+    /* Solution tables */
+    Filepath solution_file_;
+    std::unordered_map<SimTime,
+        std::unordered_map<VehicleId, NodeId>>
+            stat_vehicle_routes_;
 
-    size_t active_vehicles_;
-    int sleep_interval_;
+    std::unordered_map<SimTime,
+        std::unordered_map<CustomerId, CustomerStatus>>
+            stat_customer_statuses_;
 
+    std::unordered_map<SimTime,
+        std::unordered_map<CustomerId, VehicleId>>
+            stat_customer_assignments_;
+
+    /* SQL statements */
     SqliteReturnCode rc;
     SqliteErrorMessage err;
+    sqlite3_stmt* sav_stmt; // select all vehicles
+    sqlite3_stmt* sac_stmt; // select all customers
+    sqlite3_stmt* sar_stmt; // select all routes
     sqlite3_stmt* usn_stmt; // update solution name
     sqlite3_stmt* tim_stmt; // timeout customers
     sqlite3_stmt* ssv_stmt; // select step vehicles
@@ -110,10 +133,12 @@ private:
 
     void initialize(const Options &);
 
-    // Steps active vehicles by their speed.
     // Returns number of stepped vehicles.
     // Outputs number of deactivated vehicles.
     int step(int&);
+
+    void record_customer_statuses();
+    DistanceInt total_route_cost();
 };
 
 } // namespace cargo

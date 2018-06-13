@@ -41,6 +41,21 @@ size_t read_edges(const Filepath&, KeyValueEdges&);
 // Returns number of trips
 size_t read_problem(const Filepath&, ProblemSet&);
 
+void write_solution(
+    const std::string&, // problem name
+    const std::string&, // road network name
+    const int,          // number of vehicles
+    const int,          // number of customers
+    const int,          // base cost
+    const DistanceInt,  // final_cost
+    const Filepath&,
+    const std::unordered_map<
+        SimTime, std::unordered_map<VehicleId, NodeId>>&,
+    const std::unordered_map<
+        SimTime, std::unordered_map<CustomerId, CustomerStatus>>&,
+    const std::unordered_map<
+        SimTime, std::unordered_map<CustomerId, VehicleId>>&);
+
 } // namespace cargo
 
 #endif // CARGO_INCLUDE_LIBCARGO_FILE_H_

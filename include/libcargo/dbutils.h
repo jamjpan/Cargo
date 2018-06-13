@@ -95,20 +95,20 @@ const SqliteQuery create_cargo_tables =
         "idx_last_visited_node int not null,"
         "next_node_distance int not null,"
         "foreign key (owner) references vehicles(id)"
-    ") without rowid;"
-    "create table statistics("
-        "run_id         int primary key,"
-        "problem_name   text,"
-        "n_customers    int,"
-        "m_vehicles     int,"
-        "base_cost      int,"
-        "solution_name  text,"
-        "solution_cost  int,"
-        "matched_customers int,"
-        "matched_vehicles int,"
-        "sum_pickup     int,"
-        "sum_delay      int"
     ") without rowid;";
+//     "create table statistics("
+//         "run_id         int primary key,"
+//         "problem_name   text,"
+//         "n_customers    int,"
+//         "m_vehicles     int,"
+//         "base_cost      int,"
+//         "solution_name  text,"
+//         "solution_cost  int,"
+//         "matched_customers int,"
+//         "matched_vehicles int,"
+//         "sum_pickup     int,"
+//         "sum_delay      int"
+//     ") without rowid;";
 
 const SqliteQuery select_vehicle =
     "select * "
@@ -116,22 +116,33 @@ const SqliteQuery select_vehicle =
     "                 inner join schedules on vehicles.id=schedules.owner) "
     "where  ? = vehicles.id;";
 
-const SqliteQuery usn_stmt =
-    "update statistics set solution_name = ? where run_id = ?;";
-
-const SqliteQuery tim_stmt =
+const SqliteQuery tim_stmt = // timeout customers
     "update customers set status = ? where assignedTo is null and ? > early+?;";
 
-const SqliteQuery ssv_stmt =
+const SqliteQuery sac_stmt = // select all customers
+    "select * from customers;";
+
+const SqliteQuery sav_stmt = // select all vehicles
+    "select * "
+    "from   (vehicles inner join routes on vehicles.id=routes.owner"
+    "                 inner join schedules on vehicles.id=schedules.owner);";
+
+const SqliteQuery sar_stmt = // select all routes
+    " select * from routes;";
+
+const SqliteQuery ssv_stmt = // select stepping vehicles
     "select * "
     "from   (vehicles inner join routes on vehicles.id=routes.owner"
     "                 inner join schedules on vehicles.id=schedules.owner) "
     "where  ? >= vehicles.early and "
     "       ? != vehicles.status;";
 
-const SqliteQuery dav_stmt =
+const SqliteQuery dav_stmt = // deactivate vehicle
     "update vehicles set status = ? where id = ?;";
 
+// TODO: prepared statement only evaluates the FIRST statement
+// See https://stackoverflow.com/questions/8750645/sqlite-multi-insert-from-c-just-adding-the-first-one
+// Break this up into two stmts (same for drp_stmt)
 const SqliteQuery pup_stmt =
     "update vehicles set load = load+1 where id = ?; "
     "update customers set status = ? where id = ?;";
@@ -140,22 +151,22 @@ const SqliteQuery drp_stmt =
     "update vehicles set load = load-1 where id = ?; "
     "update customers set status = ? where id = ?;";
 
-const SqliteQuery vis_stmt =
+const SqliteQuery vis_stmt = // update visited at
     "update stops set visitedAt = ? where owner = ? and location = ?;";
 
-const SqliteQuery sch_stmt =
+const SqliteQuery sch_stmt = // update schedule
     "update schedules set data = ? where owner = ?;";
 
-const SqliteQuery uro_stmt =
+const SqliteQuery uro_stmt = // update route
     "update routes set data = ? where owner = ?;";
 
-const SqliteQuery lvn_stmt =
+const SqliteQuery lvn_stmt = // update last_visited_node
     "update routes set idx_last_visited_node = ? where owner = ?;";
 
-const SqliteQuery nnd_stmt =
+const SqliteQuery nnd_stmt = // update nearest_node_distance
     "update routes set next_node_distance = ? where owner = ?;";
 
-const SqliteQuery com_stmt =
+const SqliteQuery com_stmt = // assign customer
     "update customers set assignedTo = ? where id = ?;";
 
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle> &, const SimTime &);

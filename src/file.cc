@@ -110,5 +110,67 @@ size_t read_problem(const Filepath& path, ProblemSet &probset)
     return count_trips;
 }
 
+void write_solution(
+    const std::string& name,
+    const std::string& rn,
+    const int m,
+    const int n,
+    const int base_cost,
+    const DistanceInt final_cost,
+    const Filepath& path,
+    const std::unordered_map<
+        SimTime, std::unordered_map<VehicleId, NodeId>>& r,
+    const std::unordered_map<
+        SimTime, std::unordered_map<CustomerId, CustomerStatus>>& s,
+    const std::unordered_map<
+        SimTime, std::unordered_map<CustomerId, VehicleId>>& a)
+{
+    std::ofstream ofs(path, std::ios::out);
+    ofs << name << '\n'
+        << rn << '\n'
+        << "VEHICLES " << m << '\n'
+        << "CUSTOMERS " << n << '\n'
+        << "base cost " << base_cost << '\n'
+        << "solution cost " << final_cost << '\n'
+        << '\n'
+        << "T";
+
+    // Print out vehicle IDs and store
+    std::vector<VehicleId> veh_ids_;
+    for (const auto& i : r.at(0)) {
+        ofs << "\tVEH" << i.first;
+        veh_ids_.push_back(i.first);
+    }
+
+    // Print out customer IDs
+    for (const auto& i : s.at(0))
+        ofs << "\tC" << i.first << "_ST\tC" << i.first << "_AT";
+
+    ofs << '\n';
+
+    SimTime t = 0;
+    auto check_continue = [&](SimTime t_) {
+        bool in_r = (r.find(t_) != r.end());
+        bool in_s = (s.find(t_) != s.end());
+        bool in_a = (a.find(t_) != a.end());
+        return (in_r && in_s && in_a);
+    };
+
+    while (check_continue(t)) {
+        ofs << t;
+        for (const auto& veh_id : veh_ids_)
+            if (r.at(t).find(veh_id) != r.at(t).end())
+                ofs << '\t' << r.at(t).at(veh_id);
+            else
+                ofs << '\t' << 0;
+        for (const auto& kv : s.at(t)) {
+            ofs << '\t' << (int)kv.second;
+            ofs << '\t' << a.at(t).at(kv.first);
+        }
+        ofs << '\n';
+        ++t;
+    }
+}
+
 } // namespace cargo
 

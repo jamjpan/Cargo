@@ -123,6 +123,19 @@ Customer::Customer(CustomerId o, OriginId oid, DestinationId did, EarlyTime e,
 CustomerStatus Customer::status() const { return status_; }
 VehicleId Customer::assignedTo() const { return assignedTo_; }
 bool Customer::assigned() const { return (assignedTo_ > 0); }
+void Customer::print() const
+{
+    Message print_out;
+    print_out
+        << "Customer " << this->id() << ":\n"
+        << "origin     \t" << this->origin() << "\n"
+        << "destination\t" << this->destination() << "\n"
+        << "early      \t" << this->early() << "\n"
+        << "late       \t" << this->late() << "\n"
+        << "status     \t" << (int)this->status() << "\n"
+        << "assignedTo \t" << this->assignedTo() << "\n"
+        << "assigned   \t" << this->assigned() << std::endl;
+}
 
 Vehicle::Vehicle(VehicleId o, OriginId oid, DestinationId did, EarlyTime e,
                  LateTime l, Load ld, DistanceInt nnd, Route r, Schedule s,
@@ -145,7 +158,8 @@ NodeId Vehicle::last_visited_node() const
     return route_.node_at(idx_last_visited_node_);
 }
 VehicleStatus Vehicle::status() const { return status_; }
-void Vehicle::print() const {
+void Vehicle::print() const
+{
     Message print_out;
     print_out
         << "Vehicle " << this->id() << ":\n"
