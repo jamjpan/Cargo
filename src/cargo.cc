@@ -400,15 +400,15 @@ void Cargo::start(RSAlgorithm& rsalg)
         sqlite3_clear_bindings(tim_stmt);
         sqlite3_reset(tim_stmt);
 
+        // Log the current statistics
+        record_customer_statuses();
+
         // Step the vehicles
         nstepped = step(ndeact);
         active_vehicles_ -= ndeact;
         print_out << "t=" << t_ << "; stepped " << nstepped
                    << " vehicles; remaining=" << active_vehicles_ << ";"
                    << std::endl;
-
-        // Log the current statistics
-        record_customer_statuses();
 
         t1 = std::chrono::high_resolution_clock::now();
 
