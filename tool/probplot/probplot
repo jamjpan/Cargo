@@ -14,6 +14,7 @@ def get_parser():
     p.add_argument("rnet_file")
     p.add_argument("-i", "--input", metavar="PROB_FILE", help="problem instance")
     p.add_argument("-o", "--out", metavar="OUTPUT", help="output dest (default: a.png)", default="a.png")
+    p.add_argument("-l", "--line", dest='line', action='store_true', help="plot lines", default=False)
     return p;
 
 def probplot(args):
@@ -57,13 +58,16 @@ def probplot(args):
                 col = line.strip().split()
                 o, d, q = int(col[1]), int(col[2]), int(col[3])
                 if q < 0:
-                    plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), 'g--')
+                    if (args["line"]):
+                        plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), color='g', lw=0.5, ls='--')
                     plt.plot(node[o][0], node[o][1], 'g^')
                     plt.plot(node[d][0], node[d][1], marker="^", markerfacecolor='none', markeredgecolor='g')
                 else:
-                    plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), 'k--')
+                    if (args["line"]):
+                        plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), color='k', lw=0.5, ls='--')
                     plt.plot(node[o][0], node[o][1], marker="o", color="#000000")
                     plt.plot(node[d][0], node[d][1], marker="o", markerfacecolor='none', markeredgecolor='k')
+        # Legend
         vo_line = mlines.Line2D([],[],color='green',linestyle='None',marker='^',label='Vehicle origin')
         vd_line = mlines.Line2D([],[],color='green',linestyle='None',marker='^',markerfacecolor='None',label='Vehicle destination')
         co_line = mlines.Line2D([],[],color='black',linestyle='None',marker='o',label='Customer origin')
