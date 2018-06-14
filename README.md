@@ -1,10 +1,29 @@
 # Cargo - Ridesharing Simulation & Algorithms Library
+**(under development)**
 
 Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
-to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride).
+to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride). Consider
+customers and vehicles appearing over time on a road network. The objective is
+to route the vehicles to service the customers while minimizing total travel
+distance.
 
-Cargo is a C++11 library that provides a set of abstractions to make it easy to
-develop and test online ridesharing algorithms.
+Cargo: a C++11 library that aims to provide a set of abstractions for easily
+developing and testing online ridesharing algorithms.
+
+### Similar projects
+There are a few similar projects.
+
+* [Open-VRP](https://github.com/mck-/Open-VRP)
+* [jsprit](https://github.com/graphhopper/jsprit)
+* [VRPH](https://projects.coin-or.org/VRPH)
+* See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
+  about simulation
+
+Carg's distinguishing features:
+* Real-time simulation (vehicles move in real-time; a simulation can take minutes,
+  hours, as long as you like)
+* Customers and vehicles are bound to road networks
+* Provides an easy interface for implementing ridesharing algorithms
 
 Supports:
 * Dynamically arriving vehicles and customers
@@ -14,27 +33,28 @@ Supports:
 
 Does not (currently) support:
 * Variable-cost roads (traffic)
-* Directed road networks
-* Vehicles "waiting" at a stop
-* Service-time at stops
+* Directed road networks (<-- needs testing)
+* Vehicles "waiting" at a stop (*possible* but needs some work)
+* Service-time at stops (for later)
 
-### Develop algorithms using built-in classes and functions
-* Built-in classes: Stop, Schedule, Route, Trip, Customer, Vehicle, etc.
-* Built-in functions: constraints checking, schedule insertion, schedule routing,
+### Built-ins:
+*(Documentation is upcoming)*
+* Classes: Stop, Schedule, Route, Trip, Customer, Vehicle, etc.
+* Functions: constraints checking, schedule insertion, schedule routing,
   shortest-paths, Haversine, etc.
-* You can override five base methods:
+* Abstract RSAlgorithm class (you must implement these methods):
   - `RSAlgorithm::handle_customer()`: called for every customer request
   - `RSAlgorithm::handle_vehicle()`: called whenever a new vehicle appears
   - `RSAlgorithm::match()`: called at some configurable frequency
-  - `RSAlgorithm::listen()`: fine-tune an algorithm's polling (batch vs streaming)
   - `RSAlgorithm::end()`: called at the end of the simulation
+  - `RSAlgorithm::listen()`: fine-tune an algorithm's polling (batch vs streaming)
+    (default listen() is provided)
 
-### Test algorithms on the Cargo real-time simulation platform
-* Vehicles and customers appear on the road-network in real time
+### Simulation platform:
 * Simulation state is stored in an in-memory Sqlite3 database
 * `Cargo::step()` runs every second to update locations of vehicles
 * `RSAlgorithm::listen()` polls every second (configurable) for new vehicles/customers
-* Three carefully prepared road networks are provided (`data/roadnetwork`)
+* Three cleaned road networks are provided (`data/roadnetwork`)
 * Several problem instances are provided (`data/benchmark`)
 
 Provided road networks:
@@ -50,7 +70,7 @@ Provided road networks:
 * Matching period (time before customer requests timeout)
 * Vehicle speed (meters/second)
 
-### Comes with extra tools
+### Extra tools
 * `tool/gtreebuilder` - build a GTree spatial index (Zhong 2015) for fast
   shortest-path finding
 * `tool/probplot` - plot road networks and problem sets using matplotlib
@@ -105,17 +125,6 @@ void GreedyInsertion::handle_customer(const cargo::Customer cust)
     }
 }
 ```
-
-### Similar projects
-
-* [Open-VRP](https://github.com/mck-/Open-VRP) (Great Vision statement; written
-  in Common Lisp; seems to be Euclidean-based, not road-network based)
-* [jsprit](https://github.com/graphhopper/jsprit) (Java; seems to be for offline
-  algorithms, not dynamic; not road-network based)
-* [VRPH](https://projects.coin-or.org/VRPH) (C++; not dynamic; not road-network
-  based)
-* See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
-  about simulation
 
 ## Building and usage
 
@@ -205,7 +214,7 @@ int main()
    └───────────────────────┘
 ```
 
-## Coming soon:
+## To do:
 * Simulation statistics (number of matches, avg. trip delay, etc.)
 * Plotting and animation
 * Performance improvements
@@ -214,6 +223,7 @@ int main()
 * More examples
 
 If you discover a bug, or have a suggestion, please
-[Submit an Issue](https://github.com/jamjpan/Cargo/issues/new)
+[Submit an Issue](https://github.com/jamjpan/Cargo/issues/new)!
+
 Better yet, fix/implement it and submit a pull request.
 
