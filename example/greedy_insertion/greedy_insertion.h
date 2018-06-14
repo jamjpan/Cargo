@@ -27,14 +27,14 @@ public:
     GreedyInsertion();
 
     /* My Overrides */
-    virtual void handle_customer(const cargo::Customer);
-    virtual void handle_vehicle(const cargo::Vehicle);
+    virtual void handle_customer(const cargo::Customer &);
+    virtual void handle_vehicle(const cargo::Vehicle &);
     virtual void end();
     virtual void listen();
 
 private:
     /* My Custom Variables */
     int nmatches;
-    cargo::Grid<cargo::Vehicle> grid_;
+    cargo::Grid grid_;
 };
 

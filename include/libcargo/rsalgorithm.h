@@ -53,9 +53,11 @@ public:
     virtual void                listen();
 
     // Write assignment to the db
+    void commit(const Customer &,
+                const MutableVehicle &)                 const;
     void commit(const Customer &, const Vehicle &,
-                const std::vector<cargo::Waypoint> &,
-                const std::vector<cargo::Stop> &)       const;
+                const std::vector<Waypoint> &,
+                const std::vector<Stop> &)       const;
 
     const std::string&          name()                  const;
     bool                        done()                  const;

@@ -21,9 +21,9 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_GRID_H_
 #define CARGO_INCLUDE_LIBCARGO_GRID_H_
-#include <iostream> /* debug */
 #include <vector>
 
+#include "classes.h"
 #include "types.h"
 
 namespace cargo {
@@ -32,66 +32,28 @@ namespace cargo {
 // by Erin J. Hastings, Jaruwan Mesit, Ratan K. Guha, SCSC 2005
 //
 // Buckets are numbered starting from lower-left to upper-right. In each row,
-// the buckets are numbered from left to right.
-template <typename T>
+// the buckets are numbered from left to right. Vehicles in the grid are mutable
+// to allow for refresh (if immutable, we would have to delete the old vehicle
+// and replace it with a new one).
 class Grid {
 public:
-    Grid(int n) // int = number of cells; total grid size = n*n
-    {
-        x_dim_ = (Cargo::bbox().upper_right.lng - Cargo::bbox().lower_left.lng)/n;
-        y_dim_ = (Cargo::bbox().upper_right.lat - Cargo::bbox().lower_left.lat)/n;
-        data_.resize(n*n, {});
-        n_ = n;
-    }
+    Grid(int); // int = number of cells; total grid size = int^2
 
-    void insert(T obj, NodeId node) // insert T located at NodeId
-    {
-        data_.at(hash(Cargo::node2pt(node))).push_back(obj);
-    }
-
-    std::vector<T> within_about(DistanceDouble d, NodeId node) // get objs within ~dist
-    {
-        std::vector<T> res;
-        int offset_x = std::ceil(metersTolngdegs(d, Cargo::node2pt(node).lat)/x_dim_);
-        int offset_y = std::ceil(metersTolatdegs(d)/y_dim_);
-        int base_x = hash_x(Cargo::node2pt(node));
-        int base_y = hash_y(Cargo::node2pt(node));
-        // i,j must be positive, and less than n_
-        for (int j = std::max(0, base_y - offset_y); j <= std::min(base_y + offset_y, n_-1); ++j)
-            for (int i = std::max(0, base_x - offset_x); i <= std::min(base_x + offset_x, n_-1); ++i) {
-                int k = i+j*n_;
-                res.insert(res.end(), data_.at(k).begin(), data_.at(k).end());
-            }
-        return res;
-    }
-
-    void clear()
-    {
-        data_.clear();
-        data_.resize(n_*n_, {});
-    }
+    void insert(const Vehicle &);
+    void insert(const MutableVehicle &);
+    std::vector<MutableVehicle> within_about(const DistanceDouble &, const NodeId &);
+    void refresh(const MutableVehicle &);
+    void clear();
 
 private:
     double x_dim_;
     double y_dim_;
     int n_;
-    std::vector<std::vector<T>> data_;
+    std::vector<std::vector<MutableVehicle>> data_;
 
-    int hash(Point coord)
-    {
-        // x nor y can be greater than n_
-        return std::min(hash_x(coord), n_-1) + std::min(hash_y(coord), n_-1)*n_;
-    }
-
-    int hash_x(Point coord)
-    {
-        return (int)std::floor((coord.lng-Cargo::bbox().lower_left.lng)/x_dim_);
-    }
-
-    int hash_y(Point coord)
-    {
-        return (int)std::floor((coord.lat-Cargo::bbox().lower_left.lat)/y_dim_);
-    }
+    int hash(const Point &);
+    int hash_x(const Point &);
+    int hash_y(const Point &);
 };
 
 } // namespace cargo

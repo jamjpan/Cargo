@@ -138,6 +138,7 @@ private:
 class Vehicle : public Trip {
 public:
     Vehicle() = default;
+    Vehicle(const Vehicle &) = default;
     Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load,
             DistanceInt, Route, Schedule, RouteIndex, VehicleStatus);
     DistanceInt                 next_node_distance()    const;
@@ -148,13 +149,26 @@ public:
     VehicleStatus               status()                const;
     void                        print()                 const;
 
-private:
+protected:
     DistanceInt next_node_distance_;
     Route route_;
     Schedule schedule_;
     RouteIndex idx_last_visited_node_;
     VehicleStatus status_;
 
+};
+
+// Use MutableVehicle when a local vehicle object needs to be updated without
+// going through the db (for example, when a vehicle gets a new route/schedule
+// due to an assignment).
+class MutableVehicle : public Vehicle {
+public:
+    MutableVehicle() = default;
+    MutableVehicle(const Vehicle &);
+    void                        set_route(const std::vector<Waypoint> &);
+    void                        set_route(const Route &);
+    void                        set_schedule(const std::vector<Stop> &);
+    void                        set_schedule(const Schedule &);
 };
 
 // A problem is the set of trips keyed by their early time. When the

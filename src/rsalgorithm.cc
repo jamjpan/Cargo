@@ -46,9 +46,13 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
+void RSAlgorithm::commit(const Customer& cust, const MutableVehicle& mveh) const
+{
+    commit(cust, mveh, mveh.route().data(), mveh.schedule().data());
+}
 void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
-        const std::vector<cargo::Waypoint>& new_route,
-        const std::vector<cargo::Stop>& new_schedule) const
+        const std::vector<Waypoint>& new_route,
+        const std::vector<Stop>& new_schedule) const
 {
     committing_ = true;         // lock
     while (Cargo::stepping())   // wait for lock
@@ -106,9 +110,9 @@ void RSAlgorithm::listen()
         handle_customer(customer);
 
     match();
-
     t1 = std::chrono::high_resolution_clock::now();
     // Stop timing --------------------------------
+
     // Don't sleep if time exceeds batch time
     int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
     if (dur > batch_time_*1000)

@@ -13,6 +13,7 @@ OBJECTS = \
 		  build/dbutils.o \
 		  build/file.o \
 		  build/functions.o \
+		  build/grid.o \
 		  build/gtree.o \
 		  build/rsalgorithm.o \
 		  build/sqlite3.o
@@ -63,6 +64,15 @@ build/functions.o: \
 	include/gtree/gtree.h \
 	src/functions.cc
 	$(CXX) $(CFLAGS) src/functions.cc
+
+build/grid.o: \
+	include/libcargo/grid.h \
+	include/libcargo/cargo.h \
+	include/libcargo/classes.h \
+	include/libcargo/distance.h \
+	include/libcargo/types.h \
+	src/grid.cc
+	$(CXX) $(CFLAGS) src/grid.cc
 
 build/gtree.o: \
 	include/gtree/gtree.h \

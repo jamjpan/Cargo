@@ -182,6 +182,25 @@ void Vehicle::print() const
         << "idx_lvn    \t" << this->idx_last_visited_node() << "\n"
         << "status     \t" << (int)this->status() << std::endl;
 }
+MutableVehicle::MutableVehicle(const Vehicle& veh) : Vehicle(veh) {}
+void MutableVehicle::set_route(const std::vector<Waypoint>& r)
+{
+    Route route(this->id_, r);
+    set_route(route);
+}
+void MutableVehicle::set_route(const Route& route)
+{
+    this->route_ = route;
+}
+void MutableVehicle::set_schedule(const std::vector<Stop>& s)
+{
+    Schedule schedule(this->id_, s);
+    set_schedule(schedule);
+}
+void MutableVehicle::set_schedule(const Schedule& schedule)
+{
+    this->schedule_ = schedule;
+}
 
 ProblemSet::ProblemSet() {}
 std::string& ProblemSet::name() { return name_; }
