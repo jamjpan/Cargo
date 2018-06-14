@@ -66,6 +66,7 @@ Cargo::Cargo(const Options& opt)
      || sqlite3_prepare_v2(db_, sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, sql::sar_stmt, -1, &sar_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, sql::ssv_stmt, -1, &ssv_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(db_, sql::ucs_stmt, -1, &ucs_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, sql::dav_stmt, -1, &dav_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, sql::pup_stmt, -1, &pup_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL) != SQLITE_OK
@@ -85,6 +86,7 @@ Cargo::~Cargo()
     sqlite3_finalize(sac_stmt);
     sqlite3_finalize(sar_stmt);
     sqlite3_finalize(ssv_stmt);
+    sqlite3_finalize(ucs_stmt);
     sqlite3_finalize(dav_stmt);
     sqlite3_finalize(pup_stmt);
     sqlite3_finalize(drp_stmt);
@@ -206,32 +208,37 @@ int Cargo::step(int& ndeact)
                 }
                 // Vehicle is at customer pickup
                 else if (stop.type() == StopType::CustomerOrigin) {
-                    print_warning << (int)CustomerStatus::Onboard << std::endl;
                     sqlite3_bind_int(pup_stmt, 1, vehicle.id());
-                    sqlite3_bind_int(pup_stmt, 2, (int)CustomerStatus::Onboard);
-                    sqlite3_bind_int(pup_stmt, 3, stop.owner());
-                    if (sqlite3_step(pup_stmt) != SQLITE_DONE) {
+                    sqlite3_bind_int(ucs_stmt, 1, (int)CustomerStatus::Onboard);
+                    sqlite3_bind_int(ucs_stmt, 2, stop.owner());
+                    if (sqlite3_step(pup_stmt) != SQLITE_DONE
+                     || sqlite3_step(ucs_stmt) != SQLITE_DONE) {
                         print_error << "Failed (veh" << vehicle.id() << " pickup " << stop.owner() << "). Reason:\n";
                         throw std::runtime_error(sqlite3_errmsg(db_));
                     } else
                         print_info << "Vehicle " << vehicle.id() << " picked up Customer "
                             << stop.owner() << "(" << stop.location() << ")" << std::endl;
                     sqlite3_clear_bindings(pup_stmt);
+                    sqlite3_clear_bindings(ucs_stmt);
                     sqlite3_reset(pup_stmt);
+                    sqlite3_reset(ucs_stmt);
                 }
                 // Vehicle is at customer dropoff
                 else if (stop.type() == StopType::CustomerDest) {
                     sqlite3_bind_int(drp_stmt, 1, vehicle.id());
-                    sqlite3_bind_int(drp_stmt, 2, (int)CustomerStatus::Arrived);
-                    sqlite3_bind_int(drp_stmt, 3, stop.owner());
-                    if (sqlite3_step(drp_stmt) != SQLITE_DONE) {
+                    sqlite3_bind_int(ucs_stmt, 1, (int)CustomerStatus::Arrived);
+                    sqlite3_bind_int(ucs_stmt, 2, stop.owner());
+                    if (sqlite3_step(drp_stmt) != SQLITE_DONE
+                     || sqlite3_step(ucs_stmt) != SQLITE_DONE) {
                         print_error << "Failed (veh" << vehicle.id() << " dropoff " << stop.owner() << "). Reason:\n";
                         throw std::runtime_error(sqlite3_errmsg(db_));
                     } else
                         print_info << "Vehicle " << vehicle.id() << " dropped off Customer "
                             << stop.owner() << "(" << stop.location() << ")" << std::endl;
                     sqlite3_clear_bindings(drp_stmt);
+                    sqlite3_clear_bindings(ucs_stmt);
                     sqlite3_reset(drp_stmt);
+                    sqlite3_reset(ucs_stmt);
                 }
                 // Update visitedAt
                 sqlite3_bind_int(vis_stmt, 1, t_);

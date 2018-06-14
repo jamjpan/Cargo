@@ -174,7 +174,7 @@ SqliteReturnCode select_waiting_customers(std::vector<Customer>& vec, const SimT
 }
 
 SqliteReturnCode commit_assignment(const Customer& cust, const Vehicle& veh,
-        std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule)
+        const std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule)
 {
     SqliteReturnCode rc;
     sqlite3_stmt* uro_stmt; // update route

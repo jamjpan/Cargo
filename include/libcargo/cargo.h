@@ -120,12 +120,11 @@ private:
     /* SQL statements */
     SqliteReturnCode rc;
     SqliteErrorMessage err;
-    sqlite3_stmt* sav_stmt; // select all vehicles
+    sqlite3_stmt* tim_stmt; // timeout customers
     sqlite3_stmt* sac_stmt; // select all customers
     sqlite3_stmt* sar_stmt; // select all routes
-    sqlite3_stmt* usn_stmt; // update solution name
-    sqlite3_stmt* tim_stmt; // timeout customers
     sqlite3_stmt* ssv_stmt; // select step vehicles
+    sqlite3_stmt* ucs_stmt; // update customer status
     sqlite3_stmt* dav_stmt; // deactivate vehicle
     sqlite3_stmt* pup_stmt; // pickup
     sqlite3_stmt* drp_stmt; // dropoff

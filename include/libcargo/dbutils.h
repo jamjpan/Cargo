@@ -110,14 +110,12 @@ const SqliteQuery create_cargo_tables =
 //         "sum_delay      int"
 //     ") without rowid;";
 
-const SqliteQuery select_vehicle =
+/* Read statements */
+const SqliteQuery select_vehicle = // <-- seems like never used
     "select * "
     "from   (vehicles inner join routes on vehicles.id=routes.owner"
     "                 inner join schedules on vehicles.id=schedules.owner) "
     "where  ? = vehicles.id;";
-
-const SqliteQuery tim_stmt = // timeout customers
-    "update customers set status = ? where assignedTo is null and ? > early+?;";
 
 const SqliteQuery sac_stmt = // select all customers
     "select * from customers;";
@@ -137,20 +135,27 @@ const SqliteQuery ssv_stmt = // select stepping vehicles
     "where  ? >= vehicles.early and "
     "       ? != vehicles.status;";
 
+/* Write customers */
+const SqliteQuery ucs_stmt = // update customer status
+    "update customers set status = ? where id = ?;";
+
+const SqliteQuery com_stmt = // assign customer
+    "update customers set assignedTo = ? where id = ?;";
+
+const SqliteQuery tim_stmt = // timeout customers
+    "update customers set status = ? where assignedTo is null and ? > ? + early;";
+
+/* Write vehicles */
+const SqliteQuery pup_stmt = // increase load (pickup)
+    "update vehicles set load = load+1 where id = ?; ";
+
+const SqliteQuery drp_stmt = // decrease load (dropoff)
+    "update vehicles set load = load-1 where id = ?; ";
+
 const SqliteQuery dav_stmt = // deactivate vehicle
     "update vehicles set status = ? where id = ?;";
 
-// TODO: prepared statement only evaluates the FIRST statement
-// See https://stackoverflow.com/questions/8750645/sqlite-multi-insert-from-c-just-adding-the-first-one
-// Break this up into two stmts (same for drp_stmt)
-const SqliteQuery pup_stmt =
-    "update vehicles set load = load+1 where id = ?; "
-    "update customers set status = ? where id = ?;";
-
-const SqliteQuery drp_stmt =
-    "update vehicles set load = load-1 where id = ?; "
-    "update customers set status = ? where id = ?;";
-
+/* Write other */
 const SqliteQuery vis_stmt = // update visited at
     "update stops set visitedAt = ? where owner = ? and location = ?;";
 
@@ -166,12 +171,10 @@ const SqliteQuery lvn_stmt = // update last_visited_node
 const SqliteQuery nnd_stmt = // update nearest_node_distance
     "update routes set next_node_distance = ? where owner = ?;";
 
-const SqliteQuery com_stmt = // assign customer
-    "update customers set assignedTo = ? where id = ?;";
-
+/* Convenience functions */
 SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle> &, const SimTime &);
 SqliteReturnCode select_waiting_customers(std::vector<Customer> &, const SimTime &);
-SqliteReturnCode commit_assignment(const Customer &, const Vehicle &, std::vector<Waypoint> &, const std::vector<Stop> &);
+SqliteReturnCode commit_assignment(const Customer &, const Vehicle &, const std::vector<Waypoint> &, const std::vector<Stop> &);
 
 } // namespace sql
 } // namespace cargo
