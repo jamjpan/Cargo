@@ -196,8 +196,6 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
     // The distances to other stops in the augmented schedule passed to
     // route_through will be relative to this first stop. The already-traveled
     // distance (the head) should be added.
-    // DistanceInt head = veh.route().at(veh.idx_last_visited_node()+1).first
-    //    - veh.route().at(veh.idx_last_visited_node()).first;
     DistanceInt head = veh.route().dist_at(veh.idx_last_visited_node()+1);
 
     DistanceInt best_cost = InfinityInt;
@@ -228,8 +226,8 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust, bool fix_start,
     schedule.insert(schedule.begin()+fix_start, cust_d);
 
     // This algorithm uses a series of swaps to generate all insertion
-    // combinations. Uncomment print_schedule to view the combinations.
-    // Here is an example of inserting customer (A, B) into a 3-stop sched:
+    // combinations.  Here is an example of inserting customer (A, B) into a
+    // 3-stop sched:
     // A B - - -
     // A - B - -
     // A - - B -
