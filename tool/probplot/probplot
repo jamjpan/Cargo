@@ -53,7 +53,7 @@ def probplot(args):
     """
     if args["input"]:
         with open(args["input"]) as f_prob:
-            lines = f_prob.readlines()[7:] # skip header lines
+            lines = f_prob.readlines()[6:] # skip header lines
             for line in lines:
                 col = line.strip().split()
                 o, d, q = int(col[1]), int(col[2]), int(col[3])

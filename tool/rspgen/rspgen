@@ -3,233 +3,280 @@
 Juntao Hu <hujuntao@buaa.edu.cn>
 James J. Pan <jamesjpan@outlook.com>
 """
-from collections import defaultdict, namedtuple
 import networkx as nx
 import random
 import math
 import argparse
 import sys
 
-Node = namedtuple('Node', ['id', 'lon', 'lat'])
-
-class TripGenerator:
-    min_lon = 1000
-    min_lat = 1000
-    max_lon = 0
-    max_lat = 0
-
-    nodes = dict()
-    grid_index = defaultdict(lambda: list(), dict())
-    graph = nx.Graph()
-
-    def __init__(self, grid_size, rnet_file):
-        self.grid_size = grid_size
-        self.rnet = rnet_file
-        road = open(rnet_file, 'r')
-
-        while True:
-            line = road.readline()
-            if line:
-                line = line.split(' ')
-                o = int(line[1])
-                d = int(line[2])
-                o_lon = float(line[3])
-                o_lat = float(line[4])
-                d_lon = float(line[5])
-                d_lat = float(line[6])
-                self.nodes[o] = Node(o, o_lon, o_lat)
-                self.nodes[d] = Node(d, d_lon, d_lat)
-                self.set_min_max(self.nodes[o])
-                self.set_min_max(self.nodes[d])
-                self.graph.add_node(o)
-                self.graph.add_node(d)
-                self.graph.add_edge(o, d, weight=self.haversine(
-                    self.nodes[o], self.nodes[d]))
-            else:
-                break
-
-        road.close()
-        print(self.min_lon, self.max_lon, self.min_lat, self.max_lat)
-        self.grid_lon = (self.max_lon - self.min_lon) / grid_size
-        self.grid_lat = (self.max_lat - self.min_lat) / grid_size
-
-        for idx in self.nodes:
-            node = self.nodes[idx]
-            self.grid_index[self.get_index(node)].append(node.id)
-
-        print('total nodes:', self.graph.number_of_nodes())
-        print('total edges:', self.graph.number_of_edges())
-
-    def generate(self, prefix, num, vehs, custs, speed, freq, delay, probtype):
-        num = int(num);
-        vehs = int(vehs);
-        custs = int(custs);
-        speed = int(speed);
-        freq = int(freq);
-        delay = int(delay);
-        max_early = int((vehs+custs)/freq)
-        max_delay = delay*60; # delay is in minutes
-
-        if probtype == "SR":
-            for i in range(num):
-                with open(prefix + '_' + str(i+1) + ".instance", 'w') as fout:
-                    fout.write(prefix + '\n')
-                    rnet_name = (self.rnet).split('/').pop().split('.rnet')[0]
-                    fout.write(rnet_name+'\n')
-                    fout.write('VEHICLES ' + str(vehs) + '\n')
-                    fout.write('CUSTOMERS ' + str(custs) + '\n')
-                    fout.write('\n')
-                    fout.write('ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n')
-                    idxs = [i for i in range(vehs + custs)]
-                    random.shuffle(idxs)
-                    id_count = 1
-                    for idx in idxs:
-                        sys.stdout.write('{}\{}\r'.format(id_count,(vehs+custs)))
-                        sys.stdout.flush()
-                        origin = self.random_pick_node()
-                        dest = self.random_pick_node()
-                        while dest == origin:
-                            dest = self.random_pick_node()
-                        trip_time = self.shortest_path_time(origin, dest, speed)
-                        trip_early = random.randint(0, max_early)
-                        trip_late = trip_time + trip_early + random.randint(0, max_delay)
-                        cap = 1;
-                        if idx < vehs*.1:
-                            cap = 7
-                        elif idx < vehs*.6:
-                            cap = 3
-                        elif idx < vehs*.8:
-                            cap = 2
-                        if idx < vehs:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(trip_early),
-                                str(trip_late)]) + '\n')
-                        else:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(trip_early),
-                                str(trip_late)]) + '\n')
-                        id_count += 1
-            print()
-            print("Done")
-        elif probtype == "SC":
-            for k in range(num):
-                n = self.graph.number_of_nodes()
-                random.seed()
-                S = random.randrange(5,10)
-                sys.stdout.write('seeds={}\n'.format(S))
-                seeds = []
-                i = 0
-                while i < S:
-                    seeds.append(self.random_pick_node())
-                    i+=1
-                candidates = []
-                while len(candidates) <= 2*(vehs + custs):
-                    sys.stdout.write('cands={}\{}\r'.format(len(candidates),2*(vehs+custs)))
-                    x = self.random_pick_node()
-                    p = 0;
-                    for s in seeds:
-                        p += math.exp(self.haversine(self.nodes[s],self.nodes[x])*(-1)/300)
-                    if random.random() < p:
-                        candidates.append(x)
-                print()
-                with open(prefix + '_' + str(k+1) + ".instance", 'w') as fout:
-                    fout.write(prefix + '\n')
-                    rnet_name = (self.rnet).split('/').pop().split('.rnet')[0]
-                    fout.write(rnet_name+'\n')
-                    fout.write('VEHICLES ' + str(vehs) + '\n')
-                    fout.write('CUSTOMERS ' + str(custs) + '\n')
-                    fout.write('\n')
-                    fout.write('ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n')
-                    idxs = [i for i in range(vehs + custs)]
-                    random.shuffle(idxs)
-                    id_count = 1
-                    for idx in idxs:
-                        sys.stdout.write('{}\{}\r'.format(id_count,(vehs+custs)))
-                        sys.stdout.flush()
-                        origin = candidates.pop()
-                        dest = candidates.pop()
-                        trip_time = self.shortest_path_time(origin, dest, speed)
-                        trip_early = random.randint(0, max_early)
-                        trip_late = trip_time + trip_early + random.randint(0, max_delay)
-                        cap = 1;
-                        if idx < vehs*.1:
-                            cap = 7
-                        elif idx < vehs*.6:
-                            cap = 3
-                        elif idx < vehs*.8:
-                            cap = 2
-                        if idx < vehs:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(-cap), str(trip_early),
-                                str(trip_late)]) + '\n')
-                        else:
-                            fout.write('\t'.join([str(id_count), str(origin), str(dest), str(1), str(trip_early),
-                                str(trip_late)]) + '\n')
-                        id_count += 1
-            print()
-            print("Done")
-
-    def set_min_max(self, node):
-        if node.lon < self.min_lon:
-            self.min_lon = node.lon
-        if node.lon > self.max_lon:
-            self.max_lon = node.lon
-        if node.lat < self.min_lat:
-            self.min_lat = node.lat
-        if node.lat > self.max_lat:
-            self.max_lat = node.lat
-
-    def get_index(self, node):
-        lat_num = int((node.lat - self.min_lat) / self.grid_lat)
-        lon_num = int((node.lon - self.min_lon) / self.grid_lon)
-        return lat_num * self.grid_size + lon_num
-
-    def random_pick_node(self):
-        while True:
-            random.seed()
-            node_list = self.grid_index[random.randrange(
-                self.grid_size * self.grid_size)]
-            if len(node_list) is not 0:
-                return random.choice(node_list)
-
-    def shortest_path_time(self, origin, dest, speed):
-        route_distance = nx.shortest_path_length(
-            self.graph, source=origin, target=dest, weight='weight')
-        # print(route_distance)
-        return round(route_distance / speed)
-
-    def haversine(self, origin, dest):
-        lon1 = origin.lon
-        lat1 = origin.lat
-        lon2 = dest.lon
-        lat2 = dest.lat
-        radius = 6371000  # meters
-
-        dlat = math.radians(lat2-lat1)
-        dlon = math.radians(lon2-lon1)
-        a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(lat1)) * \
-            math.cos(math.radians(lat2)) * \
-            math.sin(dlon / 2) * math.sin(dlon / 2)
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        return radius * c
-
-
 def get_parser():
     p = argparse.ArgumentParser(description="Generate RSP instances")
     p.add_argument("rnet_file")
     p.add_argument("num_customers")
     p.add_argument("num_vehicles")
-    p.add_argument("type", choices=["SR","SC"])
-    p.add_argument("-f", "--freq", metavar="FREQ", type=int, help="stream frequency (default: 5/s)", default=5)
+    p.add_argument("type", choices=["SR","SC","R"])
+    p.add_argument("-m", "--min",   metavar="TRIP_MIN_D", type=int, help="min trip dist (default: 1,000 m)", default=1000)
+    p.add_argument("-f", "--freq",  metavar="FREQ", type=int, help="stream frequency (default: 5/s)", default=5)
     p.add_argument("-s", "--speed", metavar="SPEED", type=int, help="vehicle speed (default: 10 m/s)", default=10)
     p.add_argument("-d", "--delay", metavar="DELAY", type=int, help="max vehicle delay (default: 10 min)", default=10)
-    p.add_argument("-g", "--grid", metavar="GRID", type=int, help="# of grid cells (default: 100)", default=100)
-    p.add_argument("-n", "--num", metavar="NUM", type=int, help="# of instances (default: 1)", default=1)
-    p.add_argument("-o", "--out", metavar="OUTPUT", help="output dest (default: a.instance)", default="a")
+    p.add_argument("-o", "--out",   metavar="OUTPUT", help="output dest (default: a.instance)", default="a")
+    p.add_argument("-i", "--input", metavar="INPUT", help="trips file (R only)")
+    p.add_argument("-b", "--begin", metavar="BEGIN_HOUR", help="start hour (R only)", choices=['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23'])
+    p.add_argument("-t", "--tolerance", metavar="TOLERANCE", help="tol for map-matching (def: 100m) (R only)", default=100)
     return p;
 
 
+# Slow because of shortest_path_length()
+def write_prob(args, selected_pairs, G):
+    n, m = int(args["num_customers"]), int(args["num_vehicles"])
+    max_early = int((n+m)/int(args["freq"]))
+    with open(args["out"] + ".instance", 'w') as f_out:
+        f_out.write(args["out"] + '\n'
+                + args["rnet_file"].split('/').pop().split('.rnet')[0] + '\n'
+                + "VEHICLES " + args["num_vehicles"] + '\n'
+                + "CUSTOMERS " + args["num_customers"] + '\n'
+                + '\n'
+                + "ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n")
+        idxs = [i for i in range(n+m)]
+        random.shuffle(idxs)
+        id_count = 1
+        for idx in idxs:
+            sys.stdout.write('{}\{}\r'.format(id_count, (n+m))) # progress
+            sys.stdout.flush()
+            trip = selected_pairs.pop()
+            trip_time = round(nx.shortest_path_length(G,
+                source=trip[0], target=trip[1], weight='weight')/int(args["speed"]))
+            trip_early = random.randint(0, max_early)
+            # Random draw from (0, delay) is not producing many feasible trips:
+            # trip_late = trip_time + trip_early + random.randint(0, int(args["delay"])*60)
+            # How about fixing trip_late to delay? Will people complain?
+            trip_late = trip_time + trip_early + int(args["delay"])*60
+            # Choose a capacity
+            cap = 1;
+            if idx < m*.1:
+                cap = -7
+            elif idx < m*.6:
+                cap = -3
+            elif idx < m*.8:
+                cap = -2
+            elif idx < m:
+                cap = -1
+            f_out.write('\t'.join([str(id_count),
+                str(trip[0]), str(trip[1]), str(cap),
+                str(trip_early), str(trip_late)]) + '\n')
+            id_count += 1
+        print()
+        print("Done")
+
+
+def haversine(p1, p2):
+    radius = 6371000  # meters
+    dlat = math.radians(p2[1]-p1[1])
+    dlon = math.radians(p2[0]-p1[0])
+    a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(p1[1])) * \
+        math.cos(math.radians(p2[1])) * \
+        math.sin(dlon / 2) * math.sin(dlon / 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius * c
+
+
+def graph_from_rnet(filepath):
+    G = nx.Graph()
+    with open(filepath) as f_rnet:
+        for line in f_rnet:
+            col = line.strip().split()
+            from_id, from_x, from_y = int(col[1]), float(col[3]), float(col[4])
+            to_id, to_x, to_y = int(col[2]), float(col[5]), float(col[6])
+            G.add_node(from_id, coordinates=(from_x, from_y))
+            G.add_node(to_id, coordinates=(to_x, to_y))
+            w = haversine((from_x, from_y), (to_x, to_y))
+            G.add_edge(from_id, to_id, weight=w)
+    return G
+
+
+def random_node(G):
+    return random.sample(list(G.nodes()), 1)[0]
+
+
+def nearest_node(coord, tol, G):
+    d_min = float("inf")
+    near_node = -1
+    for node in list(G.nodes()):
+        d = haversine(G.node[node]['coordinates'], coord)
+        if d < d_min and d <= tol:
+            d_min = d
+            near_node = node
+    return near_node
+
+
+# The larger the constant under the fraction, the slower the decay.
+def exp_decay(x, c):
+    return math.exp(-x/c)
+# ------------------------------------------------------------------------------
+
+
+def load(args):
+    print("Loading the rnet")
+    G = graph_from_rnet(args["rnet_file"])
+    n, m = int(args["num_customers"]), int(args["num_vehicles"])
+    min_d = int(args["min"])
+    max_d = int(args["speed"])*int(args["delay"])*60
+    return (G, n, m, min_d, max_d)
+
+
+def pick_cluster_centers(k, min_d, G):
+    """ Returns k cluster centers
+    If k > 1, the centers will be at least min_d apart
+    """
+    print("Finding centers")
+    centers = []
+    while len(centers) < k:
+        print(len(centers))
+        c = random_node(G)
+        too_close = False
+        for i in centers:
+            h = haversine(G.node[c]['coordinates'],
+                          G.node[i]['coordinates'])
+            if h < min_d:
+                print("too close",h,"<",min_d)
+                too_close = True
+                break
+        if not too_close:
+            centers.append(c)
+    print("Done")
+    return centers
+
+
+def build_cluster(center, n, m, G, P, spread_factor):
+    """ Returns a cluster
+    The cluster is centered about center; the spread is determined by
+    the function P(dist, some_const); the cluster contains at least
+    n+m points
+    Format: cluster = [nodes]
+    """
+    print("Building cluster")
+
+    # Randomize the nodes
+    cands = list(G.nodes())
+    random.shuffle(cands)
+
+    cluster = []
+    while len(cluster) < (n+m):
+        for node in cands:
+            d = haversine(G.node[node]['coordinates'],
+                          G.node[center]['coordinates'])
+            if random.random() < P(d, spread_factor):
+                cluster.append(node)
+                if len(cluster) == m+n:
+                    break
+    print("Done")
+    return cluster
+
+
+def make_trips(cluster, min_d, max_d, n, m, G):
+    print("Making trips")
+    trips = []
+    while len(trips) < (n+m):
+        sys.stdout.write('{}\{}\r'.format(len(trips), (n+m))) # progress
+        sys.stdout.flush()
+        o = random.sample(cluster, 1)[0]
+        while True:
+            d = random_node(G)
+            h = haversine(G.node[o]['coordinates'],
+                          G.node[d]['coordinates'])
+            if (o != d and h > min_d and h < max_d):
+                break
+        trips.append((o,d))
+    print("Done")
+    return trips
+
+
+def synthetic_random(args):
+    """ Strategy for SR
+    The strategy here basically forms a "cluster", then assigns nodes in the
+    cluster as origins randomly. Destinations are chosen randomly from any
+    node in the graph (doesn't have to be in the cluster), but trip length
+    must be between min_d and max_d. The reason is because min_d is hard to
+    satisfy if d is also in the cluster.
+    """
+    G, n, m, min_d, max_d = load(args)
+    center  = pick_cluster_centers(1, min_d, G)[0]
+    cluster = build_cluster(center, n, m, G, exp_decay, 4000)
+    trips   = make_trips(cluster, min_d, max_d, n, m, G)
+    write_prob(args, trips, G)
+
+
+def synthetic_clustered(args):
+    """ Strategy for SC
+    The strategy is basically the same as for SR, except we make multiple
+    clusters instead of just one.
+    """
+    G, n, m, min_d, max_d = load(args)
+    nclus = random.randrange(2,6) # how many clusters?
+    print("nclus =", nclus)
+    centers = pick_cluster_centers(nclus, min_d, G)
+    print(centers)
+    clusters = []
+    for i in range(nclus):
+        # Clusters are tighter here than they are for SR
+        cluster = build_cluster(centers[i], n, m, G, exp_decay, 400)
+        clusters.append(cluster)
+
+    # Make trips
+    all_trips = []
+    for i in range(nclus):
+        trips = make_trips(clusters[i], min_d, max_d, math.ceil(n/nclus), math.ceil(m/nclus), G)
+        all_trips.append(trips)
+
+    folded = sum(all_trips, [])
+
+    # Trim to fit n+m
+    # (we used ceil before so will never be less)
+    random.shuffle(folded) # <-- so we aren't popping from the same cluster
+    while (len(folded) > n+m):
+        folded.pop()
+    write_prob(args, folded, G)
+
+
+def real_instance(args):
+    """ Strategy for R
+    Sample from trips file starting from "begin"
+    """
+    G, n, m, min_d, max_d = load(args)
+    i = 0
+    trips = []
+    with open(args["input"]) as f_trips:
+        begin = int(args["begin"])
+        while len(trips) != (n+m):
+            for line in f_trips:
+                sys.stdout.write('{}\{}\r'.format(i, (n+m)))
+                sys.stdout.flush()
+                col = line.strip().split(' ')
+                tm = col[2].split(':')
+                hr, mn, sc = int(tm[0]), int(tm[1]), int(tm[2])
+                base = begin*3600 # seconds
+                if hr >= begin:
+                    tmstmp = hr*3600+mn*60+sc
+                    diff = tmstmp - base
+                    o = (float(col[3]), float(col[4]))
+                    d = (float(col[7]), float(col[8]))
+                    near_o = nearest_node(o, int(args["tolerance"]), G)
+                    near_d = nearest_node(d, int(args["tolerance"]), G)
+                    if near_o != -1 and near_d != -1:
+                        trips.append((near_o, near_d))
+                        i += 1
+                if len(trips) == (n+m):
+                    break
+    write_prob(args, trips, G)
+
+
 def rspgen(args):
-    tg = TripGenerator(args["grid"], args["rnet_file"]);
-    tg.generate(args["out"], args["num"], args["num_vehicles"], args["num_customers"], args["speed"],
-            args["freq"], args["delay"], args["type"]);
+    if args["type"] == "SR":
+        synthetic_random(args)
+    elif args["type"] == "SC":
+        synthetic_clustered(args)
+    elif args["type"] == "R":
+        real_instance(args)
 
 
 if __name__ == "__main__":
