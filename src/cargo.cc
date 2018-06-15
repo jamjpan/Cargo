@@ -101,6 +101,7 @@ Cargo::~Cargo()
         sqlite3_free(err);
     sqlite3_close(db_); // Calls std::terminate on failure
     print_out << "Database closed." << std::endl;
+    std::remove("sol.partial");
 }
 
 const SimTime& Cargo::final_request_time() const { return tmin_; }
@@ -296,7 +297,7 @@ int Cargo::step(int& ndeact)
 
             // Record vehicle status
             // (taken at the end of t_)
-            sol_routes_[veh_id] = vehicle.last_visited_node();
+            sol_routes_[veh_id] = route.node_at(lvn);
 
         } // end if
     } // end SQLITE_ROW
@@ -408,8 +409,8 @@ void Cargo::start(RSAlgorithm& rsalg)
         // Solution tables are now filled
         f_sol_temp_ << t_;
         for (const auto& veh_id : sol_veh_cols_)
-            f_sol_temp_ << '\t' << (sol_routes_.find(veh_id) != sol_routes_.end())
-                ? sol_routes_.at(veh_id) : 0; // <-- vehicle is done
+            f_sol_temp_ << '\t' << (sol_routes_.find(veh_id) != sol_routes_.end()
+                ? sol_routes_.at(veh_id) : 0); // <-- vehicle is done
         for (const auto& kv : sol_statuses_)
             f_sol_temp_ << '\t' << (int)kv.second.first << '\t' << kv.second.second;
         f_sol_temp_ << '\n';
@@ -442,18 +443,17 @@ void Cargo::start(RSAlgorithm& rsalg)
         << "solution cost " << total_route_cost() << '\n'
         << '\n'
         << "T";
-    // Print and store  vehicle column headers
-    for (const auto& kv : sol_routes_) {
-        f_sol_ << "\tVEH" << kv.first;
-        sol_veh_cols_.push_back(kv.first); // <-- this will be ordered
-    }
+    // Print vehicle column headers
+    for (const auto& veh_id : sol_veh_cols_)
+        f_sol_ << "\tVEH" << veh_id;
     // Print out customer column headers
     for (const auto& kv : sol_statuses_)
         f_sol_ << "\tC" << kv.first << "_ST\tC" << kv.first << "_AT";
     f_sol_ << '\n';
     // Print the solution and cleanup the temp file
     f_sol_ << ifs.rdbuf();
-    std::remove("sol.partial");
+    ifs.close();
+    f_sol_.close();
 
     print_out << "Finished Cargo" << std::endl;
 }
@@ -576,7 +576,7 @@ void Cargo::initialize(const Options& opt)
                     throw std::runtime_error(sqlite3_errmsg(db_));
                 }
 
-                // Record the origin in the solution
+                // Record the origin
                 sol_routes_[trip.id()] = trip.origin();
 
                 // Insert route
@@ -690,6 +690,10 @@ void Cargo::initialize(const Options& opt)
     sqlite3_finalize(insert_route_stmt);
 
     solution_file_ = opt.path_to_solution;
+    // Store vehicle column headers
+    // (sol_veh_cols_ will be ordered)
+    for (const auto& kv : sol_routes_)
+        sol_veh_cols_.push_back(kv.first);
 
     t_ = 0; // Ready to begin
     print_out << "Done\n";
