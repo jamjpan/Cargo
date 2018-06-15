@@ -54,9 +54,9 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
         const std::vector<Waypoint>& new_route,
         const std::vector<Stop>& new_schedule) const
 {
-    committing_ = true;         // lock
     while (Cargo::stepping())   // wait for lock
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    committing_ = true;         // lock
     if (cargo::sql::commit_assignment(cust, veh, new_route, new_schedule) != SQLITE_OK) {
         // Why this is not working..?
         // print_error << "Failed commit " << cust.id() << "to " << veh.id() << "\n";

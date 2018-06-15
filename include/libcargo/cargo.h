@@ -21,8 +21,9 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_CARGO_H_
 #define CARGO_INCLUDE_LIBCARGO_CARGO_H_
-#include <unordered_map>
+#include <fstream>
 #include <map>
+#include <unordered_map>
 
 #include "classes.h"
 #include "file.h"
@@ -102,20 +103,13 @@ private:
     static bool stepping_; // lock
 
     /* Solution tables */
-    // (the inside maps need to be ordered so when we access them iteratively,
+    // (the maps need to be ordered so when we iterate over,
     // we know exactly what to expect)
     Filepath solution_file_;
-    std::unordered_map<SimTime,
-        std::map<VehicleId, NodeId>>
-            stat_vehicle_routes_;
-
-    std::unordered_map<SimTime,
-        std::map<CustomerId, CustomerStatus>>
-            stat_customer_statuses_;
-
-    std::unordered_map<SimTime,
-        std::map<CustomerId, VehicleId>>
-            stat_customer_assignments_;
+    std::ofstream f_sol_temp_;
+    std::vector<VehicleId> sol_veh_cols_; // the vehicle columns, in order
+    std::map<VehicleId, NodeId> sol_routes_;
+    std::map<CustomerId, std::pair<CustomerStatus, VehicleId>> sol_statuses_;
 
     /* SQL statements */
     SqliteReturnCode rc;

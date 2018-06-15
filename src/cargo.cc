@@ -20,7 +20,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <chrono>
+#include <cstdio> /* std::remove */
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -58,7 +60,8 @@ Cargo::Cargo(const Options& opt)
       print_info(MessageType::Info, "cargo"),
       print_warning(MessageType::Warning, "cargo"),
       print_error(MessageType::Error, "cargo"),
-      print_success(MessageType::Success, "cargo")
+      print_success(MessageType::Success, "cargo"),
+      f_sol_temp_("sol.partial", std::ios::out) // <-- needed for writing sol
 {
     print_out << "Initializing Cargo\n";
     this->initialize(opt); // <-- load db
@@ -178,9 +181,6 @@ int Cargo::step(int& ndeact)
         // vehicle.print();
         // print_out << "new nnd: " << nnd << "\n";
 
-        // Record vehicle status
-        stat_vehicle_routes_[t_][veh_id] = vehicle.last_visited_node();
-
         // Loop runs |schedule| times in the worst case.
         while (nnd <= 0 && active) {
             lvn += 1;
@@ -204,7 +204,7 @@ int Cargo::step(int& ndeact)
 
                     // Record vehicle status
                     // (vehicle is done now)
-                    stat_vehicle_routes_[t_][veh_id] = route.node_at(lvn);
+                    sol_routes_[veh_id] = route.node_at(lvn);
                 }
                 // Vehicle is at customer pickup
                 else if (stop.type() == StopType::CustomerOrigin) {
@@ -293,6 +293,11 @@ int Cargo::step(int& ndeact)
             }
             sqlite3_clear_bindings(nnd_stmt);
             sqlite3_reset(nnd_stmt);
+
+            // Record vehicle status
+            // (taken at the end of t_)
+            sol_routes_[veh_id] = vehicle.last_visited_node();
+
         } // end if
     } // end SQLITE_ROW
     if (rc != SQLITE_DONE) {
@@ -318,8 +323,7 @@ void Cargo::record_customer_statuses()
             static_cast<CustomerStatus>(sqlite3_column_int(sac_stmt, 6));
         VehicleId cust_assignedTo = sqlite3_column_int(sac_stmt, 7);
 
-        stat_customer_statuses_[t_][cust_id] = cust_status;
-        stat_customer_assignments_[t_][cust_id] = cust_assignedTo;
+        sol_statuses_[cust_id] = {cust_status, cust_assignedTo};
     }
     if (rc != SQLITE_DONE) {
         print_error << "Failure in select all customers. Reason:\n";
@@ -363,19 +367,6 @@ void Cargo::start(RSAlgorithm& rsalg)
     print_out << "Starting Cargo\n";
     print_out << "Starting algorithm " << rsalg.name() << "\n";
 
-    // if (sqlite3_prepare_v2(db_, sql::usn_stmt, -1, &usn_stmt, NULL) != SQLITE_OK) {
-    //     print_error << "Failed (create insert name stmt). Reason:\n";
-    //     throw std::runtime_error(sqlite3_errmsg(db_));
-    // }
-    // ENHANCEMENT allow custom (multiple) run_ids
-    // sqlite3_bind_text(usn_stmt, 1, rsalg.name().c_str(), -1, SQLITE_TRANSIENT);
-    // sqlite3_bind_int(usn_stmt, 2, 1); // <-- run_id = 1
-    // if (sqlite3_step(usn_stmt) != SQLITE_DONE) {
-    //     print_error << "Failed (insert name stmt). Reason:\n";
-    //     throw std::runtime_error(sqlite3_errmsg(db_));
-    // }
-    // sqlite3_finalize(usn_stmt);
-
     // Algorithm thread
     std::thread thread_rsalg([&rsalg]() { while (!rsalg.done()) {
         rsalg.listen();
@@ -400,8 +391,9 @@ void Cargo::start(RSAlgorithm& rsalg)
         sqlite3_clear_bindings(tim_stmt);
         sqlite3_reset(tim_stmt);
 
-        // Log the current statistics
-        record_customer_statuses();
+        // Prepare this step's solution tables
+        sol_routes_.clear();
+        sol_statuses_.clear();
 
         // Step the vehicles
         nstepped = step(ndeact);
@@ -409,6 +401,18 @@ void Cargo::start(RSAlgorithm& rsalg)
         print_out << "t=" << t_ << "; stepped " << nstepped
                    << " vehicles; remaining=" << active_vehicles_ << ";"
                    << std::endl;
+
+        // Log the customers
+        record_customer_statuses();
+
+        // Solution tables are now filled
+        f_sol_temp_ << t_;
+        for (const auto& veh_id : sol_veh_cols_)
+            f_sol_temp_ << '\t' << (sol_routes_.find(veh_id) != sol_routes_.end())
+                ? sol_routes_.at(veh_id) : 0; // <-- vehicle is done
+        for (const auto& kv : sol_statuses_)
+            f_sol_temp_ << '\t' << (int)kv.second.first << '\t' << kv.second.second;
+        f_sol_temp_ << '\n';
 
         t1 = std::chrono::high_resolution_clock::now();
 
@@ -424,12 +428,32 @@ void Cargo::start(RSAlgorithm& rsalg)
     thread_rsalg.join();
     print_out << "Finished algorithm " << rsalg.name() << "\n";
 
-    print_out << "Writing solution..." << std::endl;
-    DistanceInt final_cost = total_route_cost();
-    write_solution(name(), road_network(), total_vehicles_, total_customers_,
-                   base_cost_, final_cost, solution_file_, stat_vehicle_routes_,
-                   stat_customer_statuses_, stat_customer_assignments_);
-    print_out << "Done\n";
+    f_sol_temp_.close();
+
+    // Print solution headers
+    // (we do this last so we can get total_route_cost())
+    std::ifstream ifs("sol.partial");
+    std::ofstream f_sol_(solution_file_, std::ios::out);
+    f_sol_ << name() << '\n'
+        << road_network() << '\n'
+        << "VEHICLES " << total_vehicles_ << '\n'
+        << "CUSTOMERS " << total_customers_ << '\n'
+        << "base cost " << base_cost_ << '\n'
+        << "solution cost " << total_route_cost() << '\n'
+        << '\n'
+        << "T";
+    // Print and store  vehicle column headers
+    for (const auto& kv : sol_routes_) {
+        f_sol_ << "\tVEH" << kv.first;
+        sol_veh_cols_.push_back(kv.first); // <-- this will be ordered
+    }
+    // Print out customer column headers
+    for (const auto& kv : sol_statuses_)
+        f_sol_ << "\tC" << kv.first << "_ST\tC" << kv.first << "_AT";
+    f_sol_ << '\n';
+    // Print the solution and cleanup the temp file
+    f_sol_ << ifs.rdbuf();
+    std::remove("sol.partial");
 
     print_out << "Finished Cargo" << std::endl;
 }
@@ -552,8 +576,8 @@ void Cargo::initialize(const Options& opt)
                     throw std::runtime_error(sqlite3_errmsg(db_));
                 }
 
-                // Put into stat_vehicle_routes_[0], just so we have it
-                stat_vehicle_routes_[0][trip.id()] = 0;
+                // Record the origin in the solution
+                sol_routes_[trip.id()] = trip.origin();
 
                 // Insert route
                 Stop a(trip.id(), trip.origin(), StopType::VehicleOrigin, trip.early(), trip.late(), trip.early());
@@ -615,6 +639,9 @@ void Cargo::initialize(const Options& opt)
                     print_error << "Failed (insert customer). Reason:\n";
                     throw std::runtime_error(sqlite3_errmsg(db_));
                 }
+
+                // Record the customer
+                sol_statuses_[trip.id()] = {CustomerStatus::Waiting, 0};
             }
             else // e.g. mail, packages
                 print_warning << "Trip" << trip.id() << " load == 0\n";
@@ -661,25 +688,6 @@ void Cargo::initialize(const Options& opt)
     sqlite3_finalize(insert_stop_stmt);
     sqlite3_finalize(insert_schedule_stmt);
     sqlite3_finalize(insert_route_stmt);
-
-    // print_out << "\t Initializing statistics...";
-    // sqlite3_stmt* init_stats_stmt;
-    // if (sqlite3_prepare_v2(db_,
-    // "insert into statistics values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", -1, &init_stats_stmt, NULL) != SQLITE_OK) {
-    //     print_error << "Failed (init stats stmt). Reason:\n";
-    //     throw std::runtime_error(sqlite3_errmsg(db_));
-    // }
-    // sqlite3_bind_int(init_stats_stmt, 1, 1); // <-- run_id = 1
-    // sqlite3_bind_text(init_stats_stmt, 2, name().c_str(), -1, SQLITE_TRANSIENT);
-    // sqlite3_bind_int(init_stats_stmt, 3, total_customers);
-    // sqlite3_bind_int(init_stats_stmt, 4, total_vehicles);
-    // sqlite3_bind_int(init_stats_stmt, 5, base_cost);
-    // if (sqlite3_step(init_stats_stmt) != SQLITE_DONE) {
-    //     print_error << "Failed (init stats). Reason:\n";
-    //     throw std::runtime_error(sqlite3_errmsg(db_));
-    // }
-    // sqlite3_finalize(init_stats_stmt);
-    // print_out << "Done\n";
 
     solution_file_ = opt.path_to_solution;
 
