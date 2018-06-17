@@ -45,6 +45,7 @@ class RSAlgorithm {
 public:
     // Pass along a name string to your RSAlgorithm
     RSAlgorithm(const std::string&);
+    ~RSAlgorithm();
 
     virtual void                handle_customer(const Customer &);
     virtual void                handle_vehicle(const Vehicle &);
@@ -53,15 +54,12 @@ public:
     virtual void                listen();
 
     // Write assignment to the db
-    void commit(const Customer &,
-                const MutableVehicle &)                 const;
-    void commit(const Customer &, const Vehicle &,
-                const std::vector<Waypoint> &,
-                const std::vector<Stop> &)       const;
+    void commit(const Customer&, const MutableVehicle&);
+    void commit(const Customer&, const Vehicle&, const std::vector<Waypoint>&,
+                const std::vector<Stop>&);
 
     const std::string&          name()                  const;
     bool                        done()                  const;
-    static bool                 committing()            { return committing_; }
     void                        kill();         // <-- sets done_ to true
     int&                        batch_time();   // <-- set to 0 for streaming
 
@@ -79,10 +77,16 @@ private:
     std::string name_;
     bool done_;
     int batch_time_; // seconds
-    static bool committing_; // "lock"
 
     std::vector<Customer> waiting_customers_;
     std::vector<Vehicle> vehicles_;
+
+    SqliteReturnCode rc;
+    sqlite3_stmt* uro_stmt; // update route
+    sqlite3_stmt* sch_stmt; // update sched
+    sqlite3_stmt* nnd_stmt; // update next node distance
+    sqlite3_stmt* lvn_stmt; // update last visited node
+    sqlite3_stmt* com_stmt; // assign cust to veh
 };
 
 } // namespace cargo

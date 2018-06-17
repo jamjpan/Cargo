@@ -24,6 +24,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -48,7 +49,7 @@ GTree::G_Tree   Cargo::gtree_       = GTree::get();
 sqlite3*        Cargo::db_          = nullptr;
 Speed           Cargo::speed_       = 0;
 SimTime         Cargo::t_           = 0;
-bool            Cargo::stepping_    = false;
+std::mutex      Cargo::dbmx;
 std::mutex      Message::mtx_;
 
 // ENHANCEMENT: just one message object, allowing an option
@@ -140,10 +141,9 @@ const std::string& Cargo::road_network()
 //   much of the data is really used?
 int Cargo::step(int& ndeact)
 {
-    while (RSAlgorithm::committing())
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    stepping_ = true;
     int nrows = ndeact = 0;
+
+    std::lock_guard<std::mutex> dblock(dbmx); // Acquire a lock
 
     sqlite3_bind_int(ssv_stmt, 1, t_);
     sqlite3_bind_int(ssv_stmt, 2, (int)VehicleStatus::Arrived);
@@ -185,8 +185,10 @@ int Cargo::step(int& ndeact)
         // Loop runs |schedule| times in the worst case.
         while (nnd <= 0 && active) {
             lvn += 1;
-            // First stop in schedule is always vehicle's next target
-            if (route.node_at(lvn) == schedule.at(1+nstops).location()) {
+            // schedule[0] gives the node the vehicle is currently traveling to.
+            // The vehicle has moved to it already because nnd <= 0; hence we
+            // use schedule[1+nstops] to get the next node.
+            while (active && route.node_at(lvn) == schedule.at(1+nstops).location()) {
                 const Stop& stop = schedule.at(1+nstops);
                 nstops += 1;
                 // Vehicle is at own destination
@@ -200,7 +202,7 @@ int Cargo::step(int& ndeact)
                         print_info << "Vehicle " << vehicle.id() << " arrived." << std::endl;
                     sqlite3_clear_bindings(dav_stmt);
                     sqlite3_reset(dav_stmt);
-                    active = false; // <-- stops the while loop
+                    active = false; // <-- stops the while loops
                     ndeact += 1;
 
                     // Record vehicle status
@@ -308,17 +310,14 @@ int Cargo::step(int& ndeact)
     sqlite3_clear_bindings(ssv_stmt);
     sqlite3_reset(ssv_stmt);
 
-    stepping_ = false; // "unlock"
     return nrows;
-}
+} // dblock is released
 
 void Cargo::record_customer_statuses()
 {
 
-    while (RSAlgorithm::committing())
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
     while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
+        std::lock_guard<std::mutex> dblock(dbmx); // Acquire a lock
         CustomerId cust_id = sqlite3_column_int(sac_stmt, 0);
         CustomerStatus cust_status =
             static_cast<CustomerStatus>(sqlite3_column_int(sac_stmt, 6));

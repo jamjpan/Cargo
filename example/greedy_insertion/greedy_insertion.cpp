@@ -27,50 +27,52 @@
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
     grid_(100) // <-- initialize my 100x100 grid
 {
-    batch_time() = 1; // Setting batch to 1 second
-    nmatches = 0;
+    batch_time() = 1; // Set batch to 1 second
+    nmatches = 0; // Initialize my private counter
 }
 
 void GreedyInsertion::handle_customer(const cargo::Customer& cust)
 {
+    /* Some customers are assigned, but not yet picked up. We will decide
+     * to skip these when we encounter them. */
     if (cust.assigned())
-        return; // <-- skip assigned (but not yet picked up)
+        return;
 
+    /* Containers for storing outputs */
     cargo::DistanceInt cost;
     cargo::DistanceInt best_cost = cargo::InfinityInt;
-    std::vector<cargo::Stop> schedule;
-    std::vector<cargo::Stop> best_schedule;
-    std::vector<cargo::Waypoint> route;
-    std::vector<cargo::Waypoint> best_route;
+    std::vector<cargo::Stop> schedule, best_schedule;
+    std::vector<cargo::Waypoint> route, best_route;
 
-    cargo::MutableVehicle best_vehicle;
+    /* best_vehicle will point to an underlying MutableVehicle in our grid */
+    std::shared_ptr<cargo::MutableVehicle> best_vehicle;
     bool matched = false;
 
-    /* Get candidates from the local grid index (refreshed every listen()) */
+    /* Get candidates from the local grid index
+     * (the grid is refreshed during listen()) */
     cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
-    std::vector<cargo::MutableVehicle> candidates = grid_.within_about(range, cust.origin());
+    auto candidates = grid_.within_about(range, cust.origin());
 
-    for (const auto& mveh : candidates) {
-        cost = cargo::sop_insert(mveh, cust, schedule, route);
+    /* Grid::within_about() returns a vector of pointers to the underlying
+     * MutableVehicles. Loop through them and check which is the greedy match */
+    for (const auto& cand : candidates) {
+        cost = cargo::sop_insert(*cand, cust, schedule, route); // TODO make sop_insert accept a pointer as 1st arg
         bool within_time = cargo::check_timewindow_constr(schedule, route);
         if ((cost < best_cost) && within_time) {
+            best_cost = cost;
             best_schedule = schedule;
             best_route = route;
-            best_vehicle = mveh;
-            best_cost = cost;
+            best_vehicle = cand; // copy the pointer
             matched = true;
         }
     }
 
-    /* Commit the possible match back to the db. At the same time, refresh our
-     * local grid index, so data is fresh for subsequent handle_customers that
-     * occur before the next listen() (when the grid is refreshed anyway). */
+    /* Commit match to the db. Also refresh our local grid index, so data is
+     * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
-        best_vehicle.set_route(best_route);
-        best_vehicle.set_schedule(best_schedule);
-        grid_.refresh(best_vehicle); // <-- refresh our local index
-        commit(cust, best_vehicle);  // <-- write to the db
-        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle.id() << ")\n";
+        grid_.refresh(best_vehicle, best_route, best_schedule); // <-- update local
+        commit(cust, *best_vehicle, best_route, best_schedule); // <-- write to the db TODO make commit accept pointer as 2nd arg
+        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
         nmatches++;
     }
 }
@@ -78,19 +80,20 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
 void GreedyInsertion::handle_vehicle(const cargo::Vehicle& veh)
 {
     /* Insert vehicles into my grid */
-    cargo::MutableVehicle mveh(veh);
-    grid_.insert(mveh);
+    grid_.insert(veh);
 }
 
 void GreedyInsertion::end()
 {
+    /* Print an informative message */
     print_success << "Matches: "<<nmatches<<std::endl;
 }
 
 void GreedyInsertion::listen()
 {
-    grid_.clear();          // clear my index
-    RSAlgorithm::listen();  // then call the base listen()
+    /* Clear the index, then call base listen() */
+    grid_.clear();
+    RSAlgorithm::listen();
 }
 
 int main()
@@ -99,10 +102,10 @@ int main()
     op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
     op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
     op.path_to_edges   = "../../data/roadnetwork/mny.edges";
+    //op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
     op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
     op.path_to_solution= "a.sol";
-    // op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
-    op.time_multiplier = 5;
+    op.time_multiplier = 10;
     op.vehicle_speed   = 10;
     op.matching_period = 60;
 

@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <chrono>
+#include <mutex>
 #include <thread>
 
 #include "libcargo/rsalgorithm.h"
@@ -31,8 +32,6 @@
 
 namespace cargo {
 
-bool RSAlgorithm::committing_ = false;
-
 RSAlgorithm::RSAlgorithm(const std::string& name)
     : print_out(name), print_info(MessageType::Info, name),
       print_warning(MessageType::Warning, name),
@@ -42,27 +41,95 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
     name_ = name;
     done_ = false;
     batch_time_ = 1;
+    if (sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(Cargo::db(), sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(Cargo::db(), sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK) {
+        print_error << "Failed (create rsalg stmts). Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+}
+
+RSAlgorithm::~RSAlgorithm()
+{
+    sqlite3_finalize(uro_stmt);
+    sqlite3_finalize(sch_stmt);
+    sqlite3_finalize(nnd_stmt);
+    sqlite3_finalize(lvn_stmt);
+    sqlite3_finalize(com_stmt);
 }
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
-void RSAlgorithm::commit(const Customer& cust, const MutableVehicle& mveh) const
+void RSAlgorithm::commit(const Customer& cust, const MutableVehicle& mveh)
 {
     commit(cust, mveh, mveh.route().data(), mveh.schedule().data());
 }
 void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
         const std::vector<Waypoint>& new_route,
-        const std::vector<Stop>& new_schedule) const
+        const std::vector<Stop>& new_schedule)
 {
-    while (Cargo::stepping())   // wait for lock
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    committing_ = true;         // lock
-    if (cargo::sql::commit_assignment(cust, veh, new_route, new_schedule) != SQLITE_OK) {
-        // Why this is not working..?
-        // print_error << "Failed commit " << cust.id() << "to " << veh.id() << "\n";
+    std::lock_guard<std::mutex> dblock(Cargo::dbmx);
+
+    // Commit the new route (current_node_idx, nnd are unchanged)
+    std::string new_route_str = serialize_route(new_route);
+    sqlite3_bind_text(uro_stmt, 1, new_route_str.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(uro_stmt, 2, veh.id());
+    if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit new route " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
     }
-    committing_ = false;        // unlock
+    sqlite3_clear_bindings(uro_stmt);
+    sqlite3_reset(uro_stmt);
+
+    // ENHANCEMENT check if assignment is valid
+    //   If the vehicle has moved a lot during RSAlgorithm::match(), then the
+    //   lvn will be different in the db compared to what it is here (because
+    //   here was selected before the vehicle moved). How to handle this case?
+    //   Reject the assignment, or "roll back" the vehicle?
+    //
+    //   We roll back the vehicle for now, consider adding the check and rejceting
+    //   the assignment in the future.
+
+    // Re-commit the nnd
+    sqlite3_bind_int(nnd_stmt, 1, veh.next_node_distance());
+    sqlite3_bind_int(nnd_stmt, 2, veh.id());
+    if ((rc = sqlite3_step(nnd_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in nnd " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+    sqlite3_clear_bindings(nnd_stmt);
+    sqlite3_reset(nnd_stmt);
+
+    // Reset the lvn
+    sqlite3_bind_int(lvn_stmt, 1, 0);
+    sqlite3_bind_int(lvn_stmt, 2, veh.id());
+    if ((rc = sqlite3_step(lvn_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in lvn " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+    sqlite3_clear_bindings(lvn_stmt);
+    sqlite3_reset(lvn_stmt);
+
+    sqlite3_bind_text(sch_stmt, 1, serialize_schedule(new_schedule).c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(sch_stmt, 2, veh.id());
+    if ((rc = sqlite3_step(sch_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit new schedule " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+    sqlite3_clear_bindings(sch_stmt);
+    sqlite3_reset(sch_stmt);
+
+    // Commit the assignment
+    sqlite3_bind_int(com_stmt, 1, veh.id());
+    sqlite3_bind_int(com_stmt, 2, cust.id());
+    if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit assignment " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+    sqlite3_clear_bindings(com_stmt);
+    sqlite3_reset(com_stmt);
 }
 void RSAlgorithm::kill() { done_ = true; }
 int& RSAlgorithm::batch_time() { return batch_time_; }

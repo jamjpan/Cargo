@@ -23,6 +23,7 @@
 #define CARGO_INCLUDE_LIBCARGO_CARGO_H_
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <unordered_map>
 
 #include "classes.h"
@@ -70,7 +71,7 @@ public:
     static SimTime              now()                   { return t_; }
     static GTree::G_Tree&       gtree()                 { return gtree_;}
     static sqlite3*             db()                    { return db_; }
-    static bool                 stepping()              { return stepping_; }
+    static std::mutex dbmx; // mutex to protect the db
 
 private:
     Message print_out;
@@ -100,7 +101,6 @@ private:
     static sqlite3* db_;
     static Speed speed_;
     static SimTime t_; // current sim time
-    static bool stepping_; // lock
 
     /* Solution tables */
     // (the maps need to be ordered so when we iterate over,

@@ -21,6 +21,7 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_GRID_H_
 #define CARGO_INCLUDE_LIBCARGO_GRID_H_
+#include <memory>
 #include <vector>
 
 #include "classes.h"
@@ -41,15 +42,16 @@ public:
 
     void insert(const Vehicle &);
     void insert(const MutableVehicle &);
-    std::vector<MutableVehicle> within_about(const DistanceDouble &, const NodeId &);
-    void refresh(const MutableVehicle &);
+    std::vector<std::shared_ptr<MutableVehicle>>& within_about(const DistanceDouble &, const NodeId &);
+    void refresh(std::shared_ptr<MutableVehicle> &, const std::vector<Waypoint> &, const std::vector<Stop> &);
     void clear();
 
 private:
     double x_dim_;
     double y_dim_;
     int n_;
-    std::vector<std::vector<MutableVehicle>> data_;
+    std::vector<std::vector<std::shared_ptr<MutableVehicle>>> data_;
+    std::vector<std::shared_ptr<MutableVehicle>> res_; // store results of within_about here
 
     int hash(const Point &);
     int hash_x(const Point &);

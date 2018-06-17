@@ -21,6 +21,7 @@
 // SOFTWARE.
 #include <algorithm>
 #include <iostream> /* debug */
+#include <memory>
 #include <vector>
 
 #include "libcargo/cargo.h" /* bbox(), node2pt() */
@@ -47,14 +48,18 @@ void Grid::insert(const Vehicle& veh)
 
 void Grid::insert(const MutableVehicle& mveh)
 {
-    // Pushes back a copy
-    data_.at(hash(Cargo::node2pt(mveh.last_visited_node()))).push_back(mveh);
+    // Create a new MutableVehicle as a copy of mveh
+    // Create and store a shared_ptr to the copy
+    auto sptr = std::make_shared<MutableVehicle>(mveh);
+    data_.at(hash(Cargo::node2pt(mveh.last_visited_node()))).push_back(sptr);
 }
 
-std::vector<MutableVehicle> Grid::within_about(const DistanceDouble& d,
-                                        const NodeId& node)
+// Populate res_ with pointers to the underlying MutableVehicles we are
+// interested in, and return a reference to the vector.
+std::vector<std::shared_ptr<MutableVehicle>>&
+Grid::within_about(const DistanceDouble& d, const NodeId& node)
 {
-    std::vector<MutableVehicle> res;
+    res_.clear();
     int offset_x = std::ceil(metersTolngdegs(d, Cargo::node2pt(node).lat)/x_dim_);
     int offset_y = std::ceil(metersTolatdegs(d)/y_dim_);
     int base_x = hash_x(Cargo::node2pt(node));
@@ -63,19 +68,18 @@ std::vector<MutableVehicle> Grid::within_about(const DistanceDouble& d,
     for (int j = std::max(0, base_y - offset_y); j <= std::min(base_y + offset_y, n_-1); ++j)
         for (int i = std::max(0, base_x - offset_x); i <= std::min(base_x + offset_x, n_-1); ++i) {
             int k = i+j*n_;
-            res.insert(res.end(), data_.at(k).begin(), data_.at(k).end());
+            for (const auto& sptr : data_.at(k))
+                res_.push_back(sptr);
         }
-    return res;
+    return res_;
 }
 
-void Grid::refresh(const MutableVehicle& mveh)
+void Grid::refresh(std::shared_ptr<MutableVehicle>& mveh,
+        const std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule)
 {
-    // Presumably veh.last_visited_node() hasn't changed since veh
-    // was indexed... MutableVehicle does not allow to change it
-    int i = hash(Cargo::node2pt(mveh.last_visited_node()));
-    for (auto& mv : data_.at(i))
-        if (mv.id() == mveh.id())
-            mv = mveh;
+    mveh->set_route(new_route);
+    mveh->set_schedule(new_schedule);
+    mveh->reset_lvn();
 }
 
 void Grid::clear()

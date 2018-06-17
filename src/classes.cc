@@ -201,6 +201,10 @@ void MutableVehicle::set_schedule(const Schedule& schedule)
 {
     this->schedule_ = schedule;
 }
+void MutableVehicle::reset_lvn()
+{
+    this->idx_last_visited_node_ = 0;
+}
 
 ProblemSet::ProblemSet() {}
 std::string& ProblemSet::name() { return name_; }

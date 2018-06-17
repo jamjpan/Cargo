@@ -169,6 +169,7 @@ public:
     void                        set_route(const Route &);
     void                        set_schedule(const std::vector<Stop> &);
     void                        set_schedule(const Schedule &);
+    void                        reset_lvn();
 };
 
 // A problem is the set of trips keyed by their early time. When the
