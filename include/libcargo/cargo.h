@@ -66,6 +66,7 @@ public:
     void                        start();
     /* Other vars */
     static Point                node2pt(const NodeId& i){ return nodes_.at(i); }
+    static DistanceInt          edgeweight(const NodeId& u, const NodeId& v) { return edges_[u][v]; }
     static BoundingBox          bbox()                  { return bbox_; }
     static Speed&               vspeed()                { return speed_; }
     static SimTime              now()                   { return t_; }
@@ -80,7 +81,6 @@ private:
     Message print_error;
     Message print_success;
 
-    KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
     ProblemSet probset_;
 
     SimTime tmin_; // minimum sim duration (max trip.early)
@@ -96,6 +96,7 @@ private:
 
     /* Globally accessible vars */
     static KeyValueNodes nodes_;
+    static KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
     static BoundingBox bbox_;
     static GTree::G_Tree gtree_;
     static sqlite3* db_;

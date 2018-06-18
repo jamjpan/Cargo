@@ -53,7 +53,8 @@ DistanceInt route_through(const Schedule& s, std::vector<Waypoint>& r)
         NodeId to = s.data().at(i+1).location();
         Cargo::gtree().find_path(from, to, seg);
         for (size_t i = 1; i < seg.size(); ++i) {
-            cost += shortest_path_dist(seg.at(i-1), seg.at(i));
+            //cost += shortest_path_dist(seg.at(i-1), seg.at(i)); // <-- These are adjacent!! Just use edge lookup
+            cost += Cargo::edgeweight(seg.at(i-1), seg.at(i));
             r.push_back({cost, seg.at(i)});
         }
     }

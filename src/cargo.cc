@@ -44,6 +44,7 @@ namespace cargo {
 
 // Initialize global vars
 KeyValueNodes   Cargo::nodes_       = {};
+KeyValueEdges   Cargo::edges_       = {};
 BoundingBox     Cargo::bbox_        = {{},{}};
 GTree::G_Tree   Cargo::gtree_       = GTree::get();
 sqlite3*        Cargo::db_          = nullptr;
