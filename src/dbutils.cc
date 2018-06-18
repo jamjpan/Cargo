@@ -113,10 +113,10 @@ SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle>& vec, const SimT
     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
         Route route(
                 sqlite3_column_int(stmt, 0),
-                deserialize_route(stringify(sqlite3_column_text(stmt, 8))));
+                deserialize_route(stringify(sqlite3_column_text(stmt, 9))));
         Schedule schedule(
                 sqlite3_column_int(stmt, 0),
-                deserialize_schedule(stringify(sqlite3_column_text(stmt, 12))));
+                deserialize_schedule(stringify(sqlite3_column_text(stmt, 13))));
         Vehicle vehicle(
                 sqlite3_column_int(stmt, 0),
                 sqlite3_column_int(stmt, 1),
@@ -124,11 +124,12 @@ SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle>& vec, const SimT
                 sqlite3_column_int(stmt, 3),
                 sqlite3_column_int(stmt, 4),
                 sqlite3_column_int(stmt, 5),
-                sqlite3_column_int(stmt, 10),
+                sqlite3_column_int(stmt, 6),
+                sqlite3_column_int(stmt, 11),
                 route,
                 schedule,
-                sqlite3_column_int(stmt, 9),
-                static_cast<VehicleStatus>(sqlite3_column_int(stmt, 6)));
+                sqlite3_column_int(stmt, 10),
+                static_cast<VehicleStatus>(sqlite3_column_int(stmt, 7)));
         vec.push_back(vehicle);
     }
     if (rc != SQLITE_DONE) {

@@ -156,10 +156,10 @@ int Cargo::step(int& ndeact)
         //     print_info << "["<<i<<"] "<< sqlite3_column_name(ssv_stmt, i) << "\n";
         Route route(
             veh_id,
-            deserialize_route(stringify(sqlite3_column_text(ssv_stmt, 8))));
+            deserialize_route(stringify(sqlite3_column_text(ssv_stmt, 9))));
         Schedule schedule(
             veh_id,
-            deserialize_schedule(stringify(sqlite3_column_text(ssv_stmt, 12))));
+            deserialize_schedule(stringify(sqlite3_column_text(ssv_stmt, 13))));
         std::vector<Stop> new_schedule_data = schedule.data(); // <-- mutable
         Vehicle vehicle(
             veh_id,
@@ -168,11 +168,12 @@ int Cargo::step(int& ndeact)
             sqlite3_column_int(ssv_stmt, 3),
             sqlite3_column_int(ssv_stmt, 4),
             sqlite3_column_int(ssv_stmt, 5),
-            sqlite3_column_int(ssv_stmt, 10),
+            sqlite3_column_int(ssv_stmt, 6),
+            sqlite3_column_int(ssv_stmt, 11),
             route,
             schedule,
-            sqlite3_column_int(ssv_stmt, 9),
-            static_cast<VehicleStatus>(sqlite3_column_int(ssv_stmt, 6)));
+            sqlite3_column_int(ssv_stmt, 10),
+            static_cast<VehicleStatus>(sqlite3_column_int(ssv_stmt, 7)));
         DistanceInt nnd = vehicle.next_node_distance() - speed_;
         RouteIndex lvn = vehicle.idx_last_visited_node();
         bool active = true; // all vehicles selected by ssv_stmt are active
@@ -545,7 +546,7 @@ void Cargo::initialize(const Options& opt)
     sqlite3_stmt* insert_stop_stmt;
     sqlite3_stmt* insert_schedule_stmt;
     sqlite3_stmt* insert_route_stmt;
-    if (sqlite3_prepare_v2(db_, "insert into vehicles values(?, ?, ?, ?, ?, ?, ?);", -1, &insert_vehicle_stmt, NULL) != SQLITE_OK
+    if (sqlite3_prepare_v2(db_, "insert into vehicles values(?, ?, ?, ?, ?, ?, ?, ?);", -1, &insert_vehicle_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, "insert into customers values(?, ?, ?, ?, ?, ?, ?, ?);", -1, &insert_customer_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, "insert into stops values(?, ?, ?, ?, ?, ?);", -1, &insert_stop_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(db_, "insert into schedules values(?, ?);", -1, &insert_schedule_stmt, NULL) != SQLITE_OK
@@ -568,7 +569,8 @@ void Cargo::initialize(const Options& opt)
                 sqlite3_bind_int(insert_vehicle_stmt, 4, trip.early());
                 sqlite3_bind_int(insert_vehicle_stmt, 5, trip.late());
                 sqlite3_bind_int(insert_vehicle_stmt, 6, trip.load());
-                sqlite3_bind_int(insert_vehicle_stmt, 7, (int)VehicleStatus::Enroute);
+                sqlite3_bind_int(insert_vehicle_stmt, 7, 0);
+                sqlite3_bind_int(insert_vehicle_stmt, 8, (int)VehicleStatus::Enroute);
                 if (sqlite3_step(insert_vehicle_stmt) != SQLITE_DONE) {
                     print_error << "Failure at vehicle " << trip.id() << "\n";
                     print_error << "Failed (insert vehicle). Reason:\n";

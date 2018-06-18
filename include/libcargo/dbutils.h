@@ -57,6 +57,7 @@ const SqliteQuery create_cargo_tables =
         "early          int not null,"
         "late           int not null,"
         "load           int not null,"
+        "queued         int not null,"
         "status         int not null,"
         "foreign key (origin_id) references nodes(id),"
         "foreign key (destination_id) references nodes(id)"
@@ -96,19 +97,6 @@ const SqliteQuery create_cargo_tables =
         "next_node_distance int not null,"
         "foreign key (owner) references vehicles(id)"
     ") without rowid;";
-//     "create table statistics("
-//         "run_id         int primary key,"
-//         "problem_name   text,"
-//         "n_customers    int,"
-//         "m_vehicles     int,"
-//         "base_cost      int,"
-//         "solution_name  text,"
-//         "solution_cost  int,"
-//         "matched_customers int,"
-//         "matched_vehicles int,"
-//         "sum_pickup     int,"
-//         "sum_delay      int"
-//     ") without rowid;";
 
 /* Read statements */
 const SqliteQuery select_vehicle = // <-- seems like never used
@@ -149,8 +137,11 @@ const SqliteQuery tim_stmt = // timeout customers
 const SqliteQuery pup_stmt = // increase load (pickup)
     "update vehicles set load = load+1 where id = ?; ";
 
-const SqliteQuery drp_stmt = // decrease load (dropoff)
-    "update vehicles set load = load-1 where id = ?; ";
+const SqliteQuery qud_stmt = // increase queued
+    "update vehicles set queued = queued+1 where id = ?;";
+
+const SqliteQuery drp_stmt = // decrease load, queued (dropoff)
+    "update vehicles set load = load-1, queued = queued-1 where id = ?; ";
 
 const SqliteQuery dav_stmt = // deactivate vehicle
     "update vehicles set status = ? where id = ?;";

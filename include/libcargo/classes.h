@@ -137,13 +137,15 @@ class Vehicle : public Trip {
 public:
     Vehicle() = default;
     Vehicle(const Vehicle &) = default;
-    Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load,
+    Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load, Load,
             DistanceInt, Route, Schedule, RouteIndex, VehicleStatus);
     DistanceInt                 next_node_distance()    const;
     const Route&                route()                 const;
     const Schedule&             schedule()              const;
     RouteIndex                  idx_last_visited_node() const;
     NodeId                      last_visited_node()     const;
+    Load                        queued()                const;
+    Load                        capacity()              const;
     VehicleStatus               status()                const;
     void                        print()                 const;
 
@@ -152,6 +154,7 @@ protected:
     Route route_;
     Schedule schedule_;
     RouteIndex idx_last_visited_node_;
+    Load queued_;
     VehicleStatus status_;
 
 };
@@ -167,6 +170,7 @@ public:
     void                        set_schedule(const std::vector<Stop> &);
     void                        set_schedule(const Schedule &);
     void                        reset_lvn();
+    void                        incr_queued();
 };
 
 // A problem is the set of trips keyed by their early time. When the

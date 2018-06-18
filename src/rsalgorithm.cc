@@ -45,6 +45,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
      || sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK) {
         print_error << "Failed (create rsalg stmts). Reason:\n";
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
@@ -57,6 +58,7 @@ RSAlgorithm::~RSAlgorithm()
     sqlite3_finalize(sch_stmt);
     sqlite3_finalize(nnd_stmt);
     sqlite3_finalize(lvn_stmt);
+    sqlite3_finalize(qud_stmt);
     sqlite3_finalize(com_stmt);
 }
 
@@ -72,6 +74,9 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
 {
     std::lock_guard<std::mutex> dblock(Cargo::dbmx);
 
+    // ENHANCEMENT uro_stmt, nnd_stmt, lvn_stmt can be combined into one
+    // statement
+    //
     // Commit the new route (current_node_idx, nnd are unchanged)
     std::string new_route_str = serialize_route(new_route);
     sqlite3_bind_text(uro_stmt, 1, new_route_str.c_str(), -1, SQLITE_TRANSIENT);
@@ -112,6 +117,7 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
     sqlite3_clear_bindings(lvn_stmt);
     sqlite3_reset(lvn_stmt);
 
+    // Commit the new schedule
     sqlite3_bind_text(sch_stmt, 1, serialize_schedule(new_schedule).c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(sch_stmt, 2, veh.id());
     if ((rc = sqlite3_step(sch_stmt)) != SQLITE_DONE) {
@@ -120,6 +126,15 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
     }
     sqlite3_clear_bindings(sch_stmt);
     sqlite3_reset(sch_stmt);
+
+    // Increase queued
+    sqlite3_bind_int(qud_stmt, 1, veh.id());
+    if ((rc = sqlite3_step(qud_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in qud " << rc << std::endl;
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    }
+    sqlite3_clear_bindings(qud_stmt);
+    sqlite3_reset(qud_stmt);
 
     // Commit the assignment
     sqlite3_bind_int(com_stmt, 1, veh.id());

@@ -74,12 +74,13 @@ Grid::within_about(const DistanceDouble& d, const NodeId& node)
     return res_;
 }
 
-void Grid::refresh(std::shared_ptr<MutableVehicle>& mveh,
+void Grid::commit(std::shared_ptr<MutableVehicle>& mveh,
         const std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule)
 {
     mveh->set_route(new_route);
     mveh->set_schedule(new_schedule);
     mveh->reset_lvn();
+    mveh->incr_queued();
 }
 
 void Grid::clear()

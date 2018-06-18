@@ -86,6 +86,7 @@ private:
     sqlite3_stmt* sch_stmt; // update sched
     sqlite3_stmt* nnd_stmt; // update next node distance
     sqlite3_stmt* lvn_stmt; // update last visited node
+    sqlite3_stmt* qud_stmt; // increase queued
     sqlite3_stmt* com_stmt; // assign cust to veh
 };
 

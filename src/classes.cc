@@ -138,25 +138,22 @@ void Customer::print() const
 }
 
 Vehicle::Vehicle(VehicleId o, OriginId oid, DestinationId did, EarlyTime e,
-                 LateTime l, Load ld, DistanceInt nnd, Route r, Schedule s,
+                 LateTime l, Load ld, Load qd, DistanceInt nnd, Route r, Schedule s,
                  RouteIndex ri, VehicleStatus f)
     : Trip(o, oid, did, e, l, ld), route_(r), schedule_(s)
 {
     next_node_distance_ = nnd;
     idx_last_visited_node_ = ri;
+    queued_ = qd;
     status_ = f;
 }
 DistanceInt Vehicle::next_node_distance() const { return next_node_distance_; }
 const Route& Vehicle::route() const { return route_; }
 const Schedule& Vehicle::schedule() const { return schedule_; }
-RouteIndex Vehicle::idx_last_visited_node() const
-{
-    return idx_last_visited_node_;
-}
-NodeId Vehicle::last_visited_node() const
-{
-    return route_.node_at(idx_last_visited_node_);
-}
+RouteIndex Vehicle::idx_last_visited_node() const { return idx_last_visited_node_; }
+NodeId Vehicle::last_visited_node() const { return route_.node_at(idx_last_visited_node_); }
+Load Vehicle::queued() const { return queued_; }
+Load Vehicle::capacity() const { return -load_; } // Convenience function
 VehicleStatus Vehicle::status() const { return status_; }
 void Vehicle::print() const
 {
@@ -188,23 +185,15 @@ void MutableVehicle::set_route(const std::vector<Waypoint>& r)
     Route route(this->id_, r);
     set_route(route);
 }
-void MutableVehicle::set_route(const Route& route)
-{
-    this->route_ = route;
-}
+void MutableVehicle::set_route(const Route& route) { this->route_ = route; }
 void MutableVehicle::set_schedule(const std::vector<Stop>& s)
 {
     Schedule schedule(this->id_, s);
     set_schedule(schedule);
 }
-void MutableVehicle::set_schedule(const Schedule& schedule)
-{
-    this->schedule_ = schedule;
-}
-void MutableVehicle::reset_lvn()
-{
-    this->idx_last_visited_node_ = 0;
-}
+void MutableVehicle::set_schedule(const Schedule& schedule) { this->schedule_ = schedule; }
+void MutableVehicle::reset_lvn() { this->idx_last_visited_node_ = 0; }
+void MutableVehicle::incr_queued() { this->queued_++; }
 
 ProblemSet::ProblemSet() {}
 std::string& ProblemSet::name() { return name_; }

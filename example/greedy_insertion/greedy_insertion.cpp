@@ -33,8 +33,7 @@ GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
 
 void GreedyInsertion::handle_customer(const cargo::Customer& cust)
 {
-    /* Some customers are assigned, but not yet picked up. We will decide
-     * to skip these when we encounter them. */
+    /* Don't consider customers that are assigned but not yet picked up */
     if (cust.assigned())
         return;
 
@@ -53,9 +52,13 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
     cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
     auto candidates = grid_.within_about(range, cust.origin());
 
-    /* Grid::within_about() returns a vector of pointers to the underlying
-     * MutableVehicles. Loop through them and check which is the greedy match */
+    /* Loop through candidates and check which is the greedy match */
     for (const auto& cand : candidates) {
+
+        // Don't consider vehicles that are already queued to capacity
+        if (cand->queued() == cand->capacity())
+            continue;
+
         cost = cargo::sop_insert(cand, cust, schedule, route);
         bool within_time = cargo::check_timewindow_constr(schedule, route);
         if ((cost < best_cost) && within_time) {
@@ -70,7 +73,7 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
     /* Commit match to the db. Also refresh our local grid index, so data is
      * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
-        grid_.refresh(best_vehicle, best_route, best_schedule); // <-- update local
+        grid_.commit(best_vehicle, best_route, best_schedule); // <-- update local
         commit(cust, *best_vehicle, best_route, best_schedule); // <-- write to the db TODO make commit accept pointer as 2nd arg
         print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
         nmatches++;
