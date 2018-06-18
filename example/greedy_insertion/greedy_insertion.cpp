@@ -56,7 +56,7 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
     /* Grid::within_about() returns a vector of pointers to the underlying
      * MutableVehicles. Loop through them and check which is the greedy match */
     for (const auto& cand : candidates) {
-        cost = cargo::sop_insert(*cand, cust, schedule, route); // TODO make sop_insert accept a pointer as 1st arg
+        cost = cargo::sop_insert(cand, cust, schedule, route);
         bool within_time = cargo::check_timewindow_constr(schedule, route);
         if ((cost < best_cost) && within_time) {
             best_cost = cost;
@@ -105,7 +105,7 @@ int main()
     //op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
     op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
     op.path_to_solution= "a.sol";
-    op.time_multiplier = 10;
+    op.time_multiplier = 5;
     op.vehicle_speed   = 10;
     op.matching_period = 60;
 

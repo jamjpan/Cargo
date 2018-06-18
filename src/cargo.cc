@@ -387,7 +387,7 @@ void Cargo::start(RSAlgorithm& rsalg)
             print_error << "Failed to timeout customers. Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
         }
-        print_out <<"("<< sqlite3_changes(db_) <<" customers have timed out)\n";
+        print_out <<"(Timed out "<< sqlite3_changes(db_) <<" customers)\n";
         sqlite3_clear_bindings(tim_stmt);
         sqlite3_reset(tim_stmt);
 

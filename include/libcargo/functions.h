@@ -21,36 +21,38 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
 #define CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
+#include <memory> /* shared_ptr */
 
 #include "classes.h"
 #include "types.h"
 
 namespace cargo {
 
-DistanceInt pickup_range(const Customer&, const SimTime);
+DistanceInt pickup_range(const Customer &, const SimTime);
 
 // Given a schedule, return the route through the schedule and its cost. Cost is
 // integer because G_Tree only returns int.
 // O(|schedule|*|nodes|)
-DistanceInt route_through(const Schedule&, std::vector<Waypoint>&);
-DistanceInt route_through(const std::vector<Stop>&, std::vector<Waypoint>&);
+DistanceInt route_through(const Schedule &, std::vector<Waypoint> &);
+DistanceInt route_through(const std::vector<Stop> &, std::vector<Waypoint> &);
 
 // Given a schedule, find if precedence is satisfied.
 // O(|schedule|^2)
-bool check_precedence_constr(const Schedule&);
+bool check_precedence_constr(const Schedule &);
 
 // Given a schedule, find if time windows are satisfied
 // O(|schedule|+|route|)
-bool check_timewindow_constr(const Schedule&, const Route&);
-bool check_timewindow_constr(const std::vector<Stop>&, const std::vector<Waypoint>&);
+bool check_timewindow_constr(const Schedule &, const Route &);
+bool check_timewindow_constr(const std::vector<Stop> &, const std::vector<Waypoint> &);
 
 // Given a schedule and a customer, return the cost of the best-insertion
 // schedule, and output the schedule and the route. The two bools are for
 // fixing the end points. Set the first bool to true to fix the start, and
 // set the second bool to true to fix the end.
 // O(|schedule|^2*c_route_through)
-DistanceInt sop_insert(const Vehicle&, const Customer&, std::vector<Stop>&, std::vector<Waypoint>&);
-DistanceInt sop_insert(const Vehicle&, const Customer&, bool, bool, std::vector<Stop>&, std::vector<Waypoint>&);
+DistanceInt sop_insert(const std::shared_ptr<MutableVehicle> &, const Customer &, std::vector<Stop> &, std::vector<Waypoint> &);
+DistanceInt sop_insert(const Vehicle &, const Customer &, std::vector<Stop> &, std::vector<Waypoint> &);
+DistanceInt sop_insert(const Vehicle &, const Customer &, bool, bool, std::vector<Stop> &, std::vector<Waypoint> &);
 
 } // namespace cargo
 

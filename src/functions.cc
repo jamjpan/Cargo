@@ -22,6 +22,7 @@
 #include <algorithm> /* std::iter_swap */
 #include <iostream> /* debug */
 #include <iterator>
+#include <memory> /* shared_ptr */
 
 #include "libcargo/cargo.h" /* static gtree() */
 #include "libcargo/distance.h"
@@ -179,6 +180,12 @@ bool check_timewindow_constr(const std::vector<Stop>& s, const std::vector<Waypo
     Schedule sch(-1, s);
     Route route(-1, r);
     return check_timewindow_constr(sch, route);
+}
+
+DistanceInt sop_insert(const std::shared_ptr<MutableVehicle>& mveh, const Customer& cust,
+        std::vector<Stop>& best_schedule, std::vector<Waypoint>& best_route)
+{
+    return sop_insert(*mveh, cust, true, true, best_schedule, best_route);
 }
 
 DistanceInt sop_insert(const Vehicle& veh, const Customer& cust,

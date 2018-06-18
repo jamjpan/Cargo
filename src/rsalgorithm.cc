@@ -183,9 +183,13 @@ void RSAlgorithm::listen()
     // Don't sleep if time exceeds batch time
     int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
     if (dur > batch_time_*1000)
-        print_warning << "listen() ("<<dur<<" ms) exceeds batch time ("<<batch_time_*1000<<" ms)\n";
-    else
+        print_warning << "listen() ("<<dur<<" ms) exceeds batch time ("<<batch_time_*1000<<" ms) for "
+            << vehicles_.size() << " vehs and " << waiting_customers_.size() << " custs" << std::endl;
+    else {
+        print_info << "listen() handled " << vehicles_.size() << " vehs and " << waiting_customers_.size()
+            << " custs in " << dur << " ms" << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(batch_time_*1000-dur));
+    }
 }
 
 } // namespace cargo

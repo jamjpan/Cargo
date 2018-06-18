@@ -132,9 +132,7 @@ private:
 
 };
 
-// Don't bother trying to modify a vehicle. Vehicle objects are meant to be
-// ephemeral anyway. If you want to modify a vehicle, modify the ground truth,
-// stored in the database.
+// Immutable Vehicle class, use for reading and processing
 class Vehicle : public Trip {
 public:
     Vehicle() = default;
@@ -158,9 +156,8 @@ protected:
 
 };
 
-// Use MutableVehicle when a local vehicle object needs to be updated without
-// going through the db (for example, when a vehicle gets a new route/schedule
-// due to an assignment).
+// Mutable Vehicle class, use when local vehicle needs modification. You are
+// responsible for synchronizing any MutableVehicles with the db, if necessary.
 class MutableVehicle : public Vehicle {
 public:
     MutableVehicle() = default;
