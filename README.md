@@ -1,3 +1,8 @@
+(We are working on a publication comparing different ridesharing algorithms
+using this system, but we could use some help and expertise! If you would like
+to find out more or possibly collaborate, please reach out to me at
+jamesjpan@outlook.com)
+
 # Cargo - Ridesharing Simulation & Algorithms Library
 **(under development)**
 
