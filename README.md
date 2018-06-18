@@ -202,6 +202,7 @@ int main()
 │  │  early (int)          │  ├──│ *owner (int)     │
 │  │  late (int)           │  │  |  data (text)     │
 │  │  load (int)           │  │  └──────────────────┘
+│  │  queued (int)         │  │
 │  │  status (int)         │  │
 │  └───────────────────────┘  │  ┌──────────────────────────────┐
 │                             │  │ routes                       │
