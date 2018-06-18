@@ -92,7 +92,7 @@ const SqliteQuery create_cargo_tables =
     ") without rowid;"
     "create table routes("
         "owner          int primary key,"
-        "data           text not null,"
+        "data           blob not null,"
         "idx_last_visited_node int not null,"
         "next_node_distance int not null,"
         "foreign key (owner) references vehicles(id)"

@@ -111,9 +111,12 @@ SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle>& vec, const SimT
     sqlite3_bind_int(stmt, 1, now);
     sqlite3_bind_int(stmt, 2, (int)VehicleStatus::Arrived);
     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        Waypoint const *buf = reinterpret_cast<Waypoint const*>(sqlite3_column_blob(stmt, 9));
+        std::vector<Waypoint> raw_route(buf, buf + sqlite3_column_bytes(stmt, 9)/sizeof(Waypoint));
         Route route(
                 sqlite3_column_int(stmt, 0),
-                deserialize_route(stringify(sqlite3_column_text(stmt, 9))));
+                //deserialize_route(stringify(sqlite3_column_text(stmt, 9))));
+                raw_route);
         Schedule schedule(
                 sqlite3_column_int(stmt, 0),
                 deserialize_schedule(stringify(sqlite3_column_text(stmt, 13))));

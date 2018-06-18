@@ -78,8 +78,10 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
     // statement
     //
     // Commit the new route (current_node_idx, nnd are unchanged)
-    std::string new_route_str = serialize_route(new_route);
-    sqlite3_bind_text(uro_stmt, 1, new_route_str.c_str(), -1, SQLITE_TRANSIENT);
+    //std::string new_route_str = serialize_route(new_route);
+    //sqlite3_bind_text(uro_stmt, 1, new_route_str.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_blob(uro_stmt, 1, reinterpret_cast<void const *>(new_route.data()),
+            new_route.size()*sizeof(Waypoint), SQLITE_TRANSIENT);
     sqlite3_bind_int(uro_stmt, 2, veh.id());
     if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
         std::cout << "Error in commit new route " << rc << std::endl;
