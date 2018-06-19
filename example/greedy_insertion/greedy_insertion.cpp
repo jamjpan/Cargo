@@ -25,10 +25,10 @@
 #include "greedy_insertion.h"
 
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
-    grid_(100) // <-- initialize my 100x100 grid
+    grid_(100) // <-- Initialize my 100x100 grid (see grid.h)
 {
-    batch_time() = 1; // Set batch to 1 second
-    nmatches = 0; // Initialize my private counter
+    batch_time() = 1;   // Set batch to 1 second
+    nmatches = 0;       // Initialize my private counter
 }
 
 void GreedyInsertion::handle_customer(const cargo::Customer& cust)
@@ -55,11 +55,10 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
     /* Loop through candidates and check which is the greedy match */
     for (const auto& cand : candidates) {
 
-        // Don't consider vehicles that are already queued to capacity
         if (cand->queued() == cand->capacity())
-            continue;
+            continue; // don't consider vehs already queued to capacity
 
-        cost = cargo::sop_insert(cand, cust, schedule, route);
+        cost = cargo::sop_insert(cand, cust, schedule, route); // <-- functions.h
         bool within_time = cargo::check_timewindow_constr(schedule, route);
         if ((cost < best_cost) && within_time) {
             best_cost = cost;
@@ -74,7 +73,7 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
      * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
         grid_.commit(best_vehicle, best_route, best_schedule); // <-- update local
-        commit(cust, *best_vehicle, best_route, best_schedule); // <-- write to the db TODO make commit accept pointer as 2nd arg
+        commit(cust, best_vehicle, best_route, best_schedule); // <-- write to the db
         print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
         nmatches++;
     }
@@ -82,25 +81,23 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
 
 void GreedyInsertion::handle_vehicle(const cargo::Vehicle& veh)
 {
-    /* Insert vehicles into my grid */
-    grid_.insert(veh);
+    grid_.insert(veh); // Insert into my grid
 }
 
 void GreedyInsertion::end()
 {
-    /* Print an informative message */
-    print_success << "Matches: "<<nmatches<<std::endl;
+    print_success << "Matches: "<<nmatches<<std::endl; // Print a msg
 }
 
 void GreedyInsertion::listen()
 {
-    /* Clear the index, then call base listen() */
-    grid_.clear();
-    RSAlgorithm::listen();
+    grid_.clear();          // Clear the index...
+    RSAlgorithm::listen();  // ...then call listen()
 }
 
 int main()
 {
+    /* Set the options */
     cargo::Options op;
     op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
     op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
@@ -112,17 +109,12 @@ int main()
     op.vehicle_speed   = 10;
     op.matching_period = 60;
 
-    // op.path_to_roadnet = "../../data/roadnetwork/tiny.rnet";
-    // op.path_to_gtree   = "../../data/roadnetwork/tiny.gtree";
-    // op.path_to_edges   = "../../data/roadnetwork/tiny.edges";
-    // op.path_to_problem = "../../data/benchmark/tiny/tiny-n1m2.instance";
-    // op.time_multiplier = 1;
-    // op.vehicle_speed   = 1;
-    // op.matching_period = 10;
-
     cargo::Cargo cargo(op);
 
+    /* Initialize a new greedy */
     GreedyInsertion gr;
+
+    /* Start Cargo */
     cargo.start(gr);
 }
 

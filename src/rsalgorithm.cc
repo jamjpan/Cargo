@@ -68,6 +68,12 @@ void RSAlgorithm::commit(const Customer& cust, const MutableVehicle& mveh)
 {
     commit(cust, mveh, mveh.route().data(), mveh.schedule().data());
 }
+void RSAlgorithm::commit(const Customer& cust, const std::shared_ptr<MutableVehicle>& mveh,
+        const std::vector<Waypoint>& new_route,
+        const std::vector<Stop>& new_schedule)
+{
+    commit(cust, *mveh, new_route, new_schedule);
+}
 void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
         const std::vector<Waypoint>& new_route,
         const std::vector<Stop>& new_schedule)

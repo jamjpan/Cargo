@@ -55,8 +55,10 @@ public:
 
     // Write assignment to the db
     void commit(const Customer&, const MutableVehicle&);
-    void commit(const Customer&, const Vehicle&, const std::vector<Waypoint>&,
-                const std::vector<Stop>&);
+    void commit(const Customer&, const std::shared_ptr<MutableVehicle>&,
+                const std::vector<Waypoint>&, const std::vector<Stop>&);
+    void commit(const Customer&, const Vehicle&,
+                const std::vector<Waypoint>&, const std::vector<Stop>&);
 
     const std::string&          name()                  const;
     bool                        done()                  const;
