@@ -18,6 +18,7 @@ developing and testing online ridesharing algorithms.
 ### Similar projects
 There are a few similar projects.
 
+* [RinSim](https://github.com/rinde/RinSim)
 * [Open-VRP](https://github.com/mck-/Open-VRP)
 * [jsprit](https://github.com/graphhopper/jsprit)
 * [VRPH](https://projects.coin-or.org/VRPH)
