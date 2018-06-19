@@ -55,16 +55,11 @@ class Cargo {
 public:
     Cargo(const Options&);
     ~Cargo();
-    // These basically aren't ever used, they can only get called in main()
-    // Only start() is used, really.
-    const SimTime&              final_request_time()    const;
-    const SimTime&              final_arrival_time()    const;
-    size_t                      active_vehicles()       const;
-    const std::string&          name();
-    const std::string&          road_network();
+    const std::string&          name();                 // e.g. rs-lg-5
+    const std::string&          road_network();         // e.g. mny, cd1, bj5
     void                        start(RSAlgorithm&);
     void                        start();
-    /* Other vars */
+    /* Accessors */
     static Point                node2pt(const NodeId& i){ return nodes_.at(i); }
     static DistanceInt          edgeweight(const NodeId& u, const NodeId& v) { return edges_[u][v]; }
     static BoundingBox          bbox()                  { return bbox_; }
@@ -72,7 +67,8 @@ public:
     static SimTime              now()                   { return t_; }
     static GTree::G_Tree&       gtree()                 { return gtree_;}
     static sqlite3*             db()                    { return db_; }
-    static std::mutex dbmx; // mutex to protect the db
+
+    static std::mutex dbmx;                             // protect the db
 
 private:
     Message print_out;
@@ -83,55 +79,57 @@ private:
 
     ProblemSet probset_;
 
-    SimTime tmin_; // minimum sim duration (max trip.early)
-    SimTime tmax_; // maximum sim duration (max vehicle.late)
-    SimTime matching_period_;
+    SimTime tmin_;                                      // max trip.early
+    SimTime tmax_;                                      // max vehicle.late
+    SimTime matching_period_;                           // customer timeout
 
-    size_t base_cost_;
     size_t total_vehicles_;
     size_t total_customers_;
     size_t active_vehicles_;
-    int sleep_interval_;
-    std::unordered_map<TripId, DistanceInt> trip_costs_;
+    int sleep_interval_;                                // 1 sec/time_multiplier
 
-    /* Globally accessible vars */
-    static KeyValueNodes nodes_;
-    static KeyValueEdges edges_; // usage: edges_[from_id][to_id] = weight
+    size_t base_cost_;                                  // total base cost
+    std::unordered_map<TripId, DistanceInt>             // indiv. base costs
+        trip_costs_;
+
+    /* Global vars */
+    static KeyValueNodes nodes_;                        // nodes_[u] = Point
+    static KeyValueEdges edges_;                        // edges_[u][v] = w
     static BoundingBox bbox_;
     static GTree::G_Tree gtree_;
     static sqlite3* db_;
     static Speed speed_;
-    static SimTime t_; // current sim time
+    static SimTime t_;                                  // current sim time
 
-    /* Solution tables */
-    // (the maps need to be ordered so when we iterate over,
-    // we know exactly what to expect)
+    /* Solution tables
+     * (ordered, so we know exactly what to expect when iterating) */
     Filepath solution_file_;
-    std::ofstream f_sol_temp_;
-    std::vector<VehicleId> sol_veh_cols_; // the vehicle columns, in order
+    std::ofstream f_sol_temp_;                          // sol.partial
+    std::vector<VehicleId> sol_veh_cols_;               // veh column headers
     std::map<VehicleId, NodeId> sol_routes_;
-    std::map<CustomerId, std::pair<CustomerStatus, VehicleId>> sol_statuses_;
+    std::map<CustomerId, std::pair<CustomerStatus, VehicleId>>
+        sol_statuses_;
 
     /* SQL statements */
     SqliteReturnCode rc;
     SqliteErrorMessage err;
-    sqlite3_stmt* tim_stmt; // timeout customers
-    sqlite3_stmt* sac_stmt; // select all customers
-    sqlite3_stmt* sar_stmt; // select all routes
-    sqlite3_stmt* ssv_stmt; // select step vehicles
-    sqlite3_stmt* ucs_stmt; // update customer status
-    sqlite3_stmt* dav_stmt; // deactivate vehicle
-    sqlite3_stmt* pup_stmt; // pickup
-    sqlite3_stmt* drp_stmt; // dropoff
-    sqlite3_stmt* vis_stmt; // visitedAt
-    sqlite3_stmt* sch_stmt; // schedule
-    sqlite3_stmt* lvn_stmt; // last-visited node
-    sqlite3_stmt* nnd_stmt; // nearest-node distance
+    sqlite3_stmt* tim_stmt;                             // timeout customers
+    sqlite3_stmt* sac_stmt;                             // select all customers
+    sqlite3_stmt* sar_stmt;                             // select all routes
+    sqlite3_stmt* ssv_stmt;                             // select step vehicles
+    sqlite3_stmt* ucs_stmt;                             // update cust status
+    sqlite3_stmt* dav_stmt;                             // deactivate vehicle
+    sqlite3_stmt* pup_stmt;                             // pickup
+    sqlite3_stmt* drp_stmt;                             // dropoff
+    sqlite3_stmt* vis_stmt;                             // visitedAt
+    sqlite3_stmt* sch_stmt;                             // schedule
+    sqlite3_stmt* lvn_stmt;                             // last-visited node
+    sqlite3_stmt* nnd_stmt;                             // nearest-node dist
 
     void initialize(const Options &);
 
-    // Returns number of stepped vehicles.
-    // Outputs number of deactivated vehicles.
+    /* Returns number of stepped vehicles.
+     * Outputs number of deactivated vehicles. */
     int step(int&);
 
     void record_customer_statuses();

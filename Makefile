@@ -5,12 +5,12 @@ CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 OBJECTS = \
 		  include/libcargo.h \
 		  include/libcargo/grid.h \
+		  include/libcargo/dbsql.h \
 		  include/libcargo/distance.h \
 		  include/libcargo/message.h \
 		  include/libcargo/types.h \
 		  build/cargo.o \
 		  build/classes.o \
-		  build/dbutils.o \
 		  build/file.o \
 		  build/functions.o \
 		  build/grid.o \
@@ -25,7 +25,7 @@ $(OBJECTS): | build
 build/cargo.o: \
 	include/libcargo/cargo.h \
 	include/libcargo/classes.h \
-	include/libcargo/dbutils.h \
+	include/libcargo/dbsql.h \
 	include/libcargo/file.h \
 	include/libcargo/message.h \
 	include/libcargo/options.h \
@@ -39,14 +39,6 @@ build/classes.o: \
 	include/libcargo/types.h \
 	src/classes.cc
 	$(CXX) $(CFLAGS) src/classes.cc
-
-build/dbutils.o: \
-	include/libcargo/dbutils.h \
-	include/libcargo/cargo.h \
-	include/libcargo/classes.h \
-	include/libcargo/types.h \
-	src/dbutils.cc
-	$(CXX) $(CFLAGS) src/dbutils.cc
 
 build/file.o: \
 	include/libcargo/file.h \
@@ -82,6 +74,7 @@ build/gtree.o: \
 build/rsalgorithm.o: \
 	include/libcargo/rsalgorithm.h \
 	include/libcargo/classes.h \
+	include/libcargo/dbsql.h \
 	include/libcargo/message.h \
 	include/libcargo/types.h \
 	src/rsalgorithm.cc

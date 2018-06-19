@@ -24,9 +24,9 @@
 #include <thread>
 
 #include "libcargo/rsalgorithm.h"
-#include "libcargo/cargo.h" /* static now(), gtree(), db() */
+#include "libcargo/cargo.h" /* now(), gtree(), db() */
 #include "libcargo/classes.h"
-#include "libcargo/dbutils.h"
+#include "libcargo/dbsql.h"
 #include "libcargo/message.h"
 #include "libcargo/types.h"
 
@@ -43,8 +43,6 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
     batch_time_ = 1;
     if (sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK
-     || sqlite3_prepare_v2(Cargo::db(), sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK
-     || sqlite3_prepare_v2(Cargo::db(), sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::ssv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK // <-- same as ssv
@@ -58,8 +56,6 @@ RSAlgorithm::~RSAlgorithm()
 {
     sqlite3_finalize(uro_stmt);
     sqlite3_finalize(sch_stmt);
-    sqlite3_finalize(nnd_stmt);
-    sqlite3_finalize(lvn_stmt);
     sqlite3_finalize(qud_stmt);
     sqlite3_finalize(com_stmt);
     sqlite3_finalize(smv_stmt);
@@ -76,21 +72,8 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
         const std::vector<Waypoint>& new_route,
         const std::vector<Stop>& new_schedule)
 {
-    std::lock_guard<std::mutex> dblock(Cargo::dbmx);
-
-    // ENHANCEMENT uro_stmt, nnd_stmt, lvn_stmt can be combined into one
-    // statement
-    //
-    // Commit the new route (current_node_idx, nnd are unchanged)
-    sqlite3_bind_blob(uro_stmt, 1, static_cast<void const *>(new_route.data()),
-            new_route.size()*sizeof(Waypoint), SQLITE_TRANSIENT);
-    sqlite3_bind_int(uro_stmt, 2, veh.id());
-    if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
-        std::cout << "Error in commit new route " << rc << std::endl;
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    }
-    sqlite3_clear_bindings(uro_stmt);
-    sqlite3_reset(uro_stmt);
+    std::lock_guard<std::mutex>
+        dblock(Cargo::dbmx); // Lock acquired
 
     // ENHANCEMENT check if assignment is valid
     //   If the vehicle has moved a lot during RSAlgorithm::match(), then the
@@ -100,31 +83,23 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
     //
     //   We roll back the vehicle for now, consider adding the check and rejceting
     //   the assignment in the future.
-
-    // Re-commit the nnd
-    sqlite3_bind_int(nnd_stmt, 1, veh.next_node_distance());
-    sqlite3_bind_int(nnd_stmt, 2, veh.id());
-    if ((rc = sqlite3_step(nnd_stmt)) != SQLITE_DONE) {
-        std::cout << "Error in nnd " << rc << std::endl;
+    //
+    // Commit the new route (current_node_idx, nnd are unchanged)
+    sqlite3_bind_blob(uro_stmt, 1, static_cast<void const *>(new_route.data()),
+            new_route.size()*sizeof(Waypoint), SQLITE_TRANSIENT);
+    sqlite3_bind_int(uro_stmt, 2, 0);
+    sqlite3_bind_int(uro_stmt, 3, veh.next_node_distance());
+    sqlite3_bind_int(uro_stmt, 4, veh.id());
+    if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
+        std::cout << "Error in commit new route " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
     }
-    sqlite3_clear_bindings(nnd_stmt);
-    sqlite3_reset(nnd_stmt);
-
-    // Reset the lvn
-    sqlite3_bind_int(lvn_stmt, 1, 0);
-    sqlite3_bind_int(lvn_stmt, 2, veh.id());
-    if ((rc = sqlite3_step(lvn_stmt)) != SQLITE_DONE) {
-        std::cout << "Error in lvn " << rc << std::endl;
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    }
-    sqlite3_clear_bindings(lvn_stmt);
-    sqlite3_reset(lvn_stmt);
+    sqlite3_clear_bindings(uro_stmt);
+    sqlite3_reset(uro_stmt);
 
     // Commit the new schedule
     sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(new_schedule.data()),
             new_schedule.size()*sizeof(Stop), SQLITE_TRANSIENT);
-    //sqlite3_bind_text(sch_stmt, 1, serialize_schedule(new_schedule).c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(sch_stmt, 2, veh.id());
     if ((rc = sqlite3_step(sch_stmt)) != SQLITE_DONE) {
         std::cout << "Error in commit new schedule " << rc << std::endl;
@@ -157,46 +132,21 @@ int& RSAlgorithm::batch_time() { return batch_time_; }
 std::vector<Customer>& RSAlgorithm::waiting_customers() { return waiting_customers_; }
 std::vector<Vehicle>& RSAlgorithm::vehicles() { return vehicles_; }
 
-void RSAlgorithm::handle_customer(const Customer &)
-{
-    /* Use handle_customer() for streaming-matching, or other necessary
-     * customer processing. */
-}
-
-void RSAlgorithm::handle_vehicle(const Vehicle &)
-{
-    /* Use handle_vehicle() to add new vehicles to a spatial index
-     * or other kind of vehicle processing. */
-}
-
-void RSAlgorithm::match()
-{
-    /* Use match() for bulk-matching. waiting_customers() and vehicles()
-     * provide access to current customers and vehicles. */
-}
-
-void RSAlgorithm::end()
-{
-    /* Stuff here executes after the simulation finishes. */
-}
-
 void RSAlgorithm::select_matchable_vehicles()
 {
     vehicles_.clear();
     sqlite3_bind_int(smv_stmt, 1, Cargo::now());
     sqlite3_bind_int(smv_stmt, 2, (int)VehicleStatus::Arrived);
     while ((rc = sqlite3_step(smv_stmt)) == SQLITE_ROW) {
-        Waypoint const *buf = static_cast<Waypoint const*>(sqlite3_column_blob(smv_stmt, 9));
+        const Waypoint* buf = static_cast<const Waypoint*>(sqlite3_column_blob(smv_stmt, 9));
         std::vector<Waypoint> raw_route(buf, buf + sqlite3_column_bytes(smv_stmt, 9)/sizeof(Waypoint));
-        Route route(
-                sqlite3_column_int(smv_stmt, 0),
-                raw_route);
-        Stop const *schbuf = static_cast<Stop const*>(sqlite3_column_blob(smv_stmt, 13));
+        Route route(sqlite3_column_int(smv_stmt, 0), raw_route);
+
+        const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(smv_stmt, 13));
         std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(smv_stmt, 13)/sizeof(Stop));
-        Schedule schedule(
-                sqlite3_column_int(smv_stmt, 0),
-                //deserialize_schedule(stringify(sqlite3_column_text(smv_stmt, 13))));
-                raw_sch);
+        Schedule schedule(sqlite3_column_int(smv_stmt, 0), raw_sch);
+
+        /* Construct vehicle object */
         Vehicle vehicle(
                 sqlite3_column_int(smv_stmt, 0),
                 sqlite3_column_int(smv_stmt, 1),
@@ -243,6 +193,28 @@ void RSAlgorithm::select_waiting_customers()
     sqlite3_clear_bindings(swc_stmt);
     sqlite3_reset(swc_stmt);
 
+}
+
+/* Overrideables */
+void RSAlgorithm::handle_customer(const Customer &)
+{
+    /* For streaming-matching or other customer processing. */
+}
+
+void RSAlgorithm::handle_vehicle(const Vehicle &)
+{
+    /* For vehicle processing (e.g. add to a spatial index) */
+}
+
+void RSAlgorithm::match()
+{
+    /* For bulk-matching. Access current customers and vehicles using
+     * waiting_customers() and vehicles() */
+}
+
+void RSAlgorithm::end()
+{
+    /* Executes after the simulation finishes. */
 }
 
 void RSAlgorithm::listen()

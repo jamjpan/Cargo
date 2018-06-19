@@ -19,26 +19,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_DBUTILS_H_
-#define CARGO_INCLUDE_LIBCARGO_DBUTILS_H_
+#ifndef CARGO_INCLUDE_LIBCARGO_DBSQL_H_
+#define CARGO_INCLUDE_LIBCARGO_DBSQL_H_
 
-#include <iostream> // debug
-#include <string>
-#include <vector>
-
-#include "cargo.h" /* static db() */
-#include "classes.h"
-#include "types.h"
-#include "../sqlite3/sqlite3.h"
+#include "types.h" /* SqliteQuery */
 
 namespace cargo {
-
-std::string serialize_schedule(const std::vector<Stop> &);
-std::vector<Stop> deserialize_schedule(const std::string &);
-inline std::string stringify(const unsigned char* text) {
-    return std::string(reinterpret_cast<const char*>(text));
-}
-
 namespace sql {
 
 const SqliteQuery create_cargo_tables =
@@ -96,13 +82,7 @@ const SqliteQuery create_cargo_tables =
         "foreign key (owner) references vehicles(id)"
     ") without rowid;";
 
-/* Read statements */
-const SqliteQuery select_vehicle = // <-- seems like never used
-    "select * "
-    "from   (vehicles inner join routes on vehicles.id=routes.owner"
-    "                 inner join schedules on vehicles.id=schedules.owner) "
-    "where  ? = vehicles.id;";
-
+/* Select statements */
 const SqliteQuery sac_stmt = // select all customers
     "select * from customers;";
 
@@ -124,7 +104,7 @@ const SqliteQuery ssv_stmt = // select stepping vehicles
 const SqliteQuery swc_stmt = // select waiting customers
     "select * from customers where status = ? and ? > early;";
 
-/* Write customers */
+/* Update customers */
 const SqliteQuery ucs_stmt = // update customer status
     "update customers set status = ? where id = ?;";
 
@@ -134,7 +114,7 @@ const SqliteQuery com_stmt = // assign customer
 const SqliteQuery tim_stmt = // timeout customers
     "update customers set status = ? where assignedTo is null and ? > ? + early;";
 
-/* Write vehicles */
+/* Update vehicles */
 const SqliteQuery pup_stmt = // increase load (pickup)
     "update vehicles set load = load+1 where id = ?; ";
 
@@ -147,15 +127,15 @@ const SqliteQuery drp_stmt = // decrease load, queued (dropoff)
 const SqliteQuery dav_stmt = // deactivate vehicle
     "update vehicles set status = ? where id = ?;";
 
-/* Write other */
+/* Other updates */
 const SqliteQuery vis_stmt = // update visited at
     "update stops set visitedAt = ? where owner = ? and location = ?;";
 
+const SqliteQuery uro_stmt = // update route, lvn, nnd
+    "update routes set data = ?, idx_last_visited_node = ?, next_node_distance = ? where owner = ?;";
+
 const SqliteQuery sch_stmt = // update schedule
     "update schedules set data = ? where owner = ?;";
-
-const SqliteQuery uro_stmt = // update route
-    "update routes set data = ? where owner = ?;";
 
 const SqliteQuery lvn_stmt = // update last_visited_node
     "update routes set idx_last_visited_node = ? where owner = ?;";
@@ -166,5 +146,5 @@ const SqliteQuery nnd_stmt = // update nearest_node_distance
 } // namespace sql
 } // namespace cargo
 
-#endif // CARGO_INCLUDE_LIBCARGO_DBUTILS_H_
+#endif // CARGO_INCLUDE_LIBCARGO_DBSQL_H_
 
