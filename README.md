@@ -18,19 +18,25 @@ developing and testing online ridesharing algorithms.
 ### Similar projects
 There are a few similar projects.
 
-* [RinSim](https://github.com/rinde/RinSim)
-* [Open-VRP](https://github.com/mck-/Open-VRP)
-* [jsprit](https://github.com/graphhopper/jsprit)
-* [VRPH](https://projects.coin-or.org/VRPH)
-* [VROOM](https://github.com/VROOM-Project/vroom)
+* [RinSim](https://github.com/rinde/RinSim) - very nice project; users implement
+  behavior at the individual vehicles level whereas in Cargo, users implement
+  central decision handlers
+* [Open-VRP](https://github.com/mck-/Open-VRP) - static solver, Common Lisp
+* [jsprit](https://github.com/graphhopper/jsprit) - static solver, part of GraphHopper
+* [VRPH](https://projects.coin-or.org/VRPH) - static solver
+* [VROOM](https://github.com/VROOM-Project/vroom) - static solver
 * See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
   about simulation
+* Upcoming keynote by Peter Frazier, Data Science Manager at Uber, about
+  simulation during the [Winter Simulation Conference '18](http://meetings2.informs.org/wordpress/wsc2018/keynotes/)
 
 Cargo's distinguishing features:
-* Real-time simulation (vehicles move in real-time; a simulation can take minutes,
+* Real-time (vehicles move in real-time; a simulation can take minutes,
   hours, as long as you like)
 * Customers and vehicles are bound to road networks
-* Provides an easy interface for implementing ridesharing algorithms
+* Easy interface for implementing ridesharing algorithms
+* High performance -- can simulate 17,000 vehicles per second on a i5-6200 CPU @ 2.30 Ghz
+  machine
 
 Supports:
 * Dynamically arriving vehicles and customers
