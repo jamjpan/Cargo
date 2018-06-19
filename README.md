@@ -25,6 +25,7 @@ There are a few similar projects.
 * [jsprit](https://github.com/graphhopper/jsprit) - static solver, part of GraphHopper
 * [VRPH](https://projects.coin-or.org/VRPH) - static solver
 * [VROOM](https://github.com/VROOM-Project/vroom) - static solver
+* [MATSim](https://github.com/matsim-org/matsim) - multi-agent transportation simulator
 * See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
   about simulation
 * Upcoming keynote by Peter Frazier, Data Science Manager at Uber, about
