@@ -88,6 +88,11 @@ private:
     sqlite3_stmt* lvn_stmt; // update last visited node
     sqlite3_stmt* qud_stmt; // increase queued
     sqlite3_stmt* com_stmt; // assign cust to veh
+    sqlite3_stmt* smv_stmt; // select matchable vehicles
+    sqlite3_stmt* swc_stmt; // select waiting customers
+
+    void select_matchable_vehicles();
+    void select_waiting_customers();
 };
 
 } // namespace cargo

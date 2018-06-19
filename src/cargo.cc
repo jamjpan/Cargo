@@ -155,15 +155,17 @@ int Cargo::step(int& ndeact)
         // Print columns
         // for (int i = 0; i < sqlite3_column_count(ssv_stmt); ++i)
         //     print_info << "["<<i<<"] "<< sqlite3_column_name(ssv_stmt, i) << "\n";
-        Waypoint const *buf = reinterpret_cast<Waypoint const*>(sqlite3_column_blob(ssv_stmt, 9));
-        std::vector<Waypoint> raw_route(buf, buf + sqlite3_column_bytes(ssv_stmt, 9)/sizeof(Waypoint));
+        Waypoint const *routebuf = static_cast<Waypoint const*>(sqlite3_column_blob(ssv_stmt, 9));
+        std::vector<Waypoint> raw_route(routebuf, routebuf + sqlite3_column_bytes(ssv_stmt, 9)/sizeof(Waypoint));
         Route route(
             veh_id,
-            //deserialize_route(stringify(sqlite3_column_text(ssv_stmt, 9))));
             raw_route);
+        Stop const *schbuf = static_cast<Stop const*>(sqlite3_column_blob(ssv_stmt, 13));
+        std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(ssv_stmt, 13)/sizeof(Stop));
         Schedule schedule(
             veh_id,
-            deserialize_schedule(stringify(sqlite3_column_text(ssv_stmt, 13))));
+            //deserialize_schedule(stringify(sqlite3_column_text(ssv_stmt, 13))));
+            raw_sch);
         std::vector<Stop> new_schedule_data = schedule.data(); // <-- mutable
         Vehicle vehicle(
             veh_id,
@@ -273,7 +275,9 @@ int Cargo::step(int& ndeact)
                 new_schedule_data[0] = Stop(vehicle.id(), route.at(lvn+1).second, StopType::VehicleOrigin, vehicle.early(), vehicle.late(), t_);
 
                 // Commit the new schedule
-                sqlite3_bind_text(sch_stmt, 1, serialize_schedule(new_schedule_data).c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(new_schedule_data.data()),
+                        new_schedule_data.size()*sizeof(Stop), SQLITE_TRANSIENT);
+                //sqlite3_bind_text(sch_stmt, 1, serialize_schedule(new_schedule_data).c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(sch_stmt, 2, vehicle.id());
                 if (sqlite3_step(sch_stmt) != SQLITE_DONE) {
                     print_error << "Failed (update schedule for vehicle " << vehicle.id() << "). Reason:\n";
@@ -343,7 +347,7 @@ DistanceInt Cargo::total_route_cost() // plus penalty for unassigned custs
 
     while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
        //auto route = deserialize_route(stringify(sqlite3_column_text(sar_stmt, 1)));
-       Waypoint const *buf = reinterpret_cast<Waypoint const*>(sqlite3_column_blob(sar_stmt, 1));
+       Waypoint const *buf = static_cast<Waypoint const*>(sqlite3_column_blob(sar_stmt, 1));
        std::vector<Waypoint> raw_route(buf, buf + sqlite3_column_bytes(sar_stmt, 1)/sizeof(Waypoint));
        cost += raw_route.back().first;
     }
@@ -594,15 +598,13 @@ void Cargo::initialize(const Options& opt)
                 DistanceInt cost = route_through(s, route);
                 base_cost_ += cost;
                 trip_costs_[trip.id()] = cost;
-                // std::string rtstr = serialize_route(route);
                 /* debug */
                 if (route.size() == 1)
                     print_error << trip.id() << std::endl;
                 int nnd = route.at(1).first;
                 sqlite3_reset(insert_route_stmt);
                 sqlite3_bind_int(insert_route_stmt, 1, trip.id());
-                // sqlite3_bind_text(insert_route_stmt, 2, rtstr.c_str(), rtstr.length(), SQLITE_STATIC);
-                sqlite3_bind_blob(insert_route_stmt, 2, reinterpret_cast<void const *>(route.data()),
+                sqlite3_bind_blob(insert_route_stmt, 2, static_cast<void const *>(route.data()),
                         route.size()*sizeof(Waypoint), SQLITE_TRANSIENT);
                 sqlite3_bind_int(insert_route_stmt, 3, 0);
                 sqlite3_bind_int(insert_route_stmt, 4, nnd);
@@ -613,10 +615,13 @@ void Cargo::initialize(const Options& opt)
                 }
                 // Insert schedule
                 Stop next_loc(trip.id(), route.at(1).second, StopType::VehicleOrigin, trip.early(), trip.late());
-                std::string sch = serialize_schedule({next_loc, b});
+                std::vector<Stop> sch {next_loc, b};
+                //std::string sch = serialize_schedule({next_loc, b});
                 sqlite3_reset(insert_schedule_stmt);
                 sqlite3_bind_int(insert_schedule_stmt, 1, trip.id());
-                sqlite3_bind_text(insert_schedule_stmt, 2, sch.c_str(), sch.length(), SQLITE_STATIC);
+                //sqlite3_bind_text(insert_schedule_stmt, 2, sch.c_str(), sch.length(), SQLITE_STATIC);
+                sqlite3_bind_blob(insert_schedule_stmt, 2, static_cast<void const*>(sch.data()),
+                        sch.size()*sizeof(Stop), SQLITE_TRANSIENT);
                 if (sqlite3_step(insert_schedule_stmt) != SQLITE_DONE) {
                     print_error << "Failure at schedule " << trip.id() << "\n";
                     print_error << "Failed (insert schedule). Reason:\n";

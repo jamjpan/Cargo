@@ -33,9 +33,7 @@
 
 namespace cargo {
 
-std::string serialize_route(const std::vector<Waypoint> &);
 std::string serialize_schedule(const std::vector<Stop> &);
-std::vector<Waypoint> deserialize_route(const std::string &);
 std::vector<Stop> deserialize_schedule(const std::string &);
 inline std::string stringify(const unsigned char* text) {
     return std::string(reinterpret_cast<const char*>(text));
@@ -87,7 +85,7 @@ const SqliteQuery create_cargo_tables =
     ") without rowid;"
     "create table schedules("
         "owner          int primary key,"
-        "data           text not null,"
+        "data           blob not null,"
         "foreign key (owner) references vehicles(id)"
     ") without rowid;"
     "create table routes("
@@ -122,6 +120,9 @@ const SqliteQuery ssv_stmt = // select stepping vehicles
     "                 inner join schedules on vehicles.id=schedules.owner) "
     "where  ? >= vehicles.early and "
     "       ? != vehicles.status;";
+
+const SqliteQuery swc_stmt = // select waiting customers
+    "select * from customers where status = ? and ? > early;";
 
 /* Write customers */
 const SqliteQuery ucs_stmt = // update customer status
@@ -161,11 +162,6 @@ const SqliteQuery lvn_stmt = // update last_visited_node
 
 const SqliteQuery nnd_stmt = // update nearest_node_distance
     "update routes set next_node_distance = ? where owner = ?;";
-
-/* Convenience functions */
-SqliteReturnCode select_matchable_vehicles(std::vector<Vehicle> &, const SimTime &);
-SqliteReturnCode select_waiting_customers(std::vector<Customer> &, const SimTime &);
-SqliteReturnCode commit_assignment(const Customer &, const Vehicle &, const std::vector<Waypoint> &, const std::vector<Stop> &);
 
 } // namespace sql
 } // namespace cargo
