@@ -21,10 +21,11 @@ There are a few similar projects.
 * [Open-VRP](https://github.com/mck-/Open-VRP)
 * [jsprit](https://github.com/graphhopper/jsprit)
 * [VRPH](https://projects.coin-or.org/VRPH)
+* [VROOM](https://github.com/VROOM-Project/vroom)
 * See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
   about simulation
 
-Carg's distinguishing features:
+Cargo's distinguishing features:
 * Real-time simulation (vehicles move in real-time; a simulation can take minutes,
   hours, as long as you like)
 * Customers and vehicles are bound to road networks
@@ -90,42 +91,49 @@ Check the `example` folder for more.
 ```cpp
 void GreedyInsertion::handle_customer(const cargo::Customer cust)
 {
-    // Customers that are already assigned, but not yet picked up, still
-    // trigger a handle_customer(). Here, we skip those that are already
-    // assigned.
+    /* Don't consider customers that are assigned but not yet picked up */
     if (cust.assigned())
         return;
 
+    /* Containers for storing outputs */
     cargo::DistanceInt cost;
     cargo::DistanceInt best_cost = cargo::InfinityInt;
-    std::vector<cargo::Stop> schedule;
-    std::vector<cargo::Stop> best_schedule;
-    std::vector<cargo::Waypoint> route;
-    std::vector<cargo::Waypoint> best_route;
-    cargo::Vehicle best_vehicle;
+    std::vector<cargo::Stop> schedule, best_schedule;
+    std::vector<cargo::Waypoint> route, best_route;
+
+    /* best_vehicle will point to an underlying MutableVehicle in our grid */
+    std::shared_ptr<cargo::MutableVehicle> best_vehicle;
     bool matched = false;
 
-    // vehicles() provides all available vehicles. Loop through them, and
-    // assign this customer to the vehicle with the least-cost after inserting
-    // the customer into the vehicle's schedule using the "cheap insertion"
-    // heuristic (Jaw 1986) (sop_insert()).
-    // TODO: use index to narrow the candidates
-    for (const auto& veh : vehicles()) {
-        cost = cargo::sop_insert(veh, cust, schedule, route);
+    /* Get candidates from the local grid index
+     * (the grid is refreshed during listen()) */
+    cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
+    auto candidates = grid_.within_about(range, cust.origin());
+
+    /* Loop through candidates and check which is the greedy match */
+    for (const auto& cand : candidates) {
+
+        // Don't consider vehicles that are already queued to capacity
+        if (cand->queued() == cand->capacity())
+            continue;
+
+        cost = cargo::sop_insert(cand, cust, schedule, route);
         bool within_time = cargo::check_timewindow_constr(schedule, route);
         if ((cost < best_cost) && within_time) {
+            best_cost = cost;
             best_schedule = schedule;
             best_route = route;
-            best_vehicle = veh;
-            best_cost = cost;
+            best_vehicle = cand; // copy the pointer
             matched = true;
         }
     }
-    // Commit the match to the database so that Cargo::step() will move the
-    // vehicle along its new route during the next simulation time step.
+
+    /* Commit match to the db. Also refresh our local grid index, so data is
+     * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
-        commit(cust, best_vehicle, best_route, best_schedule);
-        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle.id() << ")\n";
+        grid_.commit(best_vehicle, best_route, best_schedule); // <-- update local
+        commit(cust, *best_vehicle, best_route, best_schedule); // <-- write to the db TODO make commit accept pointer as 2nd arg
+        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
         nmatches++;
     }
 }
@@ -223,7 +231,6 @@ int main()
 ## To do:
 * Simulation statistics (number of matches, avg. trip delay, etc.)
 * Plotting and animation
-* Performance improvements
 * Better problem instances, with matching models for rspoptsol
 * Optimal solutions to the instances
 * More examples
