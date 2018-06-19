@@ -31,14 +31,11 @@
 namespace cargo {
 
 Stop::Stop(TripId o, NodeId loc, StopType t, EarlyTime e, LateTime l, SimTime v)
+    : Stop(o, loc, t, e, l)
 {
-    owner_ = o;
-    location_ = loc;
-    type_ = t;
-    early_ = e;
-    late_ = l;
     visitedAt_ = v;
 }
+
 Stop::Stop(TripId o, NodeId loc, StopType t, EarlyTime e, LateTime l)
 {
     owner_ = o;
