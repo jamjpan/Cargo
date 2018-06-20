@@ -101,8 +101,16 @@ const SqliteQuery ssv_stmt = // select stepping vehicles
     "where  ? >= vehicles.early and "
     "       ? != vehicles.status;";
 
+const SqliteQuery smv_stmt = // select matchable vehicles
+    "select * "
+    "from   (vehicles inner join routes on vehicles.id=routes.owner"
+    "                 inner join schedules on vehicles.id=schedules.owner) "
+    "where  ? >= vehicles.early and "
+    "       ? != vehicles.status and "
+    "       0 >  vehicles.load;";
+
 const SqliteQuery swc_stmt = // select waiting customers
-    "select * from customers where status = ? and ? > early;";
+    "select * from customers where status = ? and ? >= early;";
 
 /* Update customers */
 const SqliteQuery ucs_stmt = // update customer status

@@ -45,7 +45,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
      || sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK
-     || sqlite3_prepare_v2(Cargo::db(), sql::ssv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK // <-- same as ssv
+     || sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK) {
         print_error << "Failed (create rsalg stmts). Reason:\n";
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
