@@ -98,6 +98,7 @@ enum class StopType {
     VehicleDest,    // = 3
 };
 
+// TODO add a "not appeared" status
 enum class CustomerStatus {
     Waiting,        // = 0
     Onboard,        // = 1

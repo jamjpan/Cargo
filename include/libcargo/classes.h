@@ -126,6 +126,10 @@ public:
     bool                        assigned()              const;
     void                        print()                 const;
 
+    bool operator==(const Customer &rhs) const {
+        return id_ == rhs.id_;
+    }
+
 private:
     CustomerStatus status_;
     VehicleId assignedTo_;
@@ -137,6 +141,7 @@ class Vehicle : public Trip {
 public:
     Vehicle() = default;
     Vehicle(const Vehicle &) = default;
+    Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load);
     Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load, Load,
             DistanceInt, Route, Schedule, RouteIndex, VehicleStatus);
     DistanceInt                 next_node_distance()    const;
@@ -148,6 +153,10 @@ public:
     Load                        capacity()              const;
     VehicleStatus               status()                const;
     void                        print()                 const;
+
+    bool operator==(const Vehicle &rhs) const {
+        return id_ == rhs.id_;
+    }
 
 protected:
     DistanceInt next_node_distance_;
@@ -192,6 +201,24 @@ private:
 };
 
 } // namespace cargo
+
+/* For using Vehicle, Customer as custom keys in an unordered_map
+ * (see http://en.cppreference.com/w/cpp/container/unordered_map/unordered_map) */
+namespace std {
+
+    template<> struct hash<cargo::Vehicle> {
+        std::size_t operator()(const cargo::Vehicle& veh) const {
+            return std::hash<int>{}(veh.id());
+        }
+    };
+
+    template<> struct hash<cargo::Customer> {
+        std::size_t operator()(const cargo::Customer& cust) const {
+            return std::hash<int>{}(cust.id());
+        }
+    };
+
+} // namespace std
 
 #endif // CARGO_INCLUDE_LIBCARGO_CLASSES_H_
 

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "libcargo/classes.h"
+#include "libcargo/functions.h"
 #include "libcargo/message.h"
 #include "libcargo/types.h"
 
@@ -132,6 +133,21 @@ void Customer::print() const
         << "status     \t" << (int)this->status() << "\n"
         << "assignedTo \t" << this->assignedTo() << "\n"
         << "assigned   \t" << this->assigned() << std::endl;
+}
+
+Vehicle::Vehicle(VehicleId vid, OriginId oid, DestinationId did, EarlyTime et,
+        LateTime lt, Load load) : Trip(vid, oid, did, et, lt, load)
+{
+    Stop o(vid, oid, StopType::VehicleOrigin, et, lt, et);
+    Stop d(vid, did, StopType::VehicleDest, et, lt);
+    std::vector<Waypoint> route_data {};
+    route_through({o, d}, route_data);
+    Route route(vid, route_data);
+    route_ = route;
+    next_node_distance_ = route_.at(1).first;
+    idx_last_visited_node_ = 0;
+    queued_ = 0;
+    status_ = VehicleStatus::Enroute;
 }
 
 Vehicle::Vehicle(VehicleId o, OriginId oid, DestinationId did, EarlyTime e,

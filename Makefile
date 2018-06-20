@@ -36,6 +36,7 @@ build/cargo.o: \
 
 build/classes.o: \
 	include/libcargo/classes.h \
+    include/libcargo/functions.h \
 	include/libcargo/types.h \
 	src/classes.cc
 	$(CXX) $(CFLAGS) src/classes.cc
