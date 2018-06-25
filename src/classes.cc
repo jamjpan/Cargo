@@ -146,6 +146,9 @@ Vehicle::Vehicle(VehicleId vid, OriginId oid, DestinationId did, EarlyTime et,
     route_ = route;
     next_node_distance_ = route_.at(1).first;
     idx_last_visited_node_ = 0;
+    Stop next_loc(vid, route_.at(1).second, StopType::VehicleOrigin, et, lt);
+    Schedule schedule(vid, {next_loc, d});
+    schedule_ = schedule;
     queued_ = 0;
     status_ = VehicleStatus::Enroute;
 }

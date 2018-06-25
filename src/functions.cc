@@ -19,12 +19,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <algorithm> /* std::iter_swap */
+#include <algorithm> /* iter_swap */
 #include <iostream> /* debug */
 #include <iterator>
 #include <memory> /* shared_ptr */
 
-#include "libcargo/cargo.h" /* static gtree() */
+#include "libcargo/cargo.h" /* gtree() */
 #include "libcargo/distance.h"
 #include "libcargo/functions.h"
 #include "libcargo/classes.h"
@@ -33,8 +33,8 @@
 
 namespace cargo {
 
-DistanceInt pickup_range(const Customer& cust, const SimTime now)
-{
+DistanceInt pickup_range(const Customer & cust,
+                         const SimTime  & now) {
     return (cust.late()-(shortest_path_dist(cust.origin(), cust.destination())
                 /Cargo::vspeed())-now)*Cargo::vspeed();
 }
@@ -43,22 +43,15 @@ DistanceInt pickup_range(const Customer& cust, const SimTime now)
 //   - for loop body executes n-1 times, for n stops
 //   - std::copy is exactly |route| operations
 //   - assume find_path, shortest_path_dist are O(1) with gtree
-DistanceInt route_through(const Schedule& sch, std::vector<Waypoint>& rteout)
-{
-    return route_through(sch.data(), rteout);
-}
-
-DistanceInt route_through(const std::vector<Stop>& sch,
-        std::vector<Waypoint>& rteout)
-{
+DistanceInt route_through(const std::vector<Stop>      & sch,
+                                std::vector<Waypoint>  & rteout,
+                                GTree::G_Tree          & gtree) {
     DistanceInt cost = 0;
     rteout.clear();
     rteout.push_back({0, sch.front().location()});
     for (ScheduleIndex i = 0; i < sch.size()-1; ++i) {
         std::vector<NodeId> seg;
-        NodeId from = sch.at(i).location();
-        NodeId to = sch.at(i+1).location();
-        Cargo::gtree().find_path(from, to, seg);
+        gtree.find_path(sch.at(i).location(), sch.at(i+1).location(), seg);
         for (size_t i = 1; i < seg.size(); ++i) {
             cost += Cargo::edgeweight(seg.at(i-1), seg.at(i));
             rteout.push_back({cost, seg.at(i)});
@@ -67,8 +60,18 @@ DistanceInt route_through(const std::vector<Stop>& sch,
     return cost;
 }
 
-bool check_precedence_constr(const Schedule& s)
-{
+DistanceInt route_through(const std::vector<Stop>       & sch,
+                                std::vector<Waypoint>   & rteout) {
+    return route_through(sch, rteout, Cargo::gtree());
+}
+
+DistanceInt route_through(const Schedule                & Sch,
+                                std::vector<Waypoint>   & rteout) {
+    return route_through(Sch.data(), rteout);
+}
+
+
+bool check_precedence_constr(const Schedule& s) {
     // Last stop must be this vehicle destination
     if (s.data().back().type() != StopType::VehicleDest
             || s.data().back().owner() != s.owner()) {
@@ -159,14 +162,8 @@ bool check_precedence_constr(const Schedule& s)
     return true;
 }
 
-bool check_timewindow_constr(const Schedule& sch, const Route& rte)
-{
-    return check_timewindow_constr(sch.data(), rte.data());
-}
-
-bool check_timewindow_constr(const std::vector<Stop>& sch,
-        const std::vector<Waypoint>& rte)
-{
+bool check_timewindow_constr(const std::vector<Stop>    & sch,
+                             const std::vector<Waypoint>& rte) {
     // Check the end point first
     if (sch.back().late() < rte.back().first/(float)Cargo::vspeed())
         return false;
@@ -182,9 +179,20 @@ bool check_timewindow_constr(const std::vector<Stop>& sch,
     return true;
 }
 
-DistanceInt sop_insert(const std::vector<Stop>& sch, const Stop& origin, const Stop& destnn,
-        bool fix_start, bool fix_end, std::vector<Stop>& schout, std::vector<Waypoint>& rteout)
-{
+bool check_timewindow_constr(const Schedule & Sch,
+                             const Route    & rte) {
+    return check_timewindow_constr(Sch.data(), rte.data());
+}
+
+
+DistanceInt sop_insert(const std::vector<Stop>  & sch,
+                       const Stop               & origin,
+                       const Stop               & destnn,
+                       bool                       fix_start,
+                       bool                       fix_end,
+                       std::vector<Stop>        & schout,
+                       std::vector<Waypoint>    & rteout,
+                       GTree::G_Tree            & gtree) {
     DistanceInt mincst = InfinityInt;
     schout.clear();
     rteout.clear();
@@ -228,21 +236,34 @@ DistanceInt sop_insert(const std::vector<Stop>& sch, const Stop& origin, const S
                 rst = false;
             } else
                 std::iter_swap(j, j+inc);
-            check(route_through(mutsch, mutrte));
+            check(route_through(mutsch, mutrte, gtree));
         }
         std::iter_swap(i, i+1);
-        if (inc == 1 && i < mutsch.end()-2-fix_end)
-            check(route_through(mutsch, mutrte));
+        if (inc == 1 && i < mutsch.end()-2-fix_end) {
+            check(route_through(mutsch, mutrte, gtree));
+        }
         if ((inc = -inc) == 1)
             rst = true;
     }
-
     return mincst;
 }
 
-DistanceInt sop_insert(const Vehicle& veh, const Customer& cust,
-        std::vector<Stop>& schout, std::vector<Waypoint>& rteout)
-{
+DistanceInt sop_insert(const std::vector<Stop>  & sch,
+                       const Stop               & origin,
+                       const Stop               & destnn,
+                       bool                       fix_start,
+                       bool                       fix_end,
+                       std::vector<Stop>        & schout,
+                       std::vector<Waypoint>    & rteout) {
+    return sop_insert(sch, origin, destnn, fix_start, fix_end, schout, rteout,
+            Cargo::gtree());
+}
+
+DistanceInt sop_insert(const Vehicle        & veh,
+                       const Customer       & cust,
+                       std::vector<Stop>    & schout,
+                       std::vector<Waypoint>& rteout,
+                       GTree::G_Tree        & gtree) {
     // The distances to the nodes in the routes found by route_through need
     // to be corrected.  veh.schedule() passed here contains only un-visited
     // stops. The first stop in the schedule is the vehicle's next node
@@ -255,7 +276,7 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust,
     Stop cust_o(cust.id(), cust.origin(), StopType::CustomerOrigin, cust.early(), cust.late());
     Stop cust_d(cust.id(), cust.destination(), StopType::CustomerDest, cust.early(), cust.late());
     DistanceInt mincst = sop_insert(veh.schedule().data(), cust_o, cust_d,
-            true, true, schout, rteout);
+            true, true, schout, rteout, gtree);
 
     // Add head to the new nodes in the route
     for (auto& wp : rteout)
@@ -265,9 +286,17 @@ DistanceInt sop_insert(const Vehicle& veh, const Customer& cust,
     return mincst;
 }
 
-DistanceInt sop_insert(const std::shared_ptr<MutableVehicle>& mutveh, const Customer& cust,
-        std::vector<Stop>& schout, std::vector<Waypoint>& rteout)
-{
+DistanceInt sop_insert(const Vehicle        & veh,
+                       const Customer       & cust,
+                       std::vector<Stop>    & schout,
+                       std::vector<Waypoint>& rteout) {
+    return sop_insert(veh, cust, schout, rteout, Cargo::gtree());
+}
+
+DistanceInt sop_insert(const std::shared_ptr<MutableVehicle>& mutveh,
+                       const Customer                       & cust,
+                       std::vector<Stop>                    & schout,
+                       std::vector<Waypoint>                & rteout) {
     return sop_insert(*mutveh, cust, schout, rteout);
 }
 
