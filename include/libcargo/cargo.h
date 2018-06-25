@@ -61,7 +61,8 @@ public:
     void                        start();
     /* Accessors */
     static Point                node2pt(const NodeId& i){ return nodes_.at(i); }
-    static DistanceInt          edgeweight(const NodeId& u, const NodeId& v) { return edges_[u][v]; }
+    static DistanceInt          edgeweight(const NodeId& u, const NodeId& v) { return edges_.at(u).at(v); }
+    static DistanceInt          basecost(const TripId& i) { return trip_costs_.at(i); }
     static BoundingBox          bbox()                  { return bbox_; }
     static Speed&               vspeed()                { return speed_; }
     static SimTime              now()                   { return t_; }
@@ -89,8 +90,6 @@ private:
     int sleep_interval_;                                // 1 sec/time_multiplier
 
     size_t base_cost_;                                  // total base cost
-    std::unordered_map<TripId, DistanceInt>             // indiv. base costs
-        trip_costs_;
 
     /* Global vars */
     static KeyValueNodes nodes_;                        // nodes_[u] = Point
@@ -100,6 +99,8 @@ private:
     static sqlite3* db_;
     static Speed speed_;
     static SimTime t_;                                  // current sim time
+    static std::unordered_map<TripId, DistanceInt>      // indiv. base costs
+        trip_costs_;
 
     /* Solution tables
      * (ordered, so we know exactly what to expect when iterating) */
