@@ -50,7 +50,7 @@ const int debug_flag = (int) DebugFlag::Level1;
 // Initialize global vars
 KeyValueNodes   Cargo::nodes_       = {};
 KeyValueEdges   Cargo::edges_       = {};
-std::unordered_map<TripId, DistanceInt> trip_costs_ = {};
+std::unordered_map<TripId, DistanceInt> Cargo::trip_costs_ = {};
 BoundingBox     Cargo::bbox_        = {{},{}};
 GTree::G_Tree   Cargo::gtree_       = GTree::get();
 sqlite3*        Cargo::db_          = nullptr;
