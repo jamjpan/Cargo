@@ -728,7 +728,8 @@ std::vector<int>* Graph::KNN_Dijkstra(int S) {
     return &K_Near_Order[S];
 }
 
-Matrix::Matrix() : n(0), a(NULL) {}
+//Matrix::Matrix() : n(0), a(NULL) {}
+Matrix::Matrix() : n(0) {}
 
 Matrix::~Matrix() {
     clear();
@@ -745,9 +746,11 @@ void Matrix::save() {
 
 void Matrix::load() {
     scanf("%d", &n);
-    a = new int *[n];
+    //a = new int *[n];
+    a.resize(n);
     for (int i = 0; i < n; i++)
-        a[i] = new int[n];
+        //a[i] = new int[n];
+        a[i].resize(n);
     for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++)
             scanf("%d", &a[i][j]);
@@ -762,9 +765,11 @@ void Matrix::cover(int x) {
 void Matrix::init(int N) {
     clear();
     n = N;
-    a = new int *[n];
+    //a = new int *[n];
+    a.resize(n);
     for (int i = 0; i < n; i++)
-        a[i] = new int[n];
+        //a[i] = new int[n];
+        a[i].resize(n);
     for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++)
             a[i][j] = INF;
@@ -773,9 +778,9 @@ void Matrix::init(int N) {
 }
 
 void Matrix::clear() {
-    for (int i = 0; i < n; i++)
-        delete[] a[i];
-    delete[] a;
+//    for (int i = 0; i < n; i++)
+//        delete[] a[i];
+//    delete[] a;
 }
 
 void Matrix::floyd() {
@@ -973,7 +978,8 @@ void G_Tree::load() {
     load_vector(id_in_node);
     load_vector_vector(car_in_node);
     load_vector(car_offset);
-    node = new Node[G.n * 2 + 2];
+    //node = new Node[G.n * 2 + 2];
+    node.resize(G.n*2 + 2);
     for (int i = 0; i < node_size; i++)
         node[i].load();
 }
@@ -1025,7 +1031,8 @@ int G_Tree::partition_root(int x) {
 
 void G_Tree::build(const Graph &g, int x, int f) {
     if (x == 1) {
-        node = new Node[G.n * 2 + 2];
+        //node = new Node[G.n * 2 + 2];
+        node.resize(G.n*2 + 2);
         node_size = G.n * 2;
         node_tot = 2;
         root = 1;
@@ -1250,7 +1257,8 @@ void G_Tree::push_borders_up(int x, std::vector<int> &dist1, int type) {
         if (node[x].border_in_father[i] != -1)
             dist2[node[x].border_in_father[i]] = dist1[i];
     // printf("dist2:");save_vector(dist2);
-    int **dist = node[y].dist.a;
+    //int **dist = node[y].dist.a;
+    std::vector<std::vector<int>> dist = node[y].dist.a;
     // vector<int>begin,end;
     int *begin, *end;
     begin = new int[node[x].borders.size()];
@@ -1321,7 +1329,8 @@ void G_Tree::push_borders_up_catch(int x, int bound) {
             else
                 (*dist2)[node[x].border_in_father[i]] = -1;
         }
-    int **dist = node[y].dist.a;
+    //int **dist = node[y].dist.a;
+    auto dist = node[y].dist.a;
     int *begin, *end;
     begin = new int[node[x].borders.size()];
     end = new int[node[y].borders.size()];
@@ -1371,7 +1380,8 @@ void G_Tree::push_borders_down_catch(int x, int y, int bound) {
             else
                 (*dist2)[node[x].border_in_son[i]] = -1;
         }
-    int **dist = node[y].dist.a;
+    //int **dist = node[y].dist.a;
+    auto dist = node[y].dist.a;
     int *begin, *end;
     begin = new int[node[y].borders.size()];
     end = new int[node[y].borders.size()];
@@ -1437,7 +1447,8 @@ void G_Tree::push_borders_brother_catch(int x, int y, int bound) {
             if (k < node[y].catch_dist[id_now[1][j]])
                 node[y].catch_dist[id_now[1][j]] = k;
         }
-    int **dist = node[y].dist.a;
+    //int **dist = node[y].dist.a;
+    auto dist = node[y].dist.a;
     // vector<int>begin,end;
     int *begin, *end;
     begin = new int[node[y].borders.size()];
@@ -1486,7 +1497,8 @@ void G_Tree::push_borders_up_path(int x, std::vector<int> &dist1) {
             (*order)[node[x].border_in_father[i]] = -x;
         }
     // printf("dist3:");save_vector(dist3);
-    int **dist = node[y].dist.a;
+    //int **dist = node[y].dist.a;
+    auto dist = node[y].dist.a;
     // vector<int>begin,end;
     int *begin, *end;
     begin = new int[node[x].borders.size()];
@@ -1980,7 +1992,8 @@ bool G_Tree::push_borders_up_add_min_car_dist(int x, int start_id) {
             }
         }
     if (y != root) {
-        int **dist = node[y].dist.a;
+        //int **dist = node[y].dist.a;
+        auto dist = node[y].dist.a;
         int tot0 = 0, tot1 = 0;
         for (int i = 0; i < (int)(*dist2).size(); i++) {
             if ((*dist2)[i].second == start_id)
@@ -2044,7 +2057,8 @@ bool G_Tree::push_borders_up_del_min_car_dist(int x, int start_id) {
     }
     if (re) {
         if (y != root) {
-            int **dist = node[y].dist.a;
+            //int **dist = node[y].dist.a;
+            auto dist = node[y].dist.a;
             for (int i = 0; i < tot0; i++) {
                 int i_ = begin[i];
                 for (int j = 0; j < tot1; j++) {
@@ -2091,7 +2105,8 @@ int G_Tree::push_borders_up_catch_KNN_min_dist_car(int x) {
     for (int i = 0; i < (int)node[x].borders.size(); i++)
         if (node[x].border_in_father[i] != -1)
             (*dist2)[node[x].border_in_father[i]] = (*dist1)[i];
-    int **dist = node[y].dist.a;
+    //int **dist = node[y].dist.a;
+    auto dist = node[y].dist.a;
     int *begin, *end;
     begin = new int[node[x].borders.size()];
     end = new int[node[y].borders.size()];

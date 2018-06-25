@@ -115,7 +115,8 @@ struct Matrix {
     ~Matrix();
 
     int n;
-    int **a;
+    //int **a;
+    std::vector<std::vector<int>> a;
 
     void save();
     void load();
@@ -169,7 +170,8 @@ struct G_Tree { // Here we go!
     std::vector<int> car_offset;
 
     int node_tot, node_size;
-    Node *node;
+    //Node *node;
+    std::vector<Node> node;
 
     void save();
     void load();
