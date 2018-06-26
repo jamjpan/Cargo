@@ -72,58 +72,56 @@ using namespace cargo;
 // into vectors of 1's and 0's of size |X|.
 //
 // To save typing we can typdef unordered_map to dict.
-template <typename Key, typename Value>
-using dict = std::unordered_map<Key, Value>;
+template <typename K, typename V>
+using dict = std::unordered_map<K, V>;
 
 typedef int SharedTripId;
 typedef std::vector<Customer> SharedTrip;
 
-class TripVehicleGrouping : public cargo::RSAlgorithm { // <-- inherit from the base
+class TripVehicleGrouping : public cargo::RSAlgorithm {
 public:
     TripVehicleGrouping();
 
     /* My Overrides */
     virtual void handle_customer(const cargo::Customer &);
-    virtual void handle_vehicle(const cargo::Vehicle &);
+    virtual void handle_vehicle (const cargo::Vehicle  &);
     virtual void match();
     virtual void end();
     virtual void listen();
 
-private: // <-- custom variables and functions
-    int nmatches;
+private:
+    int nmat_;
     cargo::Grid grid_; // grid index
 
     /* GLPK program */
-    glp_prob* mip;
+    //glp_prob* mip_;
 
     /* RV-graph */
-    dict<Customer, std::vector<Customer>> rvgrph_rr;
-    dict<Vehicle, std::vector<Customer>> rvgrph_rv;
+    dict<Customer, std::vector<Customer>> rvgrph_rr_;
+    dict<Vehicle , std::vector<Customer>> rvgrph_rv_;
 
     /* RTV-graph */
-    SharedTripId stid_; // shared trip id
-    dict<VehicleId, dict<SharedTripId, DistanceInt>> vtedges;
-    dict<CustomerId, std::vector<SharedTripId>> ctedges;
-    dict<SharedTripId, SharedTrip> trips;
-
-    /* Unassigned requests */
-    dict<CustomerId, DistanceInt> penalties;
+    SharedTripId stid_;
+    dict<VehicleId, dict<SharedTripId, DistanceInt>> vted_;
+    dict<CustomerId, std::vector<SharedTripId>>      cted_;
+    dict<SharedTripId, SharedTrip>                   trip_;
 
     /* Function travel
      * In the paper, travel uses enumeration for vehicles with small capacity,
      * then the insertion method for each request above that capacity. We just
      * use the insertion method for all requests. */
-    bool travel(const Vehicle &, const std::vector<Customer> &, DistanceInt &, GTree::G_Tree &);
+    bool travel(const Vehicle &,
+                const std::vector<Customer> &,
+                DistanceInt &,
+                std::vector<Stop> &,
+                std::vector<Waypoint> &,
+                GTree::G_Tree &);
 
     /* Function add_trip
      * Add SharedTrip into trips. If SharedTrip already exists in trips, return
      * its existing id. Otherwise, give it an id, add to trips, and return the id.
      * Also add to ctedges */
     SharedTripId add_trip(const SharedTrip &);
-
-    /* Function select_vehicles
-     * Given a SharedTripId, retrieve all vehicles with an edge to the trip */
-    std::vector<VehicleId> select_vehicles(const SharedTripId &);
 
 };
 
