@@ -115,6 +115,7 @@ enum class VehicleStatus {
 typedef int Load; // a Load < 0 indicates a vehicle; > 0 indicates a customer
 
 typedef std::pair<DistanceInt, NodeId> Waypoint;
+typedef std::pair<DistanceInt, NodeId> Wayp;
 
 typedef size_t RouteIndex;
 typedef size_t ScheduleIndex;
