@@ -36,8 +36,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
     : print_out(name), print_info(MessageType::Info, name),
       print_warning(MessageType::Warning, name),
       print_error(MessageType::Error, name),
-      print_success(MessageType::Success, name)
-{
+      print_success(MessageType::Success, name) {
     name_ = name;
     done_ = false;
     batch_time_ = 1;
@@ -52,8 +51,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
     }
 }
 
-RSAlgorithm::~RSAlgorithm()
-{
+RSAlgorithm::~RSAlgorithm() {
     sqlite3_finalize(uro_stmt);
     sqlite3_finalize(sch_stmt);
     sqlite3_finalize(qud_stmt);
@@ -64,20 +62,20 @@ RSAlgorithm::~RSAlgorithm()
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
-void RSAlgorithm::commit(const Customer& cust, const MutableVehicle& mveh)
-{
-    commit(cust, mveh, mveh.route().data(), mveh.schedule().data());
+void RSAlgorithm::commit(const std::vector<Customer>    & custs,
+                         const MutableVehicle           & mveh) {
+    commit(custs, mveh, mveh.route().data(), mveh.schedule().data());
 }
-void RSAlgorithm::commit(const Customer& cust, const std::shared_ptr<MutableVehicle>& mveh,
-        const std::vector<Waypoint>& new_route,
-        const std::vector<Stop>& new_schedule)
-{
-    commit(cust, *mveh, new_route, new_schedule);
+void RSAlgorithm::commit(const std::vector<Customer>           & custs,
+                         const std::shared_ptr<MutableVehicle> & mvehptr,
+                         const std::vector<Waypoint>           & new_route,
+                         const std::vector<Stop>               & new_schedule) {
+    commit(custs, *mvehptr, new_route, new_schedule);
 }
-void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
-        const std::vector<Waypoint>& new_route,
-        const std::vector<Stop>& new_schedule)
-{
+void RSAlgorithm::commit(const std::vector<Customer>    & custs,
+                         const Vehicle                  & veh,
+                         const std::vector<Waypoint>    & new_route,
+                         const std::vector<Stop>        & new_schedule) {
     std::lock_guard<std::mutex>
         dblock(Cargo::dbmx); // Lock acquired
 
@@ -124,6 +122,7 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
     sqlite3_reset(qud_stmt);
 
     // Commit the assignment
+    for (const auto& cust : custs) {
     sqlite3_bind_int(com_stmt, 1, veh.id());
     sqlite3_bind_int(com_stmt, 2, cust.id());
     if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
@@ -132,6 +131,7 @@ void RSAlgorithm::commit(const Customer& cust, const Vehicle& veh,
     }
     sqlite3_clear_bindings(com_stmt);
     sqlite3_reset(com_stmt);
+    } // end for
 }
 void RSAlgorithm::kill() { done_ = true; }
 int& RSAlgorithm::batch_time() { return batch_time_; }
