@@ -23,78 +23,76 @@
 
 using namespace cargo;
 
-// The Trip Assignment Problem
-// ---------------------------
-// minimize: sum(weight[i][j]*x[i][j]) + sum(base_cost[k]*y[k])
-//     where i in vehicles, j in trips, k in customers,
-//         weight is the cost of vehicle i serving trip j,
-//         base_cost is sp(k.origin, k.destination) for customer k
-//
-// (x[i][j] only exists if there is an edge between vehicle i and trip j
-//  in the RTV-graph)
-//
-// subject to:
-//     Constraint 1 (a vehicle serves at most one trip)
-//     sum(x[1][j]) <= 1, j in trips
-//     sum(x[2][j]) <= 1, j in trips
-//     ...
-//     sum(x[i][j]) <= 1, j in trips
-//         for all i
-//
-//     Constraint 2 (a vehicle serves a trip that includes k, or k is not served)
-//     sum(x[1][j] + y[k]) = 1, j in trips that include customer k
-//     sum(x[2][j] + y[k]) = 1, j in trips that include customer k
-//     ...
-//     sum(x[i][j] + y[k]) = 1, j in trips that include customer k
-//         for all i, k
-//
-// Strategy
-// --------
-// unordered maps for weight, x; indices i and k will but VehicleId and CustomerIds;
-// index j will be a SharedTripId to distinguish from Cargo's TripId.
-//
-// To take into account the penalty in the objective, write all the terms, then
-// substitute a single binary variable to represent x's and y's. E.g.:
-//
-//     c[1][1]*x[1][1] + c[1][2]*x[1][2] + c[2][1]*x[2][1] + p[1]*y[1] + p[2]*y[2] + p[3]*y[3]
-//
-// becomes
-//
-//     C[1]*X[1] + C[2]*X[2] + C[3]*X[3] + C[4]*X[4] + C[5]*X[5] + C[6]*X[6]
-//
-// Then write constraints in terms of the new variable, e.g.
-//
-//     1*X[1] + 1*X[2] + 0*X[3] + 0*X[4] + 0*X[5] + 0*X[6] <= 1
-//     (means vehicle 1 serving trip 1 or 2 (x[1][1], x[1][2]) can only serve
-//     one or the other, but not both, or neither).
-//
-// The objective transforms into two vectors, C and X. The constraints transform
-// into vectors of 1's and 0's of size |X|.
-//
-// To save typing we can typdef unordered_map to dict.
-template <typename K, typename V>
-using dict = std::unordered_map<K, V>;
+/* The Trip Assignment Problem
+ *
+ * Citation:
+ *
+ * Javier Alonso-Mora, Samitha Samaranayake, Alex Wallar, Emilio Frazzoli, and
+ * Daniela Rus. "On-demand high-capacity ride-sharing via dynamic trip-vehicle
+ * assignment". PNAS 114(3), 2017, pp.462-467.
+ *
+ * The problem minimizes the cost of assigning vehicles to shared trips, plus a
+ * penalty for each unserved customer. Given a set of trips, a cost c_ij gives
+ * the detour cost of vehicle i serving trip j; a binary variable x_ij equals 1
+ * if the vehicle serves the trip and 0 otherwise. A seperate cost C_k gives
+ * the travel cost of customer k (equal to the shortest-path from the
+ * customer's origin to destination), and a binary variable y_k equals 1 if the
+ * customer is unserved by any trip and 0 otherwise. The objective function is:
+ *
+ *     min z = sum(c_ij*x_ij)        for all i,j
+ *             + sum(C_k*y_k)        for all k
+ *
+ * The problem is constrained by two sets of equations. The first set retricts
+ * vehicles to serve only 1 trip:
+ *
+ *     Given vehicle i, 0 <= sum over j (x_ij) <= 1 for trips j where vehicle i
+ *     can serve j within window constraints
+ *
+ * The second set restricts customers to be served only once, or not served at
+ * all:
+ *
+ *     Given customer k, y_k + sum over i,j (x_ij) == 1 for vehicle-trip pair
+ *     ij where trip j includes customer k
+ *
+ * Trips are constructed iteratively using the steps in the paper. Briefly,
+ * customer pairs are formed based on if the two trips are shareable; then
+ * customer-vehicle pairs are formed; then trips of larger sizes (>2) are
+ * formed iteratively.
+ *
+ * In this example, GLPK is used to solve the minimization problem. But the
+ * performance of GLPK is quite poor compared with commercial options.
+ */
+ 
+/* To save typing typdef unordered_map to dict */
+template <typename K, typename V> using dict = std::unordered_map<K, V>;
 
+/* Semantics */
 typedef int SharedTripId;
 typedef std::vector<Customer> SharedTrip;
 
+/* Strategy
+ *
+ * The default RSAlgorithm::listen() method calls match() at every batch_time().
+ * Thus during match(), we will form trips from the unassigned customers and
+ * active vehicles, then construct the binary integer linear program to solve
+ * the assignment problem, then call glpk to do the actual solving. Vehicles
+ * will be updated based on their assignments through calls to
+ * RSAlgorithm::commit(). We will use a grid index to help construct the rv
+ * pairs when building the rv-graph.
+ */
 class TripVehicleGrouping : public cargo::RSAlgorithm {
 public:
     TripVehicleGrouping();
 
     /* My Overrides */
-    virtual void handle_customer(const cargo::Customer &);
-    virtual void handle_vehicle (const cargo::Vehicle  &);
+    virtual void handle_vehicle (const cargo::Vehicle &);
     virtual void match();
     virtual void end();
     virtual void listen();
 
 private:
-    int nmat_;
-    cargo::Grid grid_; // grid index
-
-    /* GLPK program */
-    //glp_prob* mip_;
+    int nmat_; // number of matches
+    cargo::Grid grid_;
 
     /* RV-graph */
     dict<Customer, std::vector<Customer>> rvgrph_rr_;
@@ -102,25 +100,25 @@ private:
 
     /* RTV-graph */
     SharedTripId stid_;
-    dict<VehicleId, dict<SharedTripId, DistanceInt>> vted_;
-    dict<CustomerId, std::vector<SharedTripId>>      cted_;
-    dict<SharedTripId, SharedTrip>                   trip_;
+    dict<VehicleId, dict<SharedTripId, DistanceInt>> vted_; // vehl-trip edges
+    dict<CustomerId, std::vector<SharedTripId>>      cted_; // cust-trip edges
+    dict<SharedTripId, SharedTrip>                   trip_; // trip lookup
 
     /* Function travel
      * In the paper, travel uses enumeration for vehicles with small capacity,
      * then the insertion method for each request above that capacity. We just
-     * use the insertion method for all requests. */
-    bool travel(const Vehicle &,
-                const std::vector<Customer> &,
-                DistanceInt &,
-                std::vector<Stop> &,
-                std::vector<Waypoint> &,
-                GTree::G_Tree &);
+     * use the insertion method for all requests. The result is tradeoff
+     * quality for speed. */
+    bool travel(const Vehicle &,                    // Can this vehl...
+                const std::vector<Customer> &,      // ...serve these custs?
+                DistanceInt &,                      // cost of serving
+                std::vector<Stop> &,                // resultant schedule
+                std::vector<Waypoint> &,            // resultant route
+                GTree::G_Tree &);                   // gtree to use for sp
 
     /* Function add_trip
-     * Add SharedTrip into trips. If SharedTrip already exists in trips, return
-     * its existing id. Otherwise, give it an id, add to trips, and return the id.
-     * Also add to ctedges */
+     * Add SharedTrip into trip_. If SharedTrip already exists in trip_, return
+     * its id. Also add to ctedges */
     SharedTripId add_trip(const SharedTrip &);
 
 };
