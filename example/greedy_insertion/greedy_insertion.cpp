@@ -72,8 +72,8 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
     /* Commit match to the db. Also refresh our local grid index, so data is
      * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
-        grid_.commit(best_vehicle, best_route, best_schedule); // <-- update local
-        commit(cust, best_vehicle, best_route, best_schedule); // <-- write to the db
+        grid_.commit(best_vehicle, best_route, best_schedule);  // <-- update local
+        commit({cust}, best_vehicle, best_route, best_schedule);// <-- write to the db
         print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
         nmatches++;
     }
@@ -102,10 +102,9 @@ int main()
     op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
     op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
     op.path_to_edges   = "../../data/roadnetwork/mny.edges";
-    //op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
-    op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
+    op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
     op.path_to_solution= "a.sol";
-    op.time_multiplier = 5;
+    op.time_multiplier = 1;
     op.vehicle_speed   = 10;
     op.matching_period = 60;
 
