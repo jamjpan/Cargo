@@ -28,6 +28,7 @@
 #include "libcargo/functions.h"
 #include "libcargo/message.h"
 #include "libcargo/types.h"
+#include "gtree/gtree.h"
 
 namespace cargo {
 
@@ -136,12 +137,12 @@ void Customer::print() const
 }
 
 Vehicle::Vehicle(VehicleId vid, OriginId oid, DestinationId did, EarlyTime et,
-        LateTime lt, Load load) : Trip(vid, oid, did, et, lt, load)
+        LateTime lt, Load load, GTree::G_Tree& gtree) : Trip(vid, oid, did, et, lt, load)
 {
     Stop o(vid, oid, StopType::VehicleOrigin, et, lt, et);
     Stop d(vid, did, StopType::VehicleDest, et, lt);
     std::vector<Waypoint> route_data {};
-    route_through({o, d}, route_data);
+    route_through({o, d}, route_data, gtree);
     Route route(vid, route_data);
     route_ = route;
     next_node_distance_ = route_.at(1).first;

@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "types.h"
+#include "../gtree/gtree.h"
 
 // Properties of these classes are immutable, and they are accesed via the
 // "inspector method"; see https://isocpp.org/wiki/faq/const-correctness
@@ -141,7 +142,7 @@ class Vehicle : public Trip {
 public:
     Vehicle() = default;
     Vehicle(const Vehicle &) = default;
-    Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load);
+    Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load, GTree::G_Tree &);
     Vehicle(VehicleId, OriginId, DestinationId, EarlyTime, LateTime, Load, Load,
             DistanceInt, Route, Schedule, RouteIndex, VehicleStatus);
     DistanceInt                 next_node_distance()    const;
