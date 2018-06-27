@@ -1,10 +1,10 @@
 // Copyright (c) 2018 the Cargo authors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
 // The above copyright notice and this permission notice shall be included in
@@ -14,9 +14,12 @@
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+#include <unordered_map>
+#include <vector>
+
 #include "libcargo.h"
 
 #include "glpk/glpk.h"
@@ -72,12 +75,12 @@ typedef std::vector<Customer> SharedTrip;
 
 /* Strategy
  *
- * The default RSAlgorithm::listen() method calls match() at every batch_time().
- * Thus during match(), we will form trips from the unassigned customers and
- * active vehicles, then construct the binary integer linear program to solve
- * the assignment problem, then call glpk to do the actual solving. Vehicles
- * will be updated based on their assignments through calls to
- * RSAlgorithm::commit(). We will use a grid index to help construct the rv
+ * The default RSAlgorithm::listen() method calls match() at every
+ * batch_time().  Thus during match(), we will form trips from the unassigned
+ * customers and active vehicles, then construct the binary integer linear
+ * program to solve the assignment problem, then call glpk to do the actual
+ * solving. Vehicles will be updated based on their assignments through calls
+ * to RSAlgorithm::commit(). We will use a grid index to help construct the rv
  * pairs when building the rv-graph.
  */
 class TripVehicleGrouping : public cargo::RSAlgorithm {
@@ -93,6 +96,10 @@ public:
 private:
     int nmat_; // number of matches
     cargo::Grid grid_;
+
+    /* Vector of GTrees for parallel sp
+     * Initialized when TripVehicleGrouping() is intialized */
+    std::vector<GTree::G_Tree> gtre_;
 
     /* RV-graph */
     dict<Customer, std::vector<Customer>> rvgrph_rr_;

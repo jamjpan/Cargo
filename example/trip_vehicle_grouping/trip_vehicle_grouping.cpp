@@ -17,10 +17,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <algorithm> /* std::find */
+#include <algorithm> /* std::find, std::nth_element */
 #include <exception>
 #include <iostream> /* std::endl */
 #include <omp.h>
+#include <thread>
 #include <vector>
 
 #include "libcargo.h"
@@ -32,9 +33,13 @@ using namespace cargo;
 
 TripVehicleGrouping::TripVehicleGrouping() : RSAlgorithm("tvg"),
     grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
-    batch_time() = 5;           // Set batch to 30 real seconds
+    batch_time() = 30;          // Set batch to 30 real seconds
     nmat_ = 0;                  // Initialize my private counter
     stid_ = 0;                  // Initialize internal SharedTripId
+
+    /* Initialize gtrees for parallel sp */
+    for (int i = 0; i < omp_get_max_threads(); ++i)
+        gtre_.push_back(GTree::get());
 }
 
 void TripVehicleGrouping::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -50,16 +55,16 @@ void TripVehicleGrouping::match() {
 
     /* To avoid repeated calcuations, store cost, schedule, routes of
      * assigning vehicles to customers */
-    dict<VehicleId, dict<CustomerId, DistanceInt>>       rv_cst;
-    dict<VehicleId, dict<CustomerId, std::vector<Stop>>> rv_sch;
-    dict<VehicleId, dict<CustomerId, std::vector<Wayp>>> rv_rte;
+    dict<Vehicle, dict<Customer, DistanceInt>>       rv_cst;
+    dict<Vehicle, dict<Customer, std::vector<Stop>>> rv_sch;
+    dict<Vehicle, dict<Customer, std::vector<Wayp>>> rv_rte;
 
     { /* Generate rv-graph */
     std::vector<Customer>   lcl_cust = waiting_customers();
     #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_)
     { /* Each thread gets a local gtree and a local grid to perform
        * sp-computations in parallel */
-    GTree::G_Tree           lcl_gtre = GTree::get();
+    GTree::G_Tree         & lcl_gtre = gtre_.at(omp_get_thread_num());
     Grid                    lcl_grid = grid_;
     #pragma omp for
     for (auto ptcust = lcl_cust.begin(); ptcust < lcl_cust.end(); ++ptcust) {
@@ -103,17 +108,31 @@ void TripVehicleGrouping::match() {
             std::vector<Wayp> rteout;
             if (travel(*cand, {cust_a}, cstout, schout, rteout, lcl_gtre)) {
                 /* Remember our work */
-                rv_cst[cand->id()][cust_a.id()] = cstout;
-                rv_sch[cand->id()][cust_a.id()] = schout;
-                rv_rte[cand->id()][cust_a.id()] = rteout;
-                #pragma omp critical
-                { rvgrph_rv_[*cand].push_back(cust_a); }
+                rv_cst[*cand][cust_a] = cstout;
+                rv_sch[*cand][cust_a] = schout;
+                rv_rte[*cand][cust_a] = rteout;
             }
         }
     } // end pragma omp for
     } // end pragma omp parallel
     } // end generate rv-graph
 
+    /* Heuristic: keep only the lowest k customers per vehicle */
+    { size_t topk = 30;
+    for (const auto& kv : rv_cst) {
+        const Vehicle& vehl = kv.first;
+        std::vector<std::pair<Customer, DistanceInt>> cc;
+        for (const auto& kv2 : kv.second)
+            cc.push_back({kv2.first, kv2.second});
+        std::nth_element(
+                cc.begin(), cc.begin()+topk, cc.end(),
+                [](const std::pair<Customer, DistanceInt>& a,
+                   const std::pair<Customer, DistanceInt>& b) {
+                return a.second < b.second; });
+        for (size_t i = 0; i < topk && i < kv.second.size(); ++i)
+            rvgrph_rv_[vehl].push_back(cc.at(i).first);
+    }
+    } // end heuristic
 
     /* Store vehicles, schedules, and routes so we can commit them
      * when vehicles are assigned */
@@ -124,13 +143,20 @@ void TripVehicleGrouping::match() {
     /* Generate rtv-graph */
     int nvted = 0; // <-- number of vehicle-trip edges
     { std::vector<Vehicle>  lcl_vehl = vehicles();
+    /* Heuristic: try for only 200 ms per vehicle */
+    auto t0 = std::chrono::high_resolution_clock::now();
+    int timeout = 200; // ms
     #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
-                                vted_, rvgrph_rr_, rvgrph_rv_)
+                                vted_, rvgrph_rr_, rvgrph_rv_, t0, timeout)
     { /* Each thread adds edges to a local vtedges; these are combined when
        * all threads have completed */
     dict<VehicleId, dict<SharedTripId, DistanceInt>>
                             lcl_vted = {};
-    GTree::G_Tree           lcl_gtre = GTree::get();
+    dict<SharedTripId, SharedTrip>
+                            lcl_trip = {};
+    GTree::G_Tree         & lcl_gtre = gtre_.at(omp_get_thread_num());
+    std::chrono::time_point<std::chrono::high_resolution_clock> t1;
+    int dur;
     #pragma omp for
     for (auto ptvehl = lcl_vehl.begin(); ptvehl < lcl_vehl.end(); ++ptvehl) {
         if (ptvehl->queued() == ptvehl->capacity())
@@ -151,13 +177,21 @@ void TripVehicleGrouping::match() {
             SharedTripId stid;
             #pragma omp critical
             { stid = add_trip({cust});
-              vt_sch[vehl.id()][stid] = rv_sch[vehl.id()][cust.id()];
-              vt_rte[vehl.id()][stid] = rv_rte[vehl.id()][cust.id()]; }
-            lcl_vted[vehl.id()][stid] = rv_cst[vehl.id()][cust.id()];
+              vt_sch[vehl.id()][stid] = rv_sch[vehl][cust];
+              vt_rte[vehl.id()][stid] = rv_rte[vehl][cust]; }
+            lcl_vted[vehl.id()][stid] = rv_cst[vehl][cust];
+            lcl_trip[stid] = {cust};
             tripk[1].push_back(stid);
         }
         } else
             continue; // <-- if no rv-pairs, skip to the next vehl
+
+        /* Heuristic: try for only 200 ms per vehicle */
+        t1 = std::chrono::high_resolution_clock::now();
+        dur = std::round(std::chrono::duration<double, std::milli>
+                (t1-t0).count());
+        if (dur > timeout)
+            continue;
 
         /* Trips of size 2
          * ---------------
@@ -166,11 +200,11 @@ void TripVehicleGrouping::match() {
         if  (vehl.capacity() > 1) { // <-- only for vehls with capacity
         /* Check if any size 1 trips can be combined */
         for (const auto& id_a : tripk.at(1)) {
-            SharedTrip shtrip(trip_.at(id_a));
+            SharedTrip shtrip(lcl_trip.at(id_a));
             for (const auto& id_b : tripk.at(1)) {
                 if (id_a == id_b) continue;
-                shtrip.insert(shtrip.end(), trip_.at(id_b).begin(),
-                                            trip_.at(id_b).end());
+                shtrip.insert(shtrip.end(), lcl_trip.at(id_b).begin(),
+                                            lcl_trip.at(id_b).end());
                 DistanceInt cstout = 0;
                 std::vector<Stop> schout;
                 std::vector<Wayp> rteout;
@@ -181,10 +215,19 @@ void TripVehicleGrouping::match() {
                       vt_sch[vehl.id()][stid] = schout;
                       vt_rte[vehl.id()][stid] = rteout; }
                     lcl_vted[vehl.id()][stid] = cstout;
+                    lcl_trip[stid] = shtrip;
                     tripk[2].push_back(stid);
                 }
             }
         }
+
+        /* Heuristic: try for only 200 ms per vehicle */
+        t1 = std::chrono::high_resolution_clock::now();
+        dur = std::round(std::chrono::duration<double, std::milli>
+                (t1-t0).count());
+        if (dur > timeout)
+            continue;
+
         /* Check if any rr pairs can be served by this vehicle */
         for (const auto& kv : rvgrph_rr_) {
             const Customer& cust_a = kv.first;
@@ -200,10 +243,18 @@ void TripVehicleGrouping::match() {
                       vt_sch[vehl.id()][stid] = schout;
                       vt_rte[vehl.id()][stid] = rteout; }
                     lcl_vted[vehl.id()][stid] = cstout;
+                    lcl_trip[stid] = shtrip;
                     tripk[2].push_back(stid);
                 }
             }
         }
+
+        /* Heuristic: try for only 200 ms per vehicle */
+        t1 = std::chrono::high_resolution_clock::now();
+        dur = std::round(std::chrono::duration<double, std::milli>
+                (t1-t0).count());
+        if (dur > timeout)
+            continue;
 
         /* Trips of size >= 3
          * ------------------ */
@@ -211,11 +262,11 @@ void TripVehicleGrouping::match() {
         while ((size_t) vehl.capacity() >= k && tripk.count(k-1) > 0) {
         /* Loop through trips of size k-1 */
         for (SharedTripId id_a : tripk.at(k-1)) {
-            const SharedTrip& trip_a = trip_.at(id_a);
+            const SharedTrip& trip_a = lcl_trip.at(id_a);
             /* Compare against remaining trips of size k-1 */
             for (SharedTripId id_b : tripk.at(k-1)) {
                 if (id_a == id_b) continue;
-                const SharedTrip& trip_b = trip_.at(id_b);
+                const SharedTrip& trip_b = lcl_trip.at(id_b);
                 /* Join trip_a and trip_b into new trip (no dups) */
                 SharedTrip shtrip(trip_a);
                 for (const Customer& cust : trip_b)
@@ -231,7 +282,7 @@ void TripVehicleGrouping::match() {
                     SharedTrip subtrip(shtrip);
                     subtrip.erase(subtrip.begin() + p);
                     for (SharedTripId id_q : tripk.at(k-1))
-                        if (subtrip == trip_.at(id_q)) {
+                        if (subtrip == lcl_trip.at(id_q)) {
                             subtrip_ok = true;
                             break;
                         }
@@ -251,6 +302,7 @@ void TripVehicleGrouping::match() {
                           vt_sch[vehl.id()][stid] = schout;
                           vt_rte[vehl.id()][stid] = rteout; }
                         lcl_vted[vehl.id()][stid] = cstout;
+                        lcl_trip[stid] = shtrip;
                         tripk[k].push_back(stid);
                     }
                 }
@@ -258,12 +310,19 @@ void TripVehicleGrouping::match() {
             } // end inner for
         } // end outer for
         k++;
+
+        /* Heuristic: try for only 200 ms per vehicle */
+        t1 = std::chrono::high_resolution_clock::now();
+        dur = std::round(std::chrono::duration<double, std::milli>
+                (t1-t0).count());
+        if (dur > timeout)
+            break;
+
         } // end while
         } // end if vehicle.capacity() > 2
     } // end pragma omp for
 
-    /* Combine lcl_vted
-     * Copy each lcl_vted into the global vted_ */
+    /* Combine lcl_vted */
     #pragma omp critical
     { for (const auto& kv : lcl_vted) {
         if (vted_.count(kv.first) == 0) {
@@ -434,7 +493,7 @@ void TripVehicleGrouping::match() {
 
     /* Extract assignments from the results and commit to database */
     for (int i = 1; i <= ncol; ++i) {
-        /* On line 348 we set colmap[i].second to -1 for the binary vars
+        /* On line 407 we set colmap[i].second to -1 for the binary vars
          * for unassigned customer penalty. Skip those because, well,
          * they are unassigned. */
         if (colmap[i].second == -1)
@@ -494,7 +553,6 @@ bool TripVehicleGrouping::travel(
     DistanceInt cstsum = 0;
     for (const Customer& cust : custs) {
         DistanceInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre);
-
         if (check_timewindow_constr(schctr, rtectr)) {
             cstsum += cst;
             mtvehl.set_schedule(schctr);
@@ -526,7 +584,7 @@ int main() {
     op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
     op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
     op.path_to_edges   = "../../data/roadnetwork/mny.edges";
-    op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
+    op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
     op.path_to_solution= "a.sol";
     op.time_multiplier = 1;
     op.vehicle_speed   = 10;
