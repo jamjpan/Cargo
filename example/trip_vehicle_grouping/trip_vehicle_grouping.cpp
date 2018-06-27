@@ -434,9 +434,14 @@ void TripVehicleGrouping::match() {
 
     /* Extract assignments from the results and commit to database */
     for (int i = 1; i <= ncol; ++i) {
-        if (colmap[i].second == -1) // <-- -1=customer penalty
-            continue; // <-- don't do anything for unassigned customers
-        if (glp_mip_col_val(mip, i) == 1) { // <-- 1=vehl matched trip in col
+        /* On line 348 we set colmap[i].second to -1 for the binary vars
+         * for unassigned customer penalty. Skip those because, well,
+         * they are unassigned. */
+        if (colmap[i].second == -1)
+            continue;
+        /* If the binary var for any other column is 1, then commit the
+         * assignment. */
+        if (glp_mip_col_val(mip, i) == 1) {
             commit(trip_.at(colmap[i].second),
                    vehmap.at(colmap[i].first),
                    vt_rte.at(colmap[i].first).at(colmap[i].second),
