@@ -21,7 +21,6 @@
 #include <exception>
 #include <iostream> /* std::endl */
 #include <omp.h>
-#include <thread>
 #include <vector>
 
 #include "libcargo.h"
