@@ -209,6 +209,7 @@ void MutableVehicle::set_schedule(const std::vector<Stop>& s)
     set_schedule(schedule);
 }
 void MutableVehicle::set_schedule(const Schedule& schedule) { this->schedule_ = schedule; }
+void MutableVehicle::set_nnd(const DistanceInt& sync_nnd) { this->next_node_distance_ = sync_nnd; }
 void MutableVehicle::reset_lvn() { this->idx_last_visited_node_ = 0; }
 void MutableVehicle::incr_queued() { this->queued_++; }
 

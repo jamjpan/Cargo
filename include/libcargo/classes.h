@@ -179,6 +179,7 @@ public:
     void                        set_route(const Route &);
     void                        set_schedule(const std::vector<Stop> &);
     void                        set_schedule(const Schedule &);
+    void                        set_nnd(const DistanceInt &);
     void                        reset_lvn();
     void                        incr_queued();
 };

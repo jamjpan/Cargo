@@ -19,6 +19,7 @@
 // SOFTWARE.
 #include <exception>
 #include <iostream> /* std::endl */
+#include <thread>
 #include <vector>
 
 #include "libcargo.h"
@@ -69,13 +70,19 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
         }
     }
 
+    // pretend it takes a long time
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
     /* Commit match to the db. Also refresh our local grid index, so data is
      * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
-        grid_.commit(best_vehicle, best_route, best_schedule);  // <-- update local
-        commit({cust}, best_vehicle, best_route, best_schedule);// <-- write to the db
-        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
-        nmatches++;
+        std::vector<cargo::Waypoint> sync_rte;
+        cargo::DistanceInt sync_nnd;
+        if (commit({cust}, best_vehicle, best_route, best_schedule, sync_rte, sync_nnd)) {  // <-- write to the db
+            grid_.commit(best_vehicle, sync_rte, best_schedule, sync_nnd);      // <-- update local
+            print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
+            nmatches++;
+        }
     }
 }
 

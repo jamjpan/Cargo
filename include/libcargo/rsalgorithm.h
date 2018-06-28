@@ -54,11 +54,12 @@ public:
     virtual void                listen();
 
     // Write assignment to the db
-    void commit(const std::vector<Customer>&, const MutableVehicle&);
-    void commit(const std::vector<Customer>&, const std::shared_ptr<MutableVehicle>&,
-                const std::vector<Waypoint>&, const std::vector<Stop>&);
-    void commit(const std::vector<Customer>&, const Vehicle&,
-                const std::vector<Waypoint>&, const std::vector<Stop>&);
+    bool commit(const std::vector<Customer>&, const std::shared_ptr<MutableVehicle>&,
+                const std::vector<Waypoint>&, const std::vector<Stop>&,
+                std::vector<Waypoint>&, DistanceInt&);
+    bool commit(const std::vector<Customer>&, const Vehicle&,
+                const std::vector<Waypoint>&, const std::vector<Stop>&,
+                std::vector<Waypoint>&, DistanceInt&);
 
     const std::string&          name()                  const;
     bool                        done()                  const;
@@ -84,6 +85,7 @@ private:
     std::vector<Vehicle> vehicles_;
 
     SqliteReturnCode rc;
+    sqlite3_stmt* ssr_stmt; // select route
     sqlite3_stmt* uro_stmt; // update route
     sqlite3_stmt* sch_stmt; // update sched
     sqlite3_stmt* qud_stmt; // increase queued

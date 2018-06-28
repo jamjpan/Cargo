@@ -19,6 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <algorithm> /* std::find */
 #include <chrono>
 #include <mutex>
 #include <thread>
@@ -40,7 +41,8 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
     name_ = name;
     done_ = false;
     batch_time_ = 1;
-    if (sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK
+    if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt, -1, &ssr_stmt, NULL) != SQLITE_OK
+     || sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK
      || sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK
@@ -52,6 +54,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
 }
 
 RSAlgorithm::~RSAlgorithm() {
+    sqlite3_finalize(ssr_stmt);
     sqlite3_finalize(uro_stmt);
     sqlite3_finalize(sch_stmt);
     sqlite3_finalize(qud_stmt);
@@ -62,37 +65,109 @@ RSAlgorithm::~RSAlgorithm() {
 
 const std::string& RSAlgorithm::name() const { return name_; }
 bool RSAlgorithm::done() const { return done_; }
-void RSAlgorithm::commit(const std::vector<Customer>    & custs,
-                         const MutableVehicle           & mveh) {
-    commit(custs, mveh, mveh.route().data(), mveh.schedule().data());
-}
-void RSAlgorithm::commit(const std::vector<Customer>           & custs,
+bool RSAlgorithm::commit(const std::vector<Customer>           & custs,
                          const std::shared_ptr<MutableVehicle> & mvehptr,
                          const std::vector<Waypoint>           & new_route,
-                         const std::vector<Stop>               & new_schedule) {
-    commit(custs, *mvehptr, new_route, new_schedule);
+                         const std::vector<Stop>               & new_schedule,
+                         std::vector<Waypoint>                 & sync_rte,
+                         DistanceInt                           & sync_nnd) {
+    return commit(custs, *mvehptr, new_route, new_schedule, sync_rte, sync_nnd);
 }
-void RSAlgorithm::commit(const std::vector<Customer>    & custs,
-                         const Vehicle                  & veh,
-                         const std::vector<Waypoint>    & new_route,
-                         const std::vector<Stop>        & new_schedule) {
+bool RSAlgorithm::commit(const std::vector<Customer>           & custs,
+                         const Vehicle                         & veh,
+                         const std::vector<Waypoint>           & new_route,
+                         const std::vector<Stop>               & new_schedule,
+                         std::vector<Waypoint>                 & sync_rte,
+                         DistanceInt                           & sync_nnd) {
     std::lock_guard<std::mutex>
         dblock(Cargo::dbmx); // Lock acquired
 
-    // ENHANCEMENT check if assignment is valid
-    //   If the vehicle has moved a lot during RSAlgorithm::match(), then the
-    //   lvn will be different in the db compared to what it is here (because
-    //   here was selected before the vehicle moved). How to handle this case?
-    //   Reject the assignment, or "roll back" the vehicle?
-    //
-    //   We roll back the vehicle for now, consider adding the check and rejceting
-    //   the assignment in the future.
-    //
-    // Commit the new route (current_node_idx, nnd are unchanged)
-    sqlite3_bind_blob(uro_stmt, 1, static_cast<void const *>(new_route.data()),
-            new_route.size()*sizeof(Waypoint), SQLITE_TRANSIENT);
+    /* Synchronize
+     * The vehicle may have moved since new_route/new_schedule were computed.
+     * The new_route should be synchronized with the current route. In other
+     * words, new_route may not be possible anymore due to the vehicle
+     * movement. For example,
+     *     new_route may start with {a, x, y, d, e},
+     *     the old route may be     {a, b, c, d, e},
+     * the vehicle may already be at d, hence moving to x, y is no longer
+     * possible. The commit should be rejected in this case. */
+    std::vector<Wayp>   cur_route;
+    RouteIndex          cur_lvn = 0;
+    DistanceInt         cur_nnd = 0;
+    sqlite3_bind_int(ssr_stmt, 1, veh.id());
+    while ((rc = sqlite3_step(ssr_stmt)) == SQLITE_ROW) {
+        const Wayp* buf = static_cast<const Wayp*>(sqlite3_column_blob(ssr_stmt, 1));
+        std::vector<Wayp> raw_route(buf, buf + sqlite3_column_bytes(ssr_stmt, 1)/sizeof(Wayp));
+        cur_route = raw_route;
+        cur_lvn = sqlite3_column_int(ssr_stmt, 2);
+        cur_nnd = sqlite3_column_int(ssr_stmt, 3);
+    }
+    if (rc != SQLITE_DONE)
+        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+    sqlite3_clear_bindings(ssr_stmt);
+    sqlite3_reset(ssr_stmt);
+     /* Strategy
+     * Get the current route/lvn/nnd. Find the current waypoint in the
+     * new route. If not found, the new route is invalid, reject the commit.
+     * If found, move back one in the current route, move back one in the
+     * new route, and check if equal. If not equal, reject the commit.
+     * Continue moving back one waypoint, checking if equal, until no more
+     * waypoints in the new route. */
+    sync_rte = new_route;
+    auto x = std::find_if(sync_rte.begin(), sync_rte.end(), [&](const Wayp& a) {
+            return a.second == cur_route.at(cur_lvn).second; });
+
+    std::cout << "cur_route.at(cur_lvn): " << cur_route.at(cur_lvn).second << std::endl;
+    std::cout << "x: " << x->second << std::endl;
+
+    bool ok = true;
+    if (x == sync_rte.end())    ok = false;
+    else if (cur_lvn == 0)      ok = true;
+    else {
+        int itr = cur_lvn;
+        auto i = x;
+        while (itr >= 0 && i >= sync_rte.begin()) {
+            std::cout << "itr(" << cur_route.at(itr).second << ") ";
+            std::cout << "  i(" << i->second << ")" << std::endl;
+            if (i->second != cur_route.at(itr).second) {
+                ok = false;
+                break;
+            }
+            itr--;
+            i--;
+        }
+    }
+
+    if (!ok) {
+        std::cout << "cur_route: ";
+        for (const auto& wp : cur_route)
+            std::cout << " (" << wp.first << "|" << wp.second << ")";
+        std::cout << std::endl;
+        std::cout << "new_route: ";
+        for (const auto& wp : new_route)
+            std::cout << " (" << wp.first << "|" << wp.second << ")";
+        std::cout << std::endl;
+    }
+
+    if (ok) {
+    // Commit the new route (synchronized for vehicle movement)
+    //std::cout << "new_route before synch: " << std::endl;
+    //for (const auto& wp : sync_rte)
+    //    std::cout << " (" << wp.first << "|" << wp.second << ")";
+    //std::cout << std::endl;
+
+    sync_rte.erase(sync_rte.begin(), x);
+    sync_nnd = cur_nnd;
+
+    //std::cout << "new_route after synch: " << std::endl;
+    //for (const auto& wp : sync_rte)
+    //    std::cout << " (" << wp.first << "|" << wp.second << ")";
+    //std::cout << std::endl;
+
+    sqlite3_bind_blob(uro_stmt, 1, static_cast<void const *>(sync_rte.data()),
+            sync_rte.size()*sizeof(Wayp), SQLITE_TRANSIENT);
     sqlite3_bind_int(uro_stmt, 2, 0);
-    sqlite3_bind_int(uro_stmt, 3, veh.next_node_distance());
+    sqlite3_bind_int(uro_stmt, 3, cur_nnd);
     sqlite3_bind_int(uro_stmt, 4, veh.id());
     if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
         std::cout << "Error in commit new route " << rc << std::endl;
@@ -132,6 +207,10 @@ void RSAlgorithm::commit(const std::vector<Customer>    & custs,
     sqlite3_clear_bindings(com_stmt);
     sqlite3_reset(com_stmt);
     } // end for
+
+    } // end if ok
+
+    return ok;
 }
 void RSAlgorithm::kill() { done_ = true; }
 int& RSAlgorithm::batch_time() { return batch_time_; }

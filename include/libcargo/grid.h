@@ -43,7 +43,8 @@ public:
     void insert(const Vehicle &);
     void insert(const MutableVehicle &);
     std::vector<std::shared_ptr<MutableVehicle>>& within_about(const DistanceDouble &, const NodeId &);
-    void commit(std::shared_ptr<MutableVehicle> &, const std::vector<Waypoint> &, const std::vector<Stop> &);
+    void commit(std::shared_ptr<MutableVehicle> &, const std::vector<Waypoint> &, const std::vector<Stop> &,
+            const DistanceInt&);
     void clear();
 
 private:

@@ -109,6 +109,9 @@ const SqliteQuery smv_stmt = // select matchable vehicles
     "       ? != vehicles.status and "
     "       0 >  vehicles.load;";
 
+const SqliteQuery ssr_stmt = // select single route
+    "select * from routes where owner = ?;";
+
 const SqliteQuery swc_stmt = // select waiting customers
     "select * from customers where status = ? and ? >= early;";
 
