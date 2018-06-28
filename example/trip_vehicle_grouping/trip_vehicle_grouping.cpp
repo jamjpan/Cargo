@@ -46,6 +46,8 @@ void TripVehicleGrouping::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void TripVehicleGrouping::match() {
+    print_info << "match called" << std::endl;
+
     /* Initialize the GLPK mixed-integer program */
     glp_prob* mip;
     mip = glp_create_prob();
@@ -58,9 +60,11 @@ void TripVehicleGrouping::match() {
     dict<Vehicle, dict<Customer, std::vector<Stop>>> rv_sch;
     dict<Vehicle, dict<Customer, std::vector<Wayp>>> rv_rte;
 
+    print_info << "generating rv-graph..." << std::endl;
     { /* Generate rv-graph */
     std::vector<Customer>   lcl_cust = waiting_customers();
-    #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_)
+    #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
+                                rv_cst, rv_sch, rv_rte)
     { /* Each thread gets a local gtree and a local grid to perform
        * sp-computations in parallel */
     GTree::G_Tree         & lcl_gtre = gtre_.at(omp_get_thread_num());
@@ -107,9 +111,10 @@ void TripVehicleGrouping::match() {
             std::vector<Wayp> rteout;
             if (travel(*cand, {cust_a}, cstout, schout, rteout, lcl_gtre)) {
                 /* Remember our work */
-                rv_cst[*cand][cust_a] = cstout;
-                rv_sch[*cand][cust_a] = schout;
-                rv_rte[*cand][cust_a] = rteout;
+                #pragma omp critical
+                { rv_cst[*cand][cust_a] = cstout;
+                  rv_sch[*cand][cust_a] = schout;
+                  rv_rte[*cand][cust_a] = rteout; }
             }
         }
     } // end pragma omp for
@@ -119,17 +124,19 @@ void TripVehicleGrouping::match() {
     /* Heuristic: keep only the lowest k customers per vehicle */
     { size_t topk = 30;
     for (const auto& kv : rv_cst) {
-        const Vehicle& vehl = kv.first;
-        std::vector<std::pair<Customer, DistanceInt>> cc;
-        for (const auto& kv2 : kv.second)
-            cc.push_back({kv2.first, kv2.second});
-        std::nth_element(
-                cc.begin(), cc.begin()+topk, cc.end(),
-                [](const std::pair<Customer, DistanceInt>& a,
-                   const std::pair<Customer, DistanceInt>& b) {
-                return a.second < b.second; });
-        for (size_t i = 0; i < topk && i < kv.second.size(); ++i)
-            rvgrph_rv_[vehl].push_back(cc.at(i).first);
+        if (kv.second.size() > topk) {
+            const Vehicle& vehl = kv.first;
+            std::vector<std::pair<Customer, DistanceInt>> cc;
+            for (const auto& kv2 : kv.second)
+                cc.push_back({kv2.first, kv2.second});
+            std::nth_element(
+                    cc.begin(), cc.begin()+topk, cc.end(),
+                    [](const std::pair<Customer, DistanceInt>& a,
+                       const std::pair<Customer, DistanceInt>& b) {
+                    return a.second < b.second; });
+            for (size_t i = 0; i < topk && i < kv.second.size(); ++i)
+                rvgrph_rv_[vehl].push_back(cc.at(i).first);
+        }
     }
     } // end heuristic
 
@@ -139,14 +146,14 @@ void TripVehicleGrouping::match() {
     dict<VehicleId, dict<SharedTripId, std::vector<Wayp>>> vt_rte;
     dict<VehicleId, Vehicle>                               vehmap;
 
+    print_info << "generating rtv-graph..." << std::endl;
     /* Generate rtv-graph */
     int nvted = 0; // <-- number of vehicle-trip edges
     { std::vector<Vehicle>  lcl_vehl = vehicles();
     /* Heuristic: try for only 200 ms per vehicle */
-    auto t0 = std::chrono::high_resolution_clock::now();
     int timeout = 200; // ms
     #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
-                                vted_, rvgrph_rr_, rvgrph_rv_, t0, timeout)
+                                vted_, rvgrph_rr_, rvgrph_rv_, timeout)
     { /* Each thread adds edges to a local vtedges; these are combined when
        * all threads have completed */
     dict<VehicleId, dict<SharedTripId, DistanceInt>>
@@ -154,13 +161,14 @@ void TripVehicleGrouping::match() {
     dict<SharedTripId, SharedTrip>
                             lcl_trip = {};
     GTree::G_Tree         & lcl_gtre = gtre_.at(omp_get_thread_num());
-    std::chrono::time_point<std::chrono::high_resolution_clock> t1;
+    std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
     int dur;
     #pragma omp for
     for (auto ptvehl = lcl_vehl.begin(); ptvehl < lcl_vehl.end(); ++ptvehl) {
-        if (ptvehl->queued() == ptvehl->capacity())
-            continue; // don't consider vehs already queued to capacity
+        t0 = std::chrono::high_resolution_clock::now();
         const Vehicle& vehl = *ptvehl;
+        if (vehl.queued() == vehl.capacity())
+            continue; // don't consider vehs already queued to capacity
         /* Store the vehicle in a lookup table (for later) */
         #pragma omp critical
         { vehmap[vehl.id()] = vehl; }
@@ -196,7 +204,7 @@ void TripVehicleGrouping::match() {
          * ---------------
          * Add trips of size 1 that can be combined, and add any rr-pairs
          * that can be served by this vehl */
-        if  (vehl.capacity() > 1) { // <-- only for vehls with capacity
+        if  (vehl.capacity() - vehl.queued() > 1) { // <-- only for vehls with capacity
         /* Check if any size 1 trips can be combined */
         for (const auto& id_a : tripk.at(1)) {
             SharedTrip shtrip(lcl_trip.at(id_a));
@@ -258,7 +266,8 @@ void TripVehicleGrouping::match() {
         /* Trips of size >= 3
          * ------------------ */
         size_t k = 3;
-        while ((size_t) vehl.capacity() >= k && tripk.count(k-1) > 0) {
+        while ((size_t) (vehl.capacity() - vehl.queued()) >= k
+                && tripk.count(k-1) > 0) {
         /* Loop through trips of size k-1 */
         for (SharedTripId id_a : tripk.at(k-1)) {
             const SharedTrip& trip_a = lcl_trip.at(id_a);
@@ -318,7 +327,7 @@ void TripVehicleGrouping::match() {
             break;
 
         } // end while
-        } // end if vehicle.capacity() > 2
+        } // end if vehicle.capacity() >= 3
     } // end pragma omp for
 
     /* Combine lcl_vted */
@@ -364,6 +373,7 @@ void TripVehicleGrouping::match() {
     //     print_info << std::endl;
     // }
 
+    print_info << "generating the mip..." << std::endl;
     /* Generating the mip */
     if (vted_.size() > 0) {
     /* Objective: c11x11 + c12x12 + ... + cijxij + y1 + y2 + ... + yn
@@ -464,6 +474,11 @@ void TripVehicleGrouping::match() {
     glp_init_iocp(&cparams);
     cparams.presolve = GLP_ON;
 
+    /* Heuristics */
+    cparams.tm_lim = 15*1000; // set time limit to 15 sec
+    cparams.mip_gap = 0.001;  // set optimality gap to 0.1%
+
+    print_info << "solving..." << std::endl;
     int rc = glp_intopt(mip, &cparams); // <-- solve!
 
     print_out << "mip return:" << std::endl;
@@ -492,7 +507,7 @@ void TripVehicleGrouping::match() {
 
     /* Extract assignments from the results and commit to database */
     for (int i = 1; i <= ncol; ++i) {
-        /* On line 407 we set colmap[i].second to -1 for the binary vars
+        /* On line 411 we set colmap[i].second to -1 for the binary vars
          * for unassigned customer penalty. Skip those because, well,
          * they are unassigned. */
         if (colmap[i].second == -1)
