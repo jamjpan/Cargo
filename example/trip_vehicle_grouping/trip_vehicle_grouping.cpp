@@ -147,11 +147,10 @@ void TripVehicleGrouping::match() {
     dict<VehicleId, Vehicle>                               vehmap;
 
     print_info << "generating rtv-graph..." << std::endl;
-    /* Generate rtv-graph */
+    /* Generate rtv-graph */ // <-- can be very slow
     int nvted = 0; // <-- number of vehicle-trip edges
     { std::vector<Vehicle>  lcl_vehl = vehicles();
-    /* Heuristic: try for only 200 ms per vehicle */
-    int timeout = 200; // ms
+    int timeout = 200; // <-- Heuristic: stop after this time (ms)
     #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
                                 vted_, rvgrph_rr_, rvgrph_rv_, timeout)
     { /* Each thread adds edges to a local vtedges; these are combined when
@@ -162,10 +161,10 @@ void TripVehicleGrouping::match() {
                             lcl_trip = {};
     GTree::G_Tree         & lcl_gtre = gtre_.at(omp_get_thread_num());
     std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-    int dur;
     #pragma omp for
     for (auto ptvehl = lcl_vehl.begin(); ptvehl < lcl_vehl.end(); ++ptvehl) {
         t0 = std::chrono::high_resolution_clock::now();
+        bool timed_out = false;
         const Vehicle& vehl = *ptvehl;
         if (vehl.queued() == vehl.capacity())
             continue; // don't consider vehs already queued to capacity
@@ -189,16 +188,19 @@ void TripVehicleGrouping::match() {
             lcl_vted[vehl.id()][stid] = rv_cst[vehl][cust];
             lcl_trip[stid] = {cust};
             tripk[1].push_back(stid);
+
+            /* Heuristic: try for only 200 ms per vehicle */
+            if (std::round(std::chrono::duration<double, std::milli>
+               (std::chrono::high_resolution_clock::now()-t0).count()) >timeout) {
+                timed_out = true;
+                break;
+            }
         }
         } else
             continue; // <-- if no rv-pairs, skip to the next vehl
 
         /* Heuristic: try for only 200 ms per vehicle */
-        t1 = std::chrono::high_resolution_clock::now();
-        dur = std::round(std::chrono::duration<double, std::milli>
-                (t1-t0).count());
-        if (dur > timeout)
-            continue;
+        if (timed_out) continue; // <-- continue to the next vehicle
 
         /* Trips of size 2
          * ---------------
@@ -225,15 +227,17 @@ void TripVehicleGrouping::match() {
                     lcl_trip[stid] = shtrip;
                     tripk[2].push_back(stid);
                 }
+                /* Heuristic: try for only 200 ms per vehicle */
+                if (std::round(std::chrono::duration<double, std::milli>
+                   (std::chrono::high_resolution_clock::now()-t0).count()) >timeout) {
+                    timed_out = true;
+                    break;
+                }
             }
+            if (timed_out) break;
         }
-
         /* Heuristic: try for only 200 ms per vehicle */
-        t1 = std::chrono::high_resolution_clock::now();
-        dur = std::round(std::chrono::duration<double, std::milli>
-                (t1-t0).count());
-        if (dur > timeout)
-            continue;
+        if (timed_out) continue; // <-- continue to the next vehicle
 
         /* Check if any rr pairs can be served by this vehicle */
         for (const auto& kv : rvgrph_rr_) {
@@ -253,15 +257,17 @@ void TripVehicleGrouping::match() {
                     lcl_trip[stid] = shtrip;
                     tripk[2].push_back(stid);
                 }
+                /* Heuristic: try for only 200 ms per vehicle */
+                if (std::round(std::chrono::duration<double, std::milli>
+                   (std::chrono::high_resolution_clock::now()-t0).count()) >timeout) {
+                    timed_out = true;
+                    break;
+                }
             }
+            if (timed_out) break;
         }
-
         /* Heuristic: try for only 200 ms per vehicle */
-        t1 = std::chrono::high_resolution_clock::now();
-        dur = std::round(std::chrono::duration<double, std::milli>
-                (t1-t0).count());
-        if (dur > timeout)
-            continue;
+        if (timed_out) continue; // <-- continue to the next vehicle
 
         /* Trips of size >= 3
          * ------------------ */
@@ -315,19 +321,20 @@ void TripVehicleGrouping::match() {
                     }
                 }
                 } // end if shtrip.size() == k
+                /* Heuristic: try for only 200 ms per vehicle */
+                if (std::round(std::chrono::duration<double, std::milli>
+                   (std::chrono::high_resolution_clock::now()-t0).count()) >timeout) {
+                    timed_out = true;
+                    break;
+                }
             } // end inner for
+            if (timed_out) break;
         } // end outer for
         k++;
-
         /* Heuristic: try for only 200 ms per vehicle */
-        t1 = std::chrono::high_resolution_clock::now();
-        dur = std::round(std::chrono::duration<double, std::milli>
-                (t1-t0).count());
-        if (dur > timeout)
-            break;
-
+        if (timed_out) continue; // <-- continue to the next vehicle
         } // end while
-        } // end if vehicle.capacity() >= 3
+        } // end if vehls with capacity
     } // end pragma omp for
 
     /* Combine lcl_vted */
@@ -507,7 +514,7 @@ void TripVehicleGrouping::match() {
 
     /* Extract assignments from the results and commit to database */
     for (int i = 1; i <= ncol; ++i) {
-        /* On line 411 we set colmap[i].second to -1 for the binary vars
+        /* On line 423 we set colmap[i].second to -1 for the binary vars
          * for unassigned customer penalty. Skip those because, well,
          * they are unassigned. */
         if (colmap[i].second == -1)

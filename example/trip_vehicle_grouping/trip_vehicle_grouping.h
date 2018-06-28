@@ -127,6 +127,5 @@ private:
      * Add SharedTrip into trip_. If SharedTrip already exists in trip_, return
      * its id. Also add to ctedges */
     SharedTripId add_trip(const SharedTrip &);
-
 };
 
