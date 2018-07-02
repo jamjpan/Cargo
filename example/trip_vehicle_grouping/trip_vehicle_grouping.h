@@ -66,10 +66,10 @@ using namespace cargo;
  * performance of GLPK is quite poor compared with commercial options.
  */
  
-/* To save typing typdef unordered_map to dict */
+/* typdef unordered_map to dict to save typing */
 template <typename K, typename V> using dict = std::unordered_map<K, V>;
 
-/* Semantics */
+/* Semantic types */
 typedef int SharedTripId;
 typedef std::vector<Customer> SharedTrip;
 
@@ -84,48 +84,48 @@ typedef std::vector<Customer> SharedTrip;
  * pairs when building the rv-graph.
  */
 class TripVehicleGrouping : public cargo::RSAlgorithm {
-public:
-    TripVehicleGrouping();
+ public:
+  TripVehicleGrouping();
 
-    /* My Overrides */
-    virtual void handle_vehicle (const cargo::Vehicle &);
-    virtual void match();
-    virtual void end();
-    virtual void listen();
+  /* My Overrides */
+  virtual void handle_vehicle(const cargo::Vehicle &);
+  virtual void match();
+  virtual void end();
+  virtual void listen();
 
-private:
-    int nmat_; // number of matches
-    cargo::Grid grid_;
+ private:
+  int nmat_;  // number of matches
+  cargo::Grid grid_;
 
-    /* Vector of GTrees for parallel sp
-     * Initialized when TripVehicleGrouping() is intialized */
-    std::vector<GTree::G_Tree> gtre_;
+  /* Vector of GTrees for parallel sp
+   * Initialized when TripVehicleGrouping() is intialized */
+  std::vector<GTree::G_Tree> gtre_;
 
-    /* RV-graph */
-    dict<Customer, std::vector<Customer>> rvgrph_rr_;
-    dict<Vehicle , std::vector<Customer>> rvgrph_rv_;
+  /* RV-graph */
+  dict<Customer, std::vector<Customer>> rvgrph_rr_;
+  dict<Vehicle, std::vector<Customer>>  rvgrph_rv_;
 
-    /* RTV-graph */
-    SharedTripId stid_;
-    dict<VehicleId, dict<SharedTripId, DistanceInt>> vted_; // vehl-trip edges
-    dict<CustomerId, std::vector<SharedTripId>>      cted_; // cust-trip edges
-    dict<SharedTripId, SharedTrip>                   trip_; // trip lookup
+  /* RTV-graph */
+  SharedTripId stid_;
+  dict<VehlId, dict<SharedTripId, DistInt>> vted_;  // vehl-trip edges
+  dict<CustId, std::vector<SharedTripId>>   cted_;  // cust-trip edges
+  dict<SharedTripId, SharedTrip>            trip_;  // trip lookup
 
-    /* Function travel
-     * In the paper, travel uses enumeration for vehicles with small capacity,
-     * then the insertion method for each request above that capacity. We just
-     * use the insertion method for all requests. The result is tradeoff
-     * quality for speed. */
-    bool travel(const Vehicle &,                    // Can this vehl...
-                const std::vector<Customer> &,      // ...serve these custs?
-                DistanceInt &,                      // cost of serving
-                std::vector<Stop> &,                // resultant schedule
-                std::vector<Waypoint> &,            // resultant route
-                GTree::G_Tree &);                   // gtree to use for sp
+  /* Function travel
+   * In the paper, travel uses enumeration for vehicles with small capacity,
+   * then the insertion method for each request above that capacity. We just
+   * use the insertion method for all requests. The result is tradeoff
+   * quality for speed. */
+  bool travel(const Vehicle &,                // Can this vehl...
+              const std::vector<Customer> &,  // ...serve these custs?
+              DistInt &,                      // cost of serving
+              std::vector<Stop> &,            // resultant schedule
+              std::vector<Wayp> &,            // resultant route
+              GTree::G_Tree &);               // gtree to use for sp
 
-    /* Function add_trip
-     * Add SharedTrip into trip_. If SharedTrip already exists in trip_, return
-     * its id. Also add to ctedges */
-    SharedTripId add_trip(const SharedTrip &);
+  /* Function add_trip
+   * Add SharedTrip into trip_. If SharedTrip already exists in trip_, return
+   * its id. Also add to ctedges */
+  SharedTripId add_trip(const SharedTrip &);
 };
 
