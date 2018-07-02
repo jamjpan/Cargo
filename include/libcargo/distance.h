@@ -29,44 +29,48 @@
 
 namespace cargo {
 
-inline DistanceDouble euclidean(const Point& u, const Point& v)
-{
-    return std::hypot((u.lng - v.lng), (u.lat - v.lat));
+inline DistDbl euclidean(const Point& u, const Point& v) {
+  return std::hypot((u.lng - v.lng), (u.lat - v.lat));
 }
 
-inline DistanceDouble haversine(const Point& u, const Point& v)
-{
-    double r = 6372800.0; // radius of Earth (m)
-    double x = (u.lng - v.lng) * (MathPI / 180);
-    double y = (u.lat - v.lat) * (MathPI / 180);
-    double a = std::sin(y / 2) * std::sin(y / 2) +
-               std::sin(x / 2) * std::sin(x / 2) *
-                   std::cos(u.lat * (MathPI / 180)) *
-                   std::cos(v.lat * (MathPI / 180));
-    return r * (2 * std::asin(std::sqrt(a))); // meters
+inline DistDbl haversine(const Point& u, const Point& v) {
+  double r = 6372800.0;  // radius of Earth (m)
+  double x = (u.lng - v.lng) * (MathPI / 180);
+  double y = (u.lat - v.lat) * (MathPI / 180);
+  double a = std::sin(y / 2) * std::sin(y / 2)
+      + std::sin(x / 2) * std::sin(x / 2)*
+        std::cos(u.lat * (MathPI / 180)) *
+        std::cos(v.lat * (MathPI / 180));
+  return r * (2 * std::asin(std::sqrt(a)));  // meters
 }
 
-inline DistanceInt shortest_path_dist(const NodeId& u, const NodeId& v)
-{
-    return Cargo::gtree().search(u, v); // meters
+inline DistInt shortest_path_dist( // use specific gtree
+        const NodeId& u,
+        const NodeId& v,
+        GTree::G_Tree& gtree) {
+  return gtree.search(u, v);  // meters
+}
+
+inline DistInt shortest_path_dist( // use global gtree
+        const NodeId& u,
+        const NodeId& v) {
+    return shortest_path_dist(u, v, Cargo::gtree());
 }
 
 // Convert meters to number of longitude degrees
 // Really messes up at the poles
 // https://stackoverflow.com/a/1253545
-inline double metersTolngdegs(const DistanceDouble& meters, const Latitude& lat)
-{
-    return meters/(111320*std::cos(lat*MathPI/180));
+inline double metersTolngdegs(const DistDbl& meters, const Lat& lat) {
+  return meters / (111320 * std::cos(lat * MathPI / 180));
 }
 
 // Convert meters to number of latitude degrees
 // https://stackoverflow.com/a/1253545
-inline double metersTolatdegs(const DistanceDouble& meters)
-{
-    return meters*(1.0/110574);
+inline double metersTolatdegs(const DistDbl& meters) {
+  return meters * (1.0 / 110574);
 }
 
-} // namespace cargo
+}  // namespace cargo
 
-#endif // CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
+#endif  // CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
 

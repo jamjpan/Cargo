@@ -29,6 +29,7 @@
 #include "classes.h"
 #include "message.h"
 #include "types.h"
+
 #include "../sqlite3/sqlite3.h"
 
 namespace cargo {
@@ -42,62 +43,102 @@ namespace cargo {
 // then sleep for batch_time_ (settable with batch_time()). The method is
 // called continuously inside Cargo::step().
 class RSAlgorithm {
-public:
-    // Pass along a name string to your RSAlgorithm
-    RSAlgorithm(const std::string&);
-    ~RSAlgorithm();
+ public:
+  // Pass along a name string to your RSAlgorithm
+  RSAlgorithm(const std::string&);
+  ~RSAlgorithm();
 
-    virtual void                handle_customer(const Customer &);
-    virtual void                handle_vehicle(const Vehicle &);
-    virtual void                match();
-    virtual void                end();
-    virtual void                listen();
+  virtual void handle_customer(const Customer&);
+  virtual void handle_vehicle(const Vehicle&);
+  virtual void match();
+  virtual void end();
+  virtual void listen();
 
-    // Write assignment to the db
-    bool commit(const std::vector<Customer>&, const std::shared_ptr<MutableVehicle>&,
-                const std::vector<Waypoint>&, const std::vector<Stop>&,
-                std::vector<Waypoint>&, DistanceInt&);
-    bool commit(const std::vector<Customer>&, const Vehicle&,
-                const std::vector<Waypoint>&, const std::vector<Stop>&,
-                std::vector<Waypoint>&, DistanceInt&);
+  const std::string & name() const;
+  const bool        & done() const;
+        int         & batch_time();  // <-- set to 0 for streaming
+        void          kill();        // <-- sets done_ to true
 
-    const std::string&          name()                  const;
-    bool                        done()                  const;
-    void                        kill();         // <-- sets done_ to true
-    int&                        batch_time();   // <-- set to 0 for streaming
+  // Customers and vehicles are refreshed whenever listen() is called
+  std::vector<Customer> & customers();
+  std::vector<Vehicle>  & vehicles();
 
-    // Customers and vehicles are refreshed whenever listen() is called
-    std::vector<Customer>&      waiting_customers();
-    std::vector<Vehicle>&       vehicles();
+  // Write assignment to the db
+  bool commit(
+          const std::vector<Customer>&, // custs
+          const Vehicle&,               // vehicle
+          const std::vector<Wayp>&,     // new route
+          const std::vector<Stop>&,     // new schedule
+                std::vector<Wayp>&,     // out (after sync) route
+                std::vector<Stop>&,     // out (after sync) schedule
+                DistInt&);              // out (after sync) nnd
 
-    Message print_out;
-    Message print_info;
-    Message print_warning;
-    Message print_error;
-    Message print_success;
+  bool commit( // use MutableVehicle
+          const std::vector<Customer>&,
+          const std::shared_ptr<MutableVehicle>&,
+          const std::vector<Wayp>&,     // new route
+          const std::vector<Stop>&,     // new schedule
+                std::vector<Wayp>&,     // out route
+                std::vector<Stop>&,     // out schedule
+                DistInt&);              // out nnd
 
-private:
-    std::string name_;
-    bool done_;
-    int batch_time_; // seconds
+  // Non-outputting
+  bool commit(
+          const std::vector<Customer>&,
+          const Vehicle&,
+          const std::vector<Wayp>&,
+          const std::vector<Stop>&);
 
-    std::vector<Customer> waiting_customers_;
-    std::vector<Vehicle> vehicles_;
+  bool commit( // use MutableVehicle
+          const std::vector<Customer>&,
+          const std::shared_ptr<MutableVehicle>&,
+          const std::vector<Wayp>&,
+          const std::vector<Stop>&);
 
-    SqliteReturnCode rc;
-    sqlite3_stmt* ssr_stmt; // select route
-    sqlite3_stmt* uro_stmt; // update route
-    sqlite3_stmt* sch_stmt; // update sched
-    sqlite3_stmt* qud_stmt; // increase queued
-    sqlite3_stmt* com_stmt; // assign cust to veh
-    sqlite3_stmt* smv_stmt; // select matchable vehicles
-    sqlite3_stmt* swc_stmt; // select waiting customers
+  Message print_out;
+  Message print_info;
+  Message print_warning;
+  Message print_error;
+  Message print_success;
 
-    void select_matchable_vehicles();
-    void select_waiting_customers();
+ private:
+  std::string name_;
+  bool done_;
+  int batch_time_;  // seconds
+
+  std::vector<Customer> customers_;
+  std::vector<Vehicle>  vehicles_;
+
+  SqliteReturnCode rc;
+  sqlite3_stmt* ssr_stmt;  // select route
+  sqlite3_stmt* sss_stmt;  // select schedule
+  sqlite3_stmt* uro_stmt;  // update route
+  sqlite3_stmt* sch_stmt;  // update sched
+  sqlite3_stmt* qud_stmt;  // increase queued
+  sqlite3_stmt* com_stmt;  // assign cust to veh
+  sqlite3_stmt* smv_stmt;  // select matchable vehicles
+  sqlite3_stmt* swc_stmt;  // select waiting customers
+
+  void select_matchable_vehicles();
+  void select_waiting_customers();
+
+  /* Returns false if sync is impossible */
+  bool sync_route(const std::vector<Wayp> &,     // new route
+                  const std::vector<Wayp> &,     // current route
+                  const RteIdx &,                // current last-visited-node idx
+                  const std::vector<Customer> &, // new customers in the route
+                        std::vector<Wayp> &);    // synchronized output
+
+  /* Removes from new schedule any stops not in current schedule or custs;
+   * Sets first stop in new schedule to be the same as first stop in cur sch */
+  bool sync_schedule(const std::vector<Stop> &,     // new schedule
+                     const std::vector<Stop> &,     // current schedule
+                     const std::vector<Wayp> &,     // synced route
+                     const std::vector<Customer> &, // new customers in the sch
+                           std::vector<Stop> &);    // synchronized output
 };
 
-} // namespace cargo
+}  // namespace cargo
 
-#endif // CARGO_INCLUDE_LIBCARGO_RSALGORITHM_H_
+#endif  // CARGO_INCLUDE_LIBCARGO_RSALGORITHM_H_
 

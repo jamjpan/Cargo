@@ -29,142 +29,125 @@
 
 namespace cargo {
 
-// We use many "logical" numerical types such as node IDs, edge IDs,
-// trip IDs, etc. Unfortunately the possibility exists for these types to
-// get "mingled" in the code. For example, consider, where TripId and NodeId
-// are int types:
-//     TripId tid;
-//     NodeId nid;
-//
-// The following assignment is allowed by C++ even though the two vars are
-// logically different:
-//     nid = tid;
-//     tid = nid;
-//
-// There are other similar issues in type conversion.
-//
-// Google or-tools has a nice template class in int_type.h to prevent these
-// kinds of issues. We can consider using their template IntType class in the
-// future. But for now, using typedefs to at least provide some semantic
-// difference is better than nothing. But we don't have static type-checking.
+/* We use many "logical" numerical types such as node IDs, edge IDs, trip IDs,
+ * etc. Unfortunately these types can get "mingled" in the code. For example,
+ * consider, where TripId and NodeId are int types:
+ *     TripId tid;
+ *     NodeId nid;
+ *
+ * The following assignment is allowed by C++ even though the two are logically
+ * different:
+ *     nid = tid;
+ *     tid = nid;
+ *
+ * There are other similar issues in type conversion.
+ *
+ * Google or-tools has a nice template class in int_type.h to prevent these
+ * kinds of issues. We can consider using their template IntType class in the
+ * future. But for now, using typedefs to at least provide some semantic
+ * difference is better than nothing. But we don't have static type-checking.
+ */
 
-// ints are guaranteed at least 32-bits ~> 2 billion values.
+// "NodeId" type-class
 typedef int NodeId;
-typedef int OriginId;
-typedef int DestinationId;
+typedef int OrigId;
+typedef int DestId;
 
-// these are part of the same "type-class", and are interchangeable.
+// "TripId" type-class
 typedef int TripId;
-typedef int VehicleId;
-typedef int CustomerId;
+typedef int VehlId;
+typedef int CustId;
 
-typedef double Longitude;
-typedef double Latitude;
+// "Lon/Lat" type-class
+typedef double Lon;
+typedef double Lat;
 
-// Spatial data type.
 struct Point {
-    Longitude lng;
-    Latitude lat;
+  Lon lng;
+  Lat lat;
 };
 
 struct BoundingBox {
-    Point lower_left;
-    Point upper_right;
+  Point lower_left;
+  Point upper_right;
 };
 
-// All of these are in meters.
-typedef int DistanceInt;
-typedef float DistanceFloat;
-typedef double DistanceDouble;
+// unit: meters
+typedef int    DistInt;
+typedef float  DistFlt;
+typedef double DistDbl;
 
-// Used as the internal simulation time; one SimTime is roughly equivalent to
-// one real second. Time windows are expressed as SimTime, with 0 being the
-// start of the simulation. Travel time is also expressed as SimTime, computed
-// as the real (haversine) distance divided by the real speed, in m/s, and
-// rounded.
-typedef int SimTime;
-typedef int EarlyTime;
-typedef int LateTime;
+/* "SimlTime" type class
+ * One SimlTime is one atom of time. Simulation starts at SimlTime = 0.
+ * All times (time windows, travel times) are expressed as SimlTime. */
+typedef int SimlTime;
+typedef int ErlyTime;  // time window early
+typedef int LateTime;  // time window late
 
-typedef float Speed; // meters per second
+// Meters per second
+typedef float Speed;
 
-// These used to be in all uppercase, but according to the ISO C++ guidelines,
-// only macros should be in uppercase.
-// http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-naming
 enum class StopType {
-    CustomerOrigin, // = 0
-    CustomerDest,   // = 1
-    VehicleOrigin,  // = 2
-    VehicleDest,    // = 3
+  CustOrig,  // = 0
+  CustDest,  // = 1
+  VehlOrig,  // = 2
+  VehlDest,  // = 3
 };
 
 // TODO add a "not appeared" status
-enum class CustomerStatus {
-    Waiting,        // = 0
-    Onboard,        // = 1
-    Arrived,        // = 2
-    Canceled,       // = 3
+enum class CustStatus {
+  Waiting,   // = 0
+  Onboard,   // = 1
+  Arrived,   // = 2
+  Canceled,  // = 3
 };
 
-enum class VehicleStatus {
-    Waiting,        // = 0
-    Enroute,        // = 1
-    Arrived,        // = 2
+enum class VehlStatus {
+  Waiting,  // = 0
+  Enroute,  // = 1
+  Arrived,  // = 2
 };
 
-typedef int Load; // a Load < 0 indicates a vehicle; > 0 indicates a customer
+typedef int Load;  // positive=customer, negative=vehicle
 
-typedef std::pair<DistanceInt, NodeId> Waypoint;
-typedef std::pair<DistanceInt, NodeId> Wayp;
+typedef std::pair<DistInt, NodeId> Wayp;
 
-typedef size_t RouteIndex;
-typedef size_t ScheduleIndex;
+typedef size_t RteIdx;
+typedef size_t SchIdx;
 
 // Lookup nodes.
-typedef std::unordered_map<NodeId, Point> KeyValueNodes;
+typedef std::unordered_map<NodeId, Point> KVNodes;
 
 // Lookup edges.  The key-value store is "undirected"; that is, from-to and
 // to-from key combinations both exist in the store. Usage:
-//     EdgeMap em_;
+//     KVEdges em_;
 //     em[from_id][to_id] = weight;
-typedef std::unordered_map<NodeId, std::unordered_map<NodeId, DistanceDouble>>
-    KeyValueEdges;
-
-// Request broadcast time map
-typedef std::unordered_map<
-    CustomerId, std::chrono::time_point<std::chrono::high_resolution_clock>>
-    KeyValueBroadcastTime;
-
-// Simulator status flags
-enum class SimulatorStatus {
-    Running,        // = 0
-    Done,           // = 1
-};
+typedef std::unordered_map<NodeId, std::unordered_map<NodeId, DistDbl>> KVEdges;
 
 // Filepath
 typedef std::string Filepath;
 
 // Infinity
-const int InfinityInt = std::numeric_limits<int>::max();
-const double InfinityDouble = std::numeric_limits<double>::infinity();
+const int    InfInt = std::numeric_limits<int>::max();
+const double InfDbl = std::numeric_limits<double>::infinity();
 
 // Math PI
 const double MathPI = 3.141592653589793238462643383279502884L;
 
 // SQLite
-typedef int SqliteReturnCode;
-typedef char* SqliteErrorMessage;
+typedef int         SqliteReturnCode;
+typedef char*       SqliteErrorMessage;
 typedef const char* SqliteQuery;
 
 // Debug levels
 enum class DebugFlag {
-    Level0, // turn off debugging messages
-    Level1,
-    Level2,
-    Level3,
+  Level0,  // turn off debugging messages
+  Level1,
+  Level2,
+  Level3,
 };
 
-} // namespace cargo
+}  // namespace cargo
 
-#endif // CARGO_INCLUDE_LIBCARGO_TYPES_H_
+#endif  // CARGO_INCLUDE_LIBCARGO_TYPES_H_
 

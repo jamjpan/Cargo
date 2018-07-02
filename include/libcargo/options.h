@@ -38,7 +38,7 @@ struct Options {
     // approximately 1/2 real seconds.
     float time_multiplier;
 
-    SimTime matching_period; // Customers must be matched within this time (sec)
+    SimlTime matching_period; // Customers must be matched within this time (sec)
     Speed vehicle_speed; // meters per second
 };
 

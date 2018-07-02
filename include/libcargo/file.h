@@ -32,13 +32,13 @@ namespace cargo {
 // These functions throw runtime_errors if the file cannot be read.
 
 // Returns number of nodes
-size_t read_nodes(const Filepath&, KeyValueNodes&);
+size_t read_nodes(const Filepath&, KVNodes&);
 
 // Returns number of nodes, and output min/max lng/lat
-size_t read_nodes(const Filepath&, KeyValueNodes&, BoundingBox&);
+size_t read_nodes(const Filepath&, KVNodes&, BoundingBox&);
 
 // Returns number of edges
-size_t read_edges(const Filepath&, KeyValueEdges&);
+size_t read_edges(const Filepath&, KVEdges&);
 
 // Returns number of trips
 size_t read_problem(const Filepath&, ProblemSet&);

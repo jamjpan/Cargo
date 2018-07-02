@@ -24,7 +24,7 @@
 #include <memory>
 #include <vector>
 
-#include "libcargo/cargo.h" /* bbox(), node2pt() */
+#include "libcargo/cargo.h" /* Cargo::bbox(), Cargo::node2pt() */
 #include "libcargo/classes.h"
 #include "libcargo/distance.h"
 #include "libcargo/grid.h"
@@ -32,81 +32,75 @@
 
 namespace cargo {
 
-Grid::Grid(int n)
-{
-    x_dim_ = (Cargo::bbox().upper_right.lng - Cargo::bbox().lower_left.lng) / n;
-    y_dim_ = (Cargo::bbox().upper_right.lat - Cargo::bbox().lower_left.lat) / n;
-    data_.resize(n * n, {});
-    n_ = n;
+Grid::Grid(int n) {
+  x_dim_ = (Cargo::bbox().upper_right.lng - Cargo::bbox().lower_left.lng) / n;
+  y_dim_ = (Cargo::bbox().upper_right.lat - Cargo::bbox().lower_left.lat) / n;
+  data_.resize(n * n, {});
+  n_ = n;
 }
 
-void Grid::insert(const Vehicle& veh)
-{
-    MutableVehicle mveh(veh);
-    insert(mveh);
+void Grid::insert(const Vehicle& vehl) {
+  MutableVehicle mutvehl(vehl);
+  insert(mutvehl);
 }
 
-void Grid::insert(const MutableVehicle& mveh)
-{
-    // Create a new MutableVehicle as a copy of mveh
-    // Create and store a shared_ptr to the copy
-    auto sptr = std::make_shared<MutableVehicle>(mveh);
-    data_.at(hash(Cargo::node2pt(mveh.last_visited_node()))).push_back(sptr);
+void Grid::insert(const MutableVehicle& mutvehl) {
+  // Create a new MutableVehicle as a copy of mutvehl
+  // Create and store a shared_ptr to the copy
+  auto sptr = std::make_shared<MutableVehicle>(mutvehl);
+  data_.at(hash(Cargo::node2pt(mutvehl.last_visited_node()))).push_back(sptr);
 }
 
-// Populate res_ with pointers to the underlying MutableVehicles we are
+// Populate res with pointers to the underlying MutableVehicles we are
 // interested in, and return a reference to the vector.
-std::vector<std::shared_ptr<MutableVehicle>>&
-Grid::within_about(const DistanceDouble& d, const NodeId& node)
-{
-    res_.clear();
-    int offset_x = std::ceil(metersTolngdegs(d, Cargo::node2pt(node).lat)/x_dim_);
-    int offset_y = std::ceil(metersTolatdegs(d)/y_dim_);
-    int base_x = hash_x(Cargo::node2pt(node));
-    int base_y = hash_y(Cargo::node2pt(node));
-    // i,j must be positive, and less than n_
-    for (int j = std::max(0, base_y - offset_y); j <= std::min(base_y + offset_y, n_-1); ++j)
-        for (int i = std::max(0, base_x - offset_x); i <= std::min(base_x + offset_x, n_-1); ++i) {
-            int k = i+j*n_;
-            for (const auto& sptr : data_.at(k))
-                res_.push_back(sptr);
-        }
-    return res_;
+std::vector<std::shared_ptr<MutableVehicle>>& Grid::within_about(
+    const DistDbl& d, const NodeId& node) {
+  res_.clear();
+  int offset_x =
+      std::ceil(metersTolngdegs(d, Cargo::node2pt(node).lat) / x_dim_);
+  int offset_y = std::ceil(metersTolatdegs(d) / y_dim_);
+  int base_x = hash_x(Cargo::node2pt(node));
+  int base_y = hash_y(Cargo::node2pt(node));
+  // i,j must be positive, and less than n_
+  for (int j = std::max(0, base_y - offset_y);
+       j <= std::min(base_y + offset_y, n_ - 1); ++j)
+    for (int i = std::max(0, base_x - offset_x);
+         i <= std::min(base_x + offset_x, n_ - 1); ++i) {
+      int k = i + j * n_;
+      for (const auto& sptr : data_.at(k)) res_.push_back(sptr);
+    }
+  return res_;
 }
 
-void Grid::commit(std::shared_ptr<MutableVehicle>& mveh,
-        const std::vector<Waypoint>& new_route, const std::vector<Stop>& new_schedule,
-        const DistanceInt& sync_nnd)
-{
-    mveh->set_route(new_route);
-    mveh->set_schedule(new_schedule);
-    mveh->set_nnd(sync_nnd);
-    mveh->reset_lvn();
-    mveh->incr_queued();
+void Grid::commit(
+        std::shared_ptr<MutableVehicle> & mutvehl,
+        const std::vector<Wayp>         & new_rte,
+        const std::vector<Stop>         & new_sch,
+        const DistInt                   & new_nnd) {
+  mutvehl->set_route(new_rte);
+  mutvehl->set_schedule(new_sch);
+  mutvehl->set_nnd(new_nnd);
+  mutvehl->reset_lvn();
+  mutvehl->incr_queued();
 }
 
-void Grid::clear()
-{
-    data_.clear();
-    data_.resize(n_*n_, {});
+void Grid::clear() {
+  data_.clear();
+  data_.resize(n_ * n_, {});
 }
 
-int Grid::hash(const Point& coord)
-{
-    // x nor y can be greater than n_
-    return std::min(hash_x(coord), n_ - 1) +
-           std::min(hash_y(coord), n_ - 1) * n_;
+int Grid::hash(const Point& coord) {
+  // x nor y can be greater than n_
+  return std::min(hash_x(coord), n_ - 1) + std::min(hash_y(coord), n_ - 1) * n_;
 }
 
-int Grid::hash_x(const Point& coord)
-{
-    return (int)std::floor((coord.lng - Cargo::bbox().lower_left.lng) / x_dim_);
+int Grid::hash_x(const Point& coord) {
+  return (int)std::floor((coord.lng - Cargo::bbox().lower_left.lng) / x_dim_);
 }
 
-int Grid::hash_y(const Point& coord)
-{
-    return (int)std::floor((coord.lat - Cargo::bbox().lower_left.lat) / y_dim_);
+int Grid::hash_y(const Point& coord) {
+  return (int)std::floor((coord.lat - Cargo::bbox().lower_left.lat) / y_dim_);
 }
 
-} // namespace cargo
+}  // namespace cargo
 

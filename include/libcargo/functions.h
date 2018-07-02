@@ -25,18 +25,21 @@
 
 #include "classes.h"
 #include "types.h"
+
 #include "../gtree/gtree.h"
 
 namespace cargo {
 
-DistanceInt pickup_range(const Customer &, const SimTime &);
+DistInt pickup_range(const Customer &, const SimlTime &, GTree::G_Tree &);
+DistInt pickup_range(const Customer &, const SimlTime &);
 
 // Given a schedule, return the route through the schedule and its cost. Cost is
 // integer because G_Tree only returns int.
 // O(|schedule|*|nodes|)
-DistanceInt route_through(const std::vector<Stop> &, std::vector<Waypoint> &, GTree::G_Tree &);
-DistanceInt route_through(const std::vector<Stop> &, std::vector<Waypoint> &);
-DistanceInt route_through(const Schedule &, std::vector<Waypoint> &);
+DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &);
+DistInt route_through(const Schedule &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt route_through(const Schedule &, std::vector<Wayp> &);
 
 // Given a schedule, find if precedence is satisfied.
 // O(|schedule|^2)
@@ -44,7 +47,7 @@ bool check_precedence_constr(const Schedule &);
 
 // Given a schedule, find if time windows are satisfied
 // O(|schedule|+|route|)
-bool check_timewindow_constr(const std::vector<Stop> &, const std::vector<Waypoint> &);
+bool check_timewindow_constr(const std::vector<Stop> &, const std::vector<Wayp> &);
 bool check_timewindow_constr(const Schedule &, const Route &);
 
 // Given a schedule and a customer, return the cost of the best-insertion
@@ -52,13 +55,45 @@ bool check_timewindow_constr(const Schedule &, const Route &);
 // fixing the end points. Set the first bool to true to fix the start, and
 // set the second bool to true to fix the end.
 // O(|schedule|^2*c_route_through)
-DistanceInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool, std::vector<Stop> &, std::vector<Waypoint> &, GTree::G_Tree &);
-DistanceInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool, std::vector<Stop> &, std::vector<Waypoint> &);
-DistanceInt sop_insert(const Vehicle &, const Customer &, std::vector<Stop> &, std::vector<Waypoint> &, GTree::G_Tree &);
-DistanceInt sop_insert(const Vehicle &, const Customer &, std::vector<Stop> &, std::vector<Waypoint> &);
-DistanceInt sop_insert(const std::shared_ptr<MutableVehicle> &, const Customer &, std::vector<Stop> &, std::vector<Waypoint> &);
+DistInt sop_insert(
+        const std::vector<Stop> &,
+        const Stop &,
+        const Stop &,
+        bool,
+        bool,
+        std::vector<Stop> &,
+        std::vector<Wayp> &,
+        GTree::G_Tree &);
 
-} // namespace cargo
+DistInt sop_insert( // use default GTree
+        const std::vector<Stop> &,
+        const Stop &,
+        const Stop &,
+        bool,
+        bool,
+        std::vector<Stop> &,
+        std::vector<Wayp> &);
 
-#endif // CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
+DistInt sop_insert( // use Vehicle/Customer
+        const Vehicle &,
+        const Customer &,
+        std::vector<Stop> &,
+        std::vector<Wayp> &,
+        GTree::G_Tree &);
+
+DistInt sop_insert( // use Vehicle/Customer default GTree
+        const Vehicle &,
+        const Customer &,
+        std::vector<Stop> &,
+        std::vector<Wayp> &);
+
+DistInt sop_insert( // use MutableVehicle/Customer default GTree
+        const std::shared_ptr<MutableVehicle> &,
+        const Customer &,
+        std::vector<Stop> &,
+        std::vector<Wayp> &);
+
+}  // namespace cargo
+
+#endif  // CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
 

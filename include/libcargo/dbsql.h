@@ -22,7 +22,7 @@
 #ifndef CARGO_INCLUDE_LIBCARGO_DBSQL_H_
 #define CARGO_INCLUDE_LIBCARGO_DBSQL_H_
 
-#include "types.h" /* SqliteQuery */
+#include "types.h" /* SqliteQuery types */
 
 namespace cargo {
 namespace sql {
@@ -111,6 +111,9 @@ const SqliteQuery smv_stmt = // select matchable vehicles
 
 const SqliteQuery ssr_stmt = // select single route
     "select * from routes where owner = ?;";
+
+const SqliteQuery sss_stmt = // select single schedule
+    "select * from schedules where owner = ?;";
 
 const SqliteQuery swc_stmt = // select waiting customers
     "select * from customers where status = ? and ? >= early;";

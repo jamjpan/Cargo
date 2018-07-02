@@ -22,14 +22,14 @@
 #ifndef CARGO_INCLUDE_LIBCARGO_H_
 #define CARGO_INCLUDE_LIBCARGO_H_
 
-namespace cargo {} // namespace cargo
+namespace cargo {}  // namespace cargo
 
 #include "libcargo/cargo.h"
 #include "libcargo/classes.h"
 #include "libcargo/dbsql.h"
 #include "libcargo/distance.h"
-#include "libcargo/grid.h"
 #include "libcargo/file.h"
+#include "libcargo/grid.h"
 #include "libcargo/message.h"
 #include "libcargo/options.h"
 #include "libcargo/rsalgorithm.h"
@@ -37,5 +37,5 @@ namespace cargo {} // namespace cargo
 #include "gtree/gtree.h"
 #include "sqlite3/sqlite3.h"
 
-#endif // CARGO_INCLUDE_LIBCARGO_H_
+#endif  // CARGO_INCLUDE_LIBCARGO_H_
 
