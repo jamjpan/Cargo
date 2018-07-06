@@ -49,5 +49,7 @@ class KineticTrees : public RSAlgorithm {
   std::unordered_map<VehlId, TreeTaxiPath*>     kt_;
   std::unordered_map<VehlId, std::vector<Stop>> sched_;
   std::unordered_map<VehlId, SimlTime>          last_modified_;
+
+  int compute_steps(const std::vector<Stop> &, const std::vector<Stop> &);
 };
 

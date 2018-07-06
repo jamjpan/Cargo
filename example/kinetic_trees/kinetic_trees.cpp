@@ -133,8 +133,16 @@ void KineticTrees::handle_customer(const cargo::Customer& cust) {
     cargo::DistInt sync_nnd;
 
     if (commit({cust}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
+      /* Commit the synced vehicle to the grid */
       grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-      kt_.at(best_vehl->id())->push(); // DO I HAVE TO PUSH THE SYNC_SCH?
+
+      /* Accept the new kinetic tree, and sync it up to sync_sch */
+      kt_.at(best_vehl->id())->push();
+      int visited_stops = compute_steps(best_sch, sync_sch);
+      for (int i = 0; i < visited_stops; ++i)
+        kt_.at(best_vehl->id())->step();
+
+      /* Print and increment counter */
       print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     } else {
@@ -156,21 +164,15 @@ void KineticTrees::handle_vehicle(const cargo::Vehicle& vehl) {
     last_modified_[vehl.id()] = Cargo::now();
 
   /* Step the kinetic tree */
-  if (sched_.count(vehl.id()) != 0)
-  /* The vehicle could have moved a lot since the last handle_vehicle to it.
-   * We check its current schedule against our memory of its schedule and
-   * adjust the kinetic tree to match. */
-  if (sched_.at(vehl.id()).at(0).loc() != vehl.dest()) {
-  std::vector<Stop> visited_stops;
-  for (auto j = sched_.at(vehl.id()).begin()+1; j != sched_.at(vehl.id()).end(); ++j) {
-    auto i = std::find_if(vehl.schedule().data().begin(), vehl.schedule().data().end(),
-      [&](const Stop& a) { return a == *j; });
-    if (i == vehl.schedule().data().end()) // <-- no longer in vehl's sch
-      visited_stops.push_back(*j);
-    else break;
-  }
-  for (size_t i = 0; i < visited_stops.size(); ++i)
-    kt_.at(vehl.id())->step();
+  if (sched_.count(vehl.id()) != 0) {
+    /* The vehicle could have moved a lot since the last handle_vehicle to it.
+     * We check its current schedule against our memory of its schedule and
+     * adjust the kinetic tree to match. */
+    if (sched_.at(vehl.id()).at(0).loc() != vehl.dest()) {
+      int visited_stops = compute_steps(sched_.at(vehl.id()), vehl.schedule().data());
+      for (int i = 0; i < visited_stops; ++i)
+        kt_.at(vehl.id())->step();
+    }
   }
 
   /* Create/Update vehicle schedules */
@@ -186,14 +188,25 @@ void KineticTrees::handle_vehicle(const cargo::Vehicle& vehl) {
 
 void KineticTrees::end() {
   print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
-
-  /* Cleanup */
-  for (auto kv : kt_) delete kv.second;
+  for (auto kv : kt_) delete kv.second; // <-- cleanup
 }
 
 void KineticTrees::listen() {
   grid_.clear();          // Clear the index...
   RSAlgorithm::listen();  // ...then call listen()
+}
+
+int KineticTrees::compute_steps(const std::vector<Stop>& cur_sch,
+                                const std::vector<Stop>& new_sch) {
+    int visited_stops = 0;
+    for (auto j = cur_sch.begin()+1; j != cur_sch.end(); ++j) {
+      auto i = std::find_if(new_sch.begin(), new_sch.end(), [&](const Stop& a) { return a == *j; });
+      if (i == new_sch.end()) // <-- no longer in vehl's sch
+        visited_stops++;
+      else
+        break;
+    }
+    return visited_stops;
 }
 
 int main() {
@@ -202,9 +215,9 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-sm-4.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 5;
+  op.time_multiplier  = 1;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 
