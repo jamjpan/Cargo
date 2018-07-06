@@ -15,6 +15,12 @@ distance.
 Cargo: a C++11 library that aims to provide a set of abstractions for easily
 developing and testing online ridesharing algorithms.
 
+### Quick Links
+* [Road networks](data/roadnetwork)
+* [Benchmark instances](data/benchmark)
+* [Algorithm examples](example)
+* [Optimal MIP solver](tool/rspoptsol)
+
 ### Similar projects
 There are a few similar projects.
 
@@ -47,7 +53,7 @@ Supports:
 
 Does not (currently) support:
 * Variable-cost roads (traffic)
-* Directed road networks (<-- needs testing)
+* Directed road networks (<-- probably supported but needs testing)
 * Vehicles "waiting" at a stop (*possible* but needs some work)
 * Service-time at stops (for later)
 
