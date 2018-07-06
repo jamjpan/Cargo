@@ -12,12 +12,12 @@ TODO (benchmarks aren't final yet)
 
 ```
 *.instance
-The first line is the instance name.
-The second line is the road network the instance corresponds to.
-The third line gives the number of vehicles.
-The fourth line gives the number of customers.
-The fifth line is blank.
-The sixth line gives the column headers
+Line 1 is the instance name.
+Line 2 is the road network the instance corresponds to.
+Line 3 gives the number of vehicles.
+Line 4 gives the number of customers.
+Line 5 is blank.
+Line 6 gives the column headers
 The column headers are:
     ID: the ID of the customer/vehicle
     ORIGIN: the origin node
