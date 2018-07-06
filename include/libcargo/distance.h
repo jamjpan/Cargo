@@ -44,6 +44,10 @@ inline DistDbl haversine(const Point& u, const Point& v) {
   return r * (2 * std::asin(std::sqrt(a)));  // meters
 }
 
+inline DistDbl haversine(NodeId u, NodeId v) {
+  return haversine(Cargo::node2pt(u), Cargo::node2pt(v));
+}
+
 inline DistInt shortest_path_dist( // use specific gtree
         const NodeId& u,
         const NodeId& v,
