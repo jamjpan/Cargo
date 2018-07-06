@@ -77,8 +77,11 @@ std::vector<Customer> & RSAlgorithm::customers() {
 
 std::vector<Vehicle> & RSAlgorithm::vehicles() { return vehicles_; }
 
+// TODO: commit() is such an important function. It should be documented what
+// exactly it does and for which cases. Error handling should be rigorous here.
 bool RSAlgorithm::commit(
-        const std::vector<Customer> & custs,
+        const std::vector<Customer> & custs_to_add,
+        const std::vector<CustId>   & custs_to_del,
         const Vehicle               & veh,
         const std::vector<Wayp>     & new_rte,
         const std::vector<Stop>     & new_sch,
@@ -88,15 +91,27 @@ bool RSAlgorithm::commit(
 
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
 
+  // TODO: What to do if one or more customers are invalid, i.e. their status
+  // is Onboard, Arrived, or Canceled? Reject the entire commit, or just reject
+  // the invalid customers?
+
   /* Synchronize
-   * The vehicle may have moved since new_rte/new_sch were computed.  The
-   * new_rte/new_sch should be synchronized with the current route. In other
-   * words, new_rte may not be possible anymore due to the vehicle movement.
-   * For example,
-   *     new_route may start with {a, x, y, d, e},
-   *     the old route may be     {a, b, c, d, e},
-   * the vehicle may already be at d, hence moving to x, y is no longer
-   * possible. The commit should be rejected in this case. */
+   * Due to matching latency, new_rte (new_sch) may not be valid to commit to
+   * veh. Matching latency is the time from when a request is first received
+   * until the time when a match for the request is made.  During this time,
+   * veh may have moved to a node where it cannot follow new_rte anymore. For
+   * example, consider
+   *     new route {a, x, y, b, c,  d, e, ...}
+   *     old route {a,       b, c, *d, e, ...} (d is current pos)
+   * The request was received when the vehicle was at a, hence new_rte begins
+   * at a, but the vehicle has now moved to d, and the new route cannot be
+   * served.
+   *
+   * How do we handle this out-of-sync due to matching latency?
+   * 1. Reject the commit
+   * 2. Re-route the vehicle through new_sch, but starting from its current
+   *    position.
+   * For now, we choose option 1. */
 
   /* Get current route */
   RteIdx cur_lvn = 0;
@@ -126,27 +141,40 @@ bool RSAlgorithm::commit(
   sqlite3_clear_bindings(sss_stmt);
   sqlite3_reset(sss_stmt);
 
+
   // DEBUGGGGG
-  std::cout << std::endl;
-  std::cout << "rsalgorithm commit Vehicle " << veh.id() << std::endl;
-  std::cout << "new_rte: ";
-  for (const auto& wp : new_rte)
-      std::cout << " (" << wp.first << "|" << wp.second << ")";
-  std::cout << std::endl;
-  std::cout << "new_sch: ";
-  for (const auto& stop : new_sch)
-      std::cout << " (" << stop.loc() << "|" << (int)stop.type() << ")";
-  std::cout << std::endl;
+  // std::cout << std::endl;
+  // std::cout << "rsalgorithm commit Vehicle " << veh.id() << std::endl;
+  // std::cout << "new_rte: ";
+  // for (const auto& wp : new_rte)
+  //     std::cout << " (" << wp.first << "|" << wp.second << ")";
+  // std::cout << std::endl;
+  // std::cout << "new_sch: ";
+  // for (const auto& stop : new_sch)
+  //     std::cout << " (" << stop.loc() << "|" << (int)stop.type() << ")";
+  // std::cout << std::endl;
 
   /* Attempt synchronization */
   std::vector<Wayp> sync_rte;
-  if (sync_route(new_rte, cur_rte, cur_lvn, custs, sync_rte)) {
+  if (sync_route(new_rte, cur_rte, cur_lvn, custs_to_add, sync_rte)) {
 
     out_nnd = cur_nnd;
     out_rte = sync_rte;
 
+    // If stops belong to custs_to_del are no longer in cur_sch, the custs
+    // cannot be deleted (because they've already been picked up or dropped
+    // off. Reject the commit.
+    for (const auto& cust_id : custs_to_del) {
+      auto i = std::find_if(cur_sch.begin(), cur_sch.end(), [&](const Stop& a) { return a.owner() == cust_id; });
+      if (i == cur_sch.end())
+        return false;
+      auto j = std::find_if(i, cur_sch.end(), [&](const Stop& a) { return a.owner() == cust_id; });
+      if (j == cur_sch.end())
+        return false;
+    }
+
     std::vector<Stop> sync_sch;
-    if (sync_schedule(new_sch, cur_sch, sync_rte, custs, sync_sch)) {
+    if (sync_schedule(new_sch, cur_sch, sync_rte, custs_to_add, sync_sch)) {
       out_sch = sync_sch;
 
       // Commit the synchronized route
@@ -174,7 +202,8 @@ bool RSAlgorithm::commit(
       sqlite3_reset(sch_stmt);
 
       // Increase queued
-      sqlite3_bind_int(qud_stmt, 1, veh.id());
+      sqlite3_bind_int(qud_stmt, 1, (int)(custs_to_add.size()-custs_to_del.size()));
+      sqlite3_bind_int(qud_stmt, 2, veh.id());
       if ((rc = sqlite3_step(qud_stmt)) != SQLITE_DONE) {
         std::cout << "Error in qud " << rc << std::endl;
         throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
@@ -183,7 +212,7 @@ bool RSAlgorithm::commit(
       sqlite3_reset(qud_stmt);
 
       // Commit the assignment
-      for (const auto& cust : custs) {
+      for (const auto& cust : custs_to_add) {
         sqlite3_bind_int(com_stmt, 1, veh.id());
         sqlite3_bind_int(com_stmt, 2, cust.id());
         if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
@@ -193,6 +222,19 @@ bool RSAlgorithm::commit(
         sqlite3_clear_bindings(com_stmt);
         sqlite3_reset(com_stmt);
       }
+
+      // Commit un-assignments
+      for (const auto& cust_id : custs_to_del) {
+        sqlite3_bind_null(com_stmt, 1);
+        sqlite3_bind_int(com_stmt, 2, cust_id);
+        if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
+          std::cout << "Error in commit assignment " << rc << std::endl;
+          throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+        }
+        sqlite3_clear_bindings(com_stmt);
+        sqlite3_reset(com_stmt);
+      }
+
       return true;
     }
   }
@@ -201,34 +243,37 @@ bool RSAlgorithm::commit(
   return false;
 }
 
-bool RSAlgorithm::commit(const std::vector<Customer>& custs,
+bool RSAlgorithm::commit(const std::vector<Customer>& custs_to_add,
+                         const std::vector<CustId>& custs_to_del,
                          const std::shared_ptr<MutableVehicle>& mvehptr,
                          const std::vector<Wayp>& new_rte,
                          const std::vector<Stop>& new_sch,
                          std::vector<Wayp>& sync_rte,
                          std::vector<Stop>& sync_sch,
                          DistInt& sync_nnd) {
-  return commit(custs, *mvehptr, new_rte, new_sch, sync_rte, sync_sch, sync_nnd);
+  return commit(custs_to_add, custs_to_del, *mvehptr, new_rte, new_sch, sync_rte, sync_sch, sync_nnd);
 }
 
-bool RSAlgorithm::commit(const std::vector<Customer>& custs,
+bool RSAlgorithm::commit(const std::vector<Customer>& custs_to_add,
+                         const std::vector<CustId>& custs_to_del,
                          const Vehicle& veh,
                          const std::vector<Wayp>& new_rte,
                          const std::vector<Stop>& new_sch) {
   std::vector<Wayp> _1;
   std::vector<Stop> _2;
   DistInt _3;
-  return commit(custs, veh, new_rte, new_sch, _1, _2, _3);
+  return commit(custs_to_add, custs_to_del, veh, new_rte, new_sch, _1, _2, _3);
 }
 
-bool RSAlgorithm::commit(const std::vector<Customer>& custs,
+bool RSAlgorithm::commit(const std::vector<Customer>& custs_to_add,
+                         const std::vector<CustId>& custs_to_del,
                          const std::shared_ptr<MutableVehicle>& mvehptr,
                          const std::vector<Wayp>& new_rte,
                          const std::vector<Stop>& new_sch) {
   std::vector<Wayp> _1;
   std::vector<Stop> _2;
   DistInt _3;
-  return commit(custs, *mvehptr, new_rte, new_sch, _1, _2, _3);
+  return commit(custs_to_add, custs_to_del, *mvehptr, new_rte, new_sch, _1, _2, _3);
 }
 
 void RSAlgorithm::select_matchable_vehicles() {
@@ -344,7 +389,7 @@ bool RSAlgorithm::sync_schedule(const std::vector<Stop>& new_sch,
                                 const std::vector<Wayp>& sync_rte,
                                 const std::vector<Customer>& custs,
                                 std::vector<Stop>& sync_sch) {
-  /* A bit of a hack:
+  /* Ugly hack:
    * Sometimes we get a cur_sch like {a a b c} (a is the next node and is also
    * a stop). Due to matching latency, we can get a new_sch like {x y a a b c}
    * (x is already passed by the vehicle, hence it is not in cur_sch; y is newly
@@ -399,11 +444,8 @@ bool RSAlgorithm::sync_schedule(const std::vector<Stop>& new_sch,
       }
     }
   }
-  /* Sometimes even after syncing the route and the procedures above,
-   * sync_sch is still invalid because a new cust might have a stop before the
-   * vehicle's current location. Here we do a final check to make sure every
-   * stop is after the vehicle's current location, and all stops are in
-   * order as they appear in the route. */
+  /* Here we do a final check to make sure every stop is after the vehicle's
+   * cur location, and all stops are in order as they appear in the route. */
   auto x = sync_rte.begin()+1; // <-- use +1 to skip last-visited node
   for (const auto& stop : sync_sch) {
     auto y = std::find_if(x, sync_rte.end(), [&](const Wayp& a) {
@@ -426,7 +468,7 @@ void RSAlgorithm::handle_vehicle(const Vehicle&) {
 
 void RSAlgorithm::match() {
   /* For bulk-matching. Access current customers and vehicles using
-   * waiting_customers() and vehicles() */
+   * customers() and vehicles() */
 }
 
 void RSAlgorithm::end() { /* Executes after the simulation finishes. */ }
@@ -448,8 +490,7 @@ void RSAlgorithm::listen() {
   // Stop timing --------------------------------
 
   // Don't sleep if time exceeds batch time
-  int dur =
-      std::round(std::chrono::duration<double, std::milli>(t1 - t0).count());
+  int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
   if (dur > batch_time_ * 1000)
     print_warning << "listen() (" << dur << " ms) exceeds batch time ("
                   << batch_time_ * 1000 << " ms) for " << vehicles_.size()

@@ -133,7 +133,7 @@ const SqliteQuery pup_stmt = // increase load (pickup)
     "update vehicles set load = load+1 where id = ?; ";
 
 const SqliteQuery qud_stmt = // increase queued
-    "update vehicles set queued = queued+1 where id = ?;";
+    "update vehicles set queued = queued+? where id = ?;";
 
 const SqliteQuery drp_stmt = // decrease load, queued (dropoff)
     "update vehicles set load = load-1, queued = queued-1 where id = ?; ";

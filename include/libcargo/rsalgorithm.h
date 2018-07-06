@@ -65,7 +65,8 @@ class RSAlgorithm {
 
   // Write assignment to the db
   bool commit(
-          const std::vector<Customer>&, // custs
+          const std::vector<Customer>&, // custs to add
+          const std::vector<CustId>&,   // custs to remove
           const Vehicle&,               // vehicle
           const std::vector<Wayp>&,     // new route
           const std::vector<Stop>&,     // new schedule
@@ -75,6 +76,7 @@ class RSAlgorithm {
 
   bool commit( // use MutableVehicle
           const std::vector<Customer>&,
+          const std::vector<CustId>&,
           const std::shared_ptr<MutableVehicle>&,
           const std::vector<Wayp>&,     // new route
           const std::vector<Stop>&,     // new schedule
@@ -85,12 +87,14 @@ class RSAlgorithm {
   // Non-outputting
   bool commit(
           const std::vector<Customer>&,
+          const std::vector<CustId>&,
           const Vehicle&,
           const std::vector<Wayp>&,
           const std::vector<Stop>&);
 
   bool commit( // use MutableVehicle
           const std::vector<Customer>&,
+          const std::vector<CustId>&,
           const std::shared_ptr<MutableVehicle>&,
           const std::vector<Wayp>&,
           const std::vector<Stop>&);
