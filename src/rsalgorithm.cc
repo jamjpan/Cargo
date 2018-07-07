@@ -49,6 +49,8 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
       sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt, -1, &sav_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK) {
     print_error << "Failed (create rsalg stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
@@ -64,6 +66,8 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(com_stmt);
   sqlite3_finalize(smv_stmt);
   sqlite3_finalize(swc_stmt);
+  sqlite3_finalize(sac_stmt);
+  sqlite3_finalize(sav_stmt);
 }
 
 const std::string & RSAlgorithm::name() const { return name_; }
@@ -319,6 +323,47 @@ void RSAlgorithm::select_waiting_customers() {
   if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   sqlite3_clear_bindings(swc_stmt);
   sqlite3_reset(swc_stmt);
+}
+
+std::vector<Customer> RSAlgorithm::get_all_customers() {
+  std::vector<Customer> custs;
+  while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
+    Customer customer(
+        sqlite3_column_int(sac_stmt, 0), sqlite3_column_int(sac_stmt, 1),
+        sqlite3_column_int(sac_stmt, 2), sqlite3_column_int(sac_stmt, 3),
+        sqlite3_column_int(sac_stmt, 4), sqlite3_column_int(sac_stmt, 5),
+        static_cast<CustStatus>(sqlite3_column_int(sac_stmt, 6)),
+        sqlite3_column_int(sac_stmt, 7));
+    custs.push_back(customer);
+  }
+  if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+  sqlite3_reset(sac_stmt);
+  return custs;
+}
+
+std::vector<Vehicle> RSAlgorithm::get_all_vehicles() {
+  std::vector<Vehicle> vehls;
+  while ((rc = sqlite3_step(sav_stmt)) == SQLITE_ROW) {
+    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sav_stmt,  9));
+    const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(sav_stmt, 13));
+    std::vector<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(sav_stmt,  9) / sizeof(Wayp));
+    std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(sav_stmt, 13) / sizeof(Stop));
+    Route route(sqlite3_column_int(sav_stmt, 0), raw_rte);
+    Schedule schedule(sqlite3_column_int(sav_stmt, 0), raw_sch);
+
+    /* Construct vehicle object */
+    Vehicle vehicle(
+        sqlite3_column_int(sav_stmt, 0), sqlite3_column_int(sav_stmt, 1),
+        sqlite3_column_int(sav_stmt, 2), sqlite3_column_int(sav_stmt, 3),
+        sqlite3_column_int(sav_stmt, 4), sqlite3_column_int(sav_stmt, 5),
+        sqlite3_column_int(sav_stmt, 6), sqlite3_column_int(sav_stmt, 11),
+        route, schedule, sqlite3_column_int(sav_stmt, 10),
+        static_cast<VehlStatus>(sqlite3_column_int(sav_stmt, 7)));
+    vehls.push_back(vehicle);
+  }
+  if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+  sqlite3_reset(sav_stmt);
+  return vehls;
 }
 
 bool RSAlgorithm::sync_route(const std::vector<Wayp>& new_rte,

@@ -45,7 +45,7 @@ namespace cargo {
 class RSAlgorithm {
  public:
   // Pass along a name string to your RSAlgorithm
-  RSAlgorithm(const std::string&);
+  RSAlgorithm(const std::string& name = "noname");
   ~RSAlgorithm();
 
   virtual void handle_customer(const Customer&);
@@ -59,9 +59,18 @@ class RSAlgorithm {
         int         & batch_time();  // <-- set to 0 for streaming
         void          kill();        // <-- sets done_ to true
 
+  // Call these to populate customers_ and vehicles_
+  void select_matchable_vehicles();
+  void select_waiting_customers();
+
+  // Call these to retrieve customers_ and vehicles_
   // Customers and vehicles are refreshed whenever listen() is called
   std::vector<Customer> & customers();
   std::vector<Vehicle>  & vehicles();
+
+  // Call these to return all customer/vehicle objects.
+  std::vector<Customer> get_all_customers();
+  std::vector<Vehicle> get_all_vehicles();
 
   // Write assignment to the db
   bool commit(
@@ -121,10 +130,9 @@ class RSAlgorithm {
   sqlite3_stmt* qud_stmt;  // increase queued
   sqlite3_stmt* com_stmt;  // assign cust to veh
   sqlite3_stmt* smv_stmt;  // select matchable vehicles
+  sqlite3_stmt* sav_stmt;  // select all vehicles
   sqlite3_stmt* swc_stmt;  // select waiting customers
-
-  void select_matchable_vehicles();
-  void select_waiting_customers();
+  sqlite3_stmt* sac_stmt;  // select all customers
 
   /* Returns false if sync is impossible */
   bool sync_route(const std::vector<Wayp> &,     // new route
