@@ -49,7 +49,7 @@
 
 namespace cargo {
 
-const int debug_flag = (int)DebugFlag::Level2;
+const int debug_flag = (int)DebugFlag::Level1;
 
 /* Initialize global vars */
 KVNodes Cargo::nodes_ = {};
@@ -235,25 +235,25 @@ int Cargo::step(int& ndeact) {
         sqlite3_reset(vis_stmt);
       }  // end inner while
       // DEBUGGGGG
-      if (active) {
-      try {
-        int x = rte.at(lvn+1).first;
-        int y = rte.at(lvn).first;
-      } catch (...) {
-        print_out << std::endl;
-        print_error << "rte.at(lvn+1) / rte.at(lvn) failed" << std::endl;
+      // if (active) {
+      // try {
+      //   int x = rte.at(lvn+1).first;
+      //   int y = rte.at(lvn).first;
+      // } catch (...) {
+      //   print_out << std::endl;
+      //   print_error << "rte.at(lvn+1) / rte.at(lvn) failed" << std::endl;
 
-        print_out << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t"
-                  << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn;
-        print_out << "\n\tsched:";
-        for (const Stop& sp : sch) print_out << " (" << sp.loc() << "|" << (int)sp.type() << ")";
-        print_out << "\n\troute:";
-        for (const Wayp& wp : rte)
-          print_out << " (" << wp.first << "|" << wp.second << ")";
-        print_out << std::endl;
-        throw std::runtime_error("bad");
-      }
-      }
+      //   print_out << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t"
+      //             << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn;
+      //   print_out << "\n\tsched:";
+      //   for (const Stop& sp : sch) print_out << " (" << sp.loc() << "|" << (int)sp.type() << ")";
+      //   print_out << "\n\troute:";
+      //   for (const Wayp& wp : rte)
+      //     print_out << " (" << wp.first << "|" << wp.second << ")";
+      //   print_out << std::endl;
+      //   throw std::runtime_error("bad");
+      // }
+      // }
       if (active) nnd += (rte.at(lvn + 1).first - rte.at(lvn).first);
     }  // end outer while
 

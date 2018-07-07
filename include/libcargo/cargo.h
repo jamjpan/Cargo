@@ -59,7 +59,13 @@ class Cargo {
   const std::string & name();          // e.g. rs-lg-5
   const std::string & road_network();  // e.g. mny, cd1, bj5
   void start(RSAlgorithm&);
+
+  /* Starts a dynamic simuatlion (*/
   void start();
+
+  /* Returns number of stepped vehicles.
+   * Outputs number of deactivated vehicles. */
+  int step(int&);
 
   /* Accessors */
   static DistInt edgeweight(const NodeId& u, const NodeId& v) {
@@ -130,10 +136,6 @@ class Cargo {
   sqlite3_stmt* nnd_stmt;  // nearest-node dist
 
   void initialize(const Options&);
-
-  /* Returns number of stepped vehicles.
-   * Outputs number of deactivated vehicles. */
-  int step(int&);
 
   void record_customer_statuses();
   DistInt total_route_cost();
