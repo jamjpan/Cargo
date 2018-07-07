@@ -9,8 +9,6 @@ CARGO = -L../lib -lcargo
 OBJECTS = \
 		  build/main.o \
 		  build/message_test.o \
-		  build/dbutils_test.o \
-		  build/functions_test.o \
 		  build/cargo_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
@@ -20,18 +18,6 @@ $(OBJECTS): | build
 build/main.o: \
 	src/main.cc
 	$(CXX) $(CFLAGS) src/main.cc
-
-build/dbutils_test.o: \
-	../lib/libcargo.a \
-	../include/libcargo.h \
-	src/dbutils_test.cc
-	$(CXX) $(CFLAGS) src/dbutils_test.cc
-
-build/functions_test.o: \
-	../lib/libcargo.a \
-	../include/libcargo.h \
-	src/functions_test.cc
-	$(CXX) $(CFLAGS) src/functions_test.cc
 
 build/cargo_test.o: \
 	../lib/libcargo.a \
@@ -50,3 +36,4 @@ build:
 
 clean:
 	rm -rf build/ run_tests
+
