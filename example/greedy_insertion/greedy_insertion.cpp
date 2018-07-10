@@ -17,110 +17,98 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <exception>
 #include <iostream> /* std::endl */
-#include <thread>
 #include <vector>
 
-#include "libcargo.h"
 #include "greedy_insertion.h"
+#include "libcargo.h"
 
-GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
-    grid_(100) // <-- Initialize my 100x100 grid (see grid.h)
-{
-    batch_time() = 1;   // Set batch to 1 second
-    nmatches = 0;       // Initialize my private counter
+GreedyInsertion::GreedyInsertion()
+    : RSAlgorithm("greedy_insertion"),
+      grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
+  batch_time() = 1;  // Set batch to 1 second
+  nmat_ = 0;      // Initialize my private counter
 }
 
-void GreedyInsertion::handle_customer(const cargo::Customer& cust)
-{
-    /* Don't consider customers that are assigned but not yet picked up */
-    if (cust.assigned())
-        return;
+void GreedyInsertion::handle_customer(const cargo::Customer& cust) {
+  /* Don't consider customers that are assigned but not yet picked up */
+  if (cust.assigned()) return;
 
-    /* Containers for storing outputs */
-    cargo::DistanceInt cost;
-    cargo::DistanceInt best_cost = cargo::InfinityInt;
-    std::vector<cargo::Stop> schedule, best_schedule;
-    std::vector<cargo::Waypoint> route, best_route;
+  /* Containers for storing outputs */
+  cargo::DistInt cst, best_cst = cargo::InfInt;
+  std::vector<cargo::Stop> sch, best_sch;
+  std::vector<cargo::Wayp> rte, best_rte;
 
-    /* best_vehicle will point to an underlying MutableVehicle in our grid */
-    std::shared_ptr<cargo::MutableVehicle> best_vehicle;
-    bool matched = false;
+  /* best_vehl will point to an underlying MutableVehicle in our grid */
+  std::shared_ptr<cargo::MutableVehicle> best_vehl;
+  bool matched = false;
 
-    /* Get candidates from the local grid index
-     * (the grid is refreshed during listen()) */
-    cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
-    auto candidates = grid_.within_about(range, cust.origin());
+  /* Get candidates from the local grid index
+   * (the grid is refreshed during listen()) */
+  cargo::DistInt rng = cargo::pickup_range(cust, cargo::Cargo::now());
+  auto candidates = grid_.within_about(rng, cust.orig());
 
-    /* Loop through candidates and check which is the greedy match */
-    for (const auto& cand : candidates) {
+  /* Loop through candidates and check which is the greedy match */
+  for (const auto& cand : candidates) {
+    if (cand->queued() == cand->capacity())
+      continue;  // don't consider vehs already queued to capacity
 
-        if (cand->queued() == cand->capacity())
-            continue; // don't consider vehs already queued to capacity
-
-        cost = cargo::sop_insert(cand, cust, schedule, route); // <-- functions.h
-        bool within_time = cargo::check_timewindow_constr(schedule, route);
-        if ((cost < best_cost) && within_time) {
-            best_cost = cost;
-            best_schedule = schedule;
-            best_route = route;
-            best_vehicle = cand; // copy the pointer
-            matched = true;
-        }
+    cst = cargo::sop_insert(cand, cust, sch, rte);  // <-- functions.h
+    bool within_time = cargo::check_timewindow_constr(sch, rte);
+    if ((cst < best_cst) && within_time) {
+      best_cst = cst;
+      best_sch = sch;
+      best_rte = rte;
+      best_vehl = cand;  // copy the pointer
+      matched = true;
     }
+  }
 
-    // pretend it takes a long time
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-
-    /* Commit match to the db. Also refresh our local grid index, so data is
-     * fresh for other handle_customers that occur before the next listen(). */
-    if (matched) {
-        std::vector<cargo::Waypoint> sync_rte;
-        cargo::DistanceInt sync_nnd;
-        if (commit({cust}, best_vehicle, best_route, best_schedule, sync_rte, sync_nnd)) {  // <-- write to the db
-            grid_.commit(best_vehicle, sync_rte, best_schedule, sync_nnd);      // <-- update local
-            print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
-            nmatches++;
-        }
+  /* Commit match to the db. Also refresh our local grid index, so data is
+   * fresh for other handle_customers that occur before the next listen(). */
+  if (matched) {
+    std::vector<cargo::Wayp> sync_rte;
+    std::vector<cargo::Stop> sync_sch;
+    cargo::DistInt sync_nnd;
+    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
+      grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
+      print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+      nmat_++;
     }
+  }
 }
 
-void GreedyInsertion::handle_vehicle(const cargo::Vehicle& veh)
-{
-    grid_.insert(veh); // Insert into my grid
+void GreedyInsertion::handle_vehicle(const cargo::Vehicle& vehl) {
+  grid_.insert(vehl);  // Insert into my grid
 }
 
-void GreedyInsertion::end()
-{
-    print_success << "Matches: "<<nmatches<<std::endl; // Print a msg
+void GreedyInsertion::end() {
+  print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
 }
 
-void GreedyInsertion::listen()
-{
-    grid_.clear();          // Clear the index...
-    RSAlgorithm::listen();  // ...then call listen()
+void GreedyInsertion::listen() {
+  grid_.clear();          // Clear the index...
+  RSAlgorithm::listen();  // ...then call listen()
 }
 
-int main()
-{
-    /* Set the options */
-    cargo::Options op;
-    op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
-    op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
-    op.path_to_edges   = "../../data/roadnetwork/mny.edges";
-    op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
-    op.path_to_solution= "a.sol";
-    op.time_multiplier = 1;
-    op.vehicle_speed   = 10;
-    op.matching_period = 60;
+int main() {
+  /* Set the options */
+  cargo::Options op;
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_solution = "a.sol";
+  op.time_multiplier  = 5;
+  op.vehicle_speed    = 10;
+  op.matching_period  = 60;
 
-    cargo::Cargo cargo(op);
+  cargo::Cargo cargo(op);
 
-    /* Initialize a new greedy */
-    GreedyInsertion gr;
+  /* Initialize a new greedy */
+  GreedyInsertion gr;
 
-    /* Start Cargo */
-    cargo.start(gr);
+  /* Start Cargo */
+  cargo.start(gr);
 }
 
