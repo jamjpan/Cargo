@@ -21,6 +21,7 @@
 #include <iostream> /* std::endl */
 #include <thread>
 #include <vector>
+#include <climits>
 
 #include "libcargo.h"
 #include "greedy_insertion.h"
@@ -39,10 +40,11 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
         return;
 
     /* Containers for storing outputs */
-    cargo::DistanceInt cost;
-    cargo::DistanceInt best_cost = cargo::InfinityInt;
+    cargo::DistInt cost;
+    // cargo::DistInt best_cost = cargo::InfinityInt;
+    cargo::DistInt best_cost = INT_MAX;
     std::vector<cargo::Stop> schedule, best_schedule;
-    std::vector<cargo::Waypoint> route, best_route;
+    std::vector<cargo::Wayp> route, best_route;
 
     /* best_vehicle will point to an underlying MutableVehicle in our grid */
     std::shared_ptr<cargo::MutableVehicle> best_vehicle;
@@ -50,8 +52,8 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
 
     /* Get candidates from the local grid index
      * (the grid is refreshed during listen()) */
-    cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
-    auto candidates = grid_.within_about(range, cust.origin());
+    cargo::DistInt range = cargo::pickup_range(cust, cargo::Cargo::now());
+    auto candidates = grid_.within_about(range, cust.orig());
 
     /* Loop through candidates and check which is the greedy match */
     for (const auto& cand : candidates) {
@@ -76,9 +78,11 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust)
     /* Commit match to the db. Also refresh our local grid index, so data is
      * fresh for other handle_customers that occur before the next listen(). */
     if (matched) {
-        std::vector<cargo::Waypoint> sync_rte;
-        cargo::DistanceInt sync_nnd;
-        if (commit({cust}, best_vehicle, best_route, best_schedule, sync_rte, sync_nnd)) {  // <-- write to the db
+        std::vector<cargo::Wayp> sync_rte;
+        std::vector<cargo::Stop> sync_sch;
+        cargo::DistInt sync_nnd;
+        // if (commit({cust}, best_vehicle, best_route, best_schedule, sync_rte, sync_nnd)) {  // <-- write to the db
+        if (commit(std::vector<cargo::Customer>{cust}, std::vector<cargo::CustId>{}, best_vehicle, best_route, best_schedule, sync_rte, sync_sch, sync_nnd)) {  // <-- write to the db
             grid_.commit(best_vehicle, sync_rte, best_schedule, sync_nnd);      // <-- update local
             print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
             nmatches++;
@@ -109,7 +113,7 @@ int main()
     op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
     op.path_to_gtree   = "../../data/roadnetwork/mny.gtree";
     op.path_to_edges   = "../../data/roadnetwork/mny.edges";
-    op.path_to_problem = "../../data/benchmark/rs-sm-4.instance";
+    op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
     op.path_to_solution= "a.sol";
     op.time_multiplier = 1;
     op.vehicle_speed   = 10;

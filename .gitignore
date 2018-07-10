@@ -5,6 +5,7 @@
 *.a
 *.gtree
 *.out
+*.sol
 *#
 .vscode/
 .#*
