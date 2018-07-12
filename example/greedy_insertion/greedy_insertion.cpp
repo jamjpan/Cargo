@@ -19,6 +19,7 @@
 // SOFTWARE.
 #include <iostream> /* std::endl */
 #include <vector>
+#include <climits>
 
 #include "greedy_insertion.h"
 #include "libcargo.h"

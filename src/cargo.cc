@@ -409,7 +409,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
       f_sol_temp_ << '\t'  // line below is to put a 0 if vehicle is done
                   << (sol_routes_.find(veh_id) != sol_routes_.end()
                           ? sol_routes_.at(veh_id)
-                          : 0);
+                          : -1);
     for (const auto& kv : sol_statuses_)
       f_sol_temp_ << '\t' << (int)kv.second.first << '\t' << kv.second.second;
     f_sol_temp_ << '\n';
