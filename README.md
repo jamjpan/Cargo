@@ -78,6 +78,7 @@ Does not (currently) support:
 * Several problem instances are provided (`data/benchmark`)
 
 Provided road networks:
+(bj5 and cd1 are in GCJ coordinates; mny is in WGS)
 
 <p align="center">
 <img src="data/roadnetwork/fig/mny.png" alt="Manhattan" width="280"/>
