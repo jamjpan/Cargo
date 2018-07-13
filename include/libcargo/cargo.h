@@ -82,11 +82,7 @@ class Cargo {
   static std::mutex dbmx;  // protect the db
 
  private:
-  Message print_out;
-  Message print_info;
-  Message print_warning;
-  Message print_error;
-  Message print_success;
+  Message print;
 
   ProblemSet probset_;
 

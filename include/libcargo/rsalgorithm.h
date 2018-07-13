@@ -72,6 +72,27 @@ class RSAlgorithm {
   std::vector<Customer> get_all_customers();
   std::vector<Vehicle> get_all_vehicles();
 
+  /* Function assign(...) will try to add customers (param1) into vehicle (param3)
+   * using the route and schedule (params4,5). If the route cannot be synchronized,
+   * then the function will attempt to compute a new route using the vehicle's
+   * current position going through the schedule (param5). If this new route
+   * meets constraints, then the assignment is accepted. */
+  bool assign(
+              const std::vector<CustId>&, // custs to add
+              const std::vector<CustId>&, // custs to del
+              const Vehicle&,             // vehicle to assign to
+              const std::vector<Wayp>&,   // new route
+              const std::vector<Stop>&,   // new schedule
+              const Vehicle&);            // output synced vehicle
+
+  bool assign_strict(
+              const std::vector<CustId>&, // custs to add
+              const std::vector<CustId>&, // custs to del
+              const Vehicle&,             // vehicle to assign to
+              const std::vector<Wayp>&,   // new route
+              const std::vector<Stop>&,   // new schedule
+              const Vehicle&);            // output synced vehicle
+
   // Write assignment to the db
   bool commit(
           const std::vector<Customer>&, // custs to add
@@ -108,11 +129,7 @@ class RSAlgorithm {
           const std::vector<Wayp>&,
           const std::vector<Stop>&);
 
-  Message print_out;
-  Message print_info;
-  Message print_warning;
-  Message print_error;
-  Message print_success;
+  Message print;
 
  private:
   std::string name_;

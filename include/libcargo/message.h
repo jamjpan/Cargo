@@ -65,14 +65,14 @@ enum class MessageType {
 
 class Message : public std::ostream, public std::streambuf {
 public:
-    Message() : std::ostream(this), type(MessageType::Default), name("noname") {}
-    Message(MessageType t) : std::ostream(this), type(t), name("noname") {}
-    Message(std::string n) : std::ostream(this), type(MessageType::Default), name(n) {}
-    Message(MessageType t, std::string n) : std::ostream(this), type(t), name(n) {}
+    Message() : std::ostream(this), name("noname") {}
+    Message(std::string n) : std::ostream(this), name(n) {}
+
+    Message& operator()(MessageType t) { this->type = t; return *this; }
 
 private:
     bool head = true;
-    MessageType type;
+    MessageType type = MessageType::Default;
     std::string name;
     static std::mutex mtx_;
 
@@ -81,6 +81,7 @@ private:
         std::cout << RESET;
         std::cout.flush();
         head = true;
+        type = MessageType::Default;
         return 0;
     }
 
@@ -120,3 +121,4 @@ private:
 } // namespace cargo
 
 #endif // CARGO_INCLUDE_LIBCARGO_MESSAGE_H_
+

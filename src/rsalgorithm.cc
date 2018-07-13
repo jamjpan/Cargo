@@ -33,12 +33,7 @@
 
 namespace cargo {
 
-RSAlgorithm::RSAlgorithm(const std::string& name)
-    : print_out(name),
-      print_info(MessageType::Info, name),
-      print_warning(MessageType::Warning, name),
-      print_error(MessageType::Error, name),
-      print_success(MessageType::Success, name) {
+RSAlgorithm::RSAlgorithm(const std::string& name) : print(name) {
   name_ = name;
   done_ = false;
   batch_time_ = 1;
@@ -52,7 +47,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name)
       sqlite3_prepare_v2(Cargo::db(), sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt, -1, &sav_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK) {
-    print_error << "Failed (create rsalg stmts). Reason:\n";
+    print(MessageType::Error) << "Failed (create rsalg stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
 }
@@ -97,7 +92,8 @@ bool RSAlgorithm::commit(
 
   // TODO: What to do if one or more customers are invalid, i.e. their status
   // is Onboard, Arrived, or Canceled? Reject the entire commit, or just reject
-  // the invalid customers?
+  // the invalid customers? (Can happen due to match latency; e.g. a customer
+  // gets picked up already but is in custs_to_del)
 
   /* Synchronize
    * Due to matching latency, new_rte (new_sch) may not be valid to commit to
@@ -537,12 +533,12 @@ void RSAlgorithm::listen() {
   // Don't sleep if time exceeds batch time
   int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
   if (dur > batch_time_ * 1000)
-    print_warning << "listen() (" << dur << " ms) exceeds batch time ("
+    print(MessageType::Warning) << "listen() (" << dur << " ms) exceeds batch time ("
                   << batch_time_ * 1000 << " ms) for " << vehicles_.size()
                   << " vehls and " << customers_.size() << " custs"
                   << std::endl;
   else {
-    print_info << "listen() handled " << vehicles_.size() << " vehls and "
+    print << "listen() handled " << vehicles_.size() << " vehls and "
                << customers_.size() << " custs in " << dur << " ms"
                << std::endl;
     std::this_thread::sleep_for(
