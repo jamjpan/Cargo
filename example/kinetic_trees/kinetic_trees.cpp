@@ -28,6 +28,8 @@
 #include "kinetic_trees.h"
 #include "treeTaxiPath.h"
 
+using namespace cargo;
+
 KineticTrees::KineticTrees()
     : RSAlgorithm("gkt"),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
@@ -35,22 +37,22 @@ KineticTrees::KineticTrees()
   nmat_ = 0;      // Initialize my private counter
 }
 
-void KineticTrees::handle_customer(const cargo::Customer& cust) {
+void KineticTrees::handle_customer(const Customer& cust) {
   /* Don't consider customers that are assigned but not yet picked up */
   if (cust.assigned()) return;
 
   /* Containers for storing outputs */
-  cargo::DistInt cst, best_cst = cargo::InfInt;
-  std::vector<cargo::Stop> sch, best_sch;
-  std::vector<cargo::Wayp> rte, best_rte;
+  DistInt cst, best_cst = InfInt;
+  std::vector<Stop> sch, best_sch;
+  std::vector<Wayp> rte, best_rte;
 
   /* best_vehl will point to an underlying MutableVehicle in our grid */
-  std::shared_ptr<cargo::MutableVehicle> best_vehl = nullptr;
+  std::shared_ptr<MutableVehicle> best_vehl = nullptr;
   bool matched = false;
 
   /* Get candidates from the local grid index
    * (the grid is refreshed during listen()) */
-  cargo::DistInt rng = cargo::pickup_range(cust, cargo::Cargo::now());
+  DistInt rng = pickup_range(cust, Cargo::now());
   auto candidates = grid_.within_about(rng, cust.orig());
 
   /* Create the customer stops to insert into best vehicle */
@@ -112,7 +114,7 @@ void KineticTrees::handle_customer(const cargo::Customer& cust) {
     for (auto& wp : rte) wp.first += head;
     rte.insert(rte.begin(), cand->route().at(cand->idx_last_visited_node()));
 
-    bool within_time = cargo::check_timewindow_constr(sch, rte);
+    bool within_time = check_timewindow_constr(sch, rte);
     if ((cst < best_cst) && within_time) {
       if (best_vehl != nullptr)
         kt_.at(best_vehl->id())->cancel(); // <-- cancel current best
@@ -128,11 +130,11 @@ void KineticTrees::handle_customer(const cargo::Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    std::vector<cargo::Wayp> sync_rte;
-    std::vector<cargo::Stop> sync_sch;
-    cargo::DistInt sync_nnd;
+    std::vector<Wayp> sync_rte;
+    std::vector<Stop> sync_sch;
+    DistInt sync_nnd;
 
-    if (commit({cust}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
+    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
       /* Commit the synced vehicle to the grid */
       grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
 
@@ -143,17 +145,19 @@ void KineticTrees::handle_customer(const cargo::Customer& cust) {
         kt_.at(best_vehl->id())->step();
 
       /* Print and increment counter */
-      print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+      print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     } else {
-      print_out << "commit refused!!" << std::endl;
+      print << "commit refused!!" << std::endl;
     }
   }
 }
 
-void KineticTrees::handle_vehicle(const cargo::Vehicle& vehl) {
+void KineticTrees::handle_vehicle(const Vehicle& vehl) {
   /* Insert into grid */
   grid_.insert(vehl);
+
+  print << "Veh dest: " << vehl.dest() << std::endl;
 
   /* Create kinetic tree */
   if (kt_.count(vehl.id()) == 0)
@@ -163,15 +167,22 @@ void KineticTrees::handle_vehicle(const cargo::Vehicle& vehl) {
   if (last_modified_.count(vehl.id()) == 0)
     last_modified_[vehl.id()] = Cargo::now();
 
-  /* Step the kinetic tree */
-  if (sched_.count(vehl.id()) != 0) {
-    /* The vehicle could have moved a lot since the last handle_vehicle to it.
-     * We check its current schedule against our memory of its schedule and
-     * adjust the kinetic tree to match. */
-    if (sched_.at(vehl.id()).at(0).loc() != vehl.dest()) {
-      int visited_stops = compute_steps(sched_.at(vehl.id()), vehl.schedule().data());
-      for (int i = 0; i < visited_stops; ++i)
-        kt_.at(vehl.id())->step();
+  /* Update dest if it's changed (permanent taxi) */
+  if (vehl.dest() != kt_.at(vehl.id())->get_dest()) {
+    delete kt_.at(vehl.id());
+    kt_[vehl.id()] = new TreeTaxiPath(vehl.orig(), vehl.dest());
+  }
+  else {
+    /* Step the kinetic tree */
+    if (sched_.count(vehl.id()) != 0) {
+      /* The vehicle could have moved a lot since the last handle_vehicle to it.
+       * We check its current schedule against our memory of its schedule and
+       * adjust the kinetic tree to match. */
+      if (sched_.at(vehl.id()).at(0).loc() != vehl.dest()) {
+        int visited_stops = compute_steps(sched_.at(vehl.id()), vehl.schedule().data());
+        for (int i = 0; i < visited_stops; ++i)
+          kt_.at(vehl.id())->step();
+      }
     }
   }
 
@@ -187,7 +198,7 @@ void KineticTrees::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void KineticTrees::end() {
-  print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
   for (auto kv : kt_) delete kv.second; // <-- cleanup
 }
 
@@ -211,17 +222,17 @@ int KineticTrees::compute_steps(const std::vector<Stop>& cur_sch,
 
 int main() {
   /* Set the options */
-  cargo::Options op;
+  Options op;
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 1;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 
-  cargo::Cargo cargo(op);
+  Cargo cargo(op);
 
   /* Initialize a new kt */
   KineticTrees kt;

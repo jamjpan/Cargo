@@ -178,6 +178,10 @@ class TreeTaxiPath {
   //virtual bool step(bool move);
   bool step();
 
+  // set new dest (for permanent taxis)
+  NodeId get_dest();
+  void set_dest(NodeId);
+
   // returns next vertex that the taxi should goto after curr() is passed; -1 if no next
   //virtual queue<vertex *> next(); 
   std::queue<NodeId> next();

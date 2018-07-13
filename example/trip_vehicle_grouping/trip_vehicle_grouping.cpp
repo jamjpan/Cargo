@@ -46,7 +46,7 @@ void TripVehicleGrouping::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void TripVehicleGrouping::match() {
-  print_info << "match called" << std::endl;
+  print(MessageType::Info) << "match called" << std::endl;
 
   /* Initialize the GLPK mixed-integer program */
   glp_prob* mip;
@@ -60,7 +60,7 @@ void TripVehicleGrouping::match() {
   dict<Vehicle, dict<Customer, std::vector<Wayp>>> rv_rte;
   dict<Vehicle, dict<Customer, DistInt>>           rv_cst;
 
-  print_info << "generating rv-graph..." << std::endl;
+  print(MessageType::Info) << "generating rv-graph..." << std::endl;
   { /* Generate rv-graph */
   std::vector<Customer> lcl_cust = customers();
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
@@ -145,7 +145,7 @@ void TripVehicleGrouping::match() {
   dict<VehlId, dict<SharedTripId, std::vector<Wayp>>> vt_rte;
   dict<VehlId, Vehicle> vehmap;
 
-  print_info << "generating rtv-graph..." << std::endl;
+  print(MessageType::Info) << "generating rtv-graph..." << std::endl;
   int nvted = 0; // number of vehicle-trip edges
   { /* Generate rtv-graph */
   std::vector<Vehicle> lcl_vehl = vehicles();
@@ -346,34 +346,34 @@ void TripVehicleGrouping::match() {
   }    // end pragma omp critical
 
   }  // end pragma omp parallel
-  print_info << "ntrips=" << trip_.size() << std::endl;
+  print(MessageType::Info) << "ntrips=" << trip_.size() << std::endl;
   }  // end generate rtv-graph
 
-  // print_info << "ctedges:" << std::endl;
+  // print(MessageType::Info) << "ctedges:" << std::endl;
   // for (const auto& kv : cted_) {
-  //     print_info << kv.first << ":";
+  //     print(MessageType::Info) << kv.first << ":";
   //     for (const auto& stid : kv.second)
-  //         print_info << " " << stid;
-  //     print_info << std::endl;
+  //         print(MessageType::Info) << " " << stid;
+  //     print(MessageType::Info) << std::endl;
   // }
 
-  // print_info << "vted_:" << std::endl;
+  // print(MessageType::Info) << "vted_:" << std::endl;
   // for (const auto& kv : vted_) {
-  //     print_info << kv.first << ":";
+  //     print(MessageType::Info) << kv.first << ":";
   //     for (const auto& kv2 : kv.second)
-  //         print_info << " " << kv2.first /*<< "(" << kv2.second << ")"*/;
-  //     print_info << std::endl;
+  //         print(MessageType::Info) << " " << kv2.first /*<< "(" << kv2.second << ")"*/;
+  //     print(MessageType::Info) << std::endl;
   // }
 
-  // print_info << "trips:" << std::endl;
+  // print(MessageType::Info) << "trips:" << std::endl;
   // for (const auto& kv : trip_) {
-  //     print_info << kv.first << ":";
+  //     print(MessageType::Info) << kv.first << ":";
   //     for (const auto& cust : kv.second)
-  //         print_info << " " << cust.id();
-  //     print_info << std::endl;
+  //         print(MessageType::Info) << " " << cust.id();
+  //     print(MessageType::Info) << std::endl;
   // }
 
-  print_info << "generating the mip..." << std::endl;
+  print(MessageType::Info) << "generating the mip..." << std::endl;
   /* Generating the mip */
   if (vted_.size() > 0) {
   /* Objective: c11x11 + c12x12 + ... + cijxij + y1 + y2 + ... + yn
@@ -414,7 +414,8 @@ void TripVehicleGrouping::match() {
   for (const auto& cust : customers()) {
     col_idx++;
     colmap[col_idx] = {cust.id(), -1};
-    glp_set_obj_coef(mip, col_idx, Cargo::basecost(cust.id()));
+    int penalty = (unassign_penalty > 0 ? unassign_penalty : Cargo::basecost(cust.id()));
+    glp_set_obj_coef(mip, col_idx, penalty);
     glp_set_col_kind(mip, col_idx, GLP_BV);
     glp_set_col_name(mip, col_idx,
                      ("y_" + std::to_string(cust.id())).c_str());
@@ -478,32 +479,32 @@ void TripVehicleGrouping::match() {
   cparams.tm_lim = 15 * 1000;  // set time limit to 15 sec
   cparams.mip_gap = 0.001;     // set optimality gap to 0.1%
 
-  print_info << "solving..." << std::endl;
+  print(MessageType::Info) << "solving..." << std::endl;
   int rc = glp_intopt(mip, &cparams);  // <-- solve!
 
-  print_out << "mip return:" << std::endl;
+  print << "mip return:" << std::endl;
   switch (rc) {
-    case 0: print_out << "good\n"; break;
-    case GLP_EBOUND:  print_error << "glp_ebound\n";  break;
-    case GLP_EROOT:   print_error << "glp_eroot\n";   break;
-    case GLP_ENOPFS:  print_error << "glp_enopfs\n";  break;
-    case GLP_ENODFS:  print_error << "glp_enodfs\n";  break;
-    case GLP_EFAIL:   print_error << "glp_efail\n";   break;
-    case GLP_EMIPGAP: print_error << "glp_emipgap\n"; break;
-    case GLP_ETMLIM:  print_error << "glp_etmlim\n";  break;
-    case GLP_ESTOP:   print_error << "glp_estop\n";   break;
+    case 0: print << "good\n"; break;
+    case GLP_EBOUND:  print(MessageType::Error) << "glp_ebound\n";  break;
+    case GLP_EROOT:   print(MessageType::Error) << "glp_eroot\n";   break;
+    case GLP_ENOPFS:  print(MessageType::Error) << "glp_enopfs\n";  break;
+    case GLP_ENODFS:  print(MessageType::Error) << "glp_enodfs\n";  break;
+    case GLP_EFAIL:   print(MessageType::Error) << "glp_efail\n";   break;
+    case GLP_EMIPGAP: print(MessageType::Error) << "glp_emipgap\n"; break;
+    case GLP_ETMLIM:  print(MessageType::Error) << "glp_etmlim\n";  break;
+    case GLP_ESTOP:   print(MessageType::Error) << "glp_estop\n";   break;
   }
   int status = glp_mip_status(mip);
-  print_out << "mip status:" << std::endl;
+  print << "mip status:" << std::endl;
   switch (status) {
-    case GLP_UNDEF:   print_out << "glp_undef\n";     break;
-    case GLP_OPT:     print_out << "glp_opt\n";       break;
-    case GLP_FEAS:    print_out << "glp_feas\n";      break;
-    case GLP_NOFEAS:  print_out << "glp_nofeas\n";    break;
+    case GLP_UNDEF:   print << "glp_undef\n";     break;
+    case GLP_OPT:     print << "glp_opt\n";       break;
+    case GLP_FEAS:    print << "glp_feas\n";      break;
+    case GLP_NOFEAS:  print << "glp_nofeas\n";    break;
   }
 
   double z = glp_mip_obj_val(mip);
-  print_out << z << std::endl;
+  print << z << std::endl;
 
   /* Extract assignments from the results and commit to database */
   for (int i = 1; i <= ncol; ++i) {
@@ -514,14 +515,14 @@ void TripVehicleGrouping::match() {
     /* If the binary var for any other column is 1, then commit the
      * assignment. */
     if (glp_mip_col_val(mip, i) == 1) {
-      if (commit(trip_.at(colmap[i].second), vehmap.at(colmap[i].first),
+      if (commit(trip_.at(colmap[i].second), {}, vehmap.at(colmap[i].first),
              vt_rte.at(colmap[i].first).at(colmap[i].second),
              vt_sch.at(colmap[i].first).at(colmap[i].second))) {
         for (const auto& cust : trip_.at(colmap[i].second))
-          print_success << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
+          print(MessageType::Success) << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
         nmat_++;
       } else {
-        print_warning << "Sync failed vehl" << colmap[i].first << "\n";
+        print(MessageType::Warning) << "Sync failed vehl" << colmap[i].first << "\n";
       }
     }
   }
@@ -538,7 +539,7 @@ void TripVehicleGrouping::match() {
 }
 
 void TripVehicleGrouping::end() {
-  print_success << "Matches: " << nmat_ << std::endl;
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
 }
 
 void TripVehicleGrouping::listen() {
@@ -596,9 +597,9 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 1;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 
@@ -606,6 +607,11 @@ int main() {
 
   /* Initialize a new tvg */
   TripVehicleGrouping tvg;
+
+  /* The default penalty for unassignment is a customer's base cost. But for
+   * permanent taxis, the penalty needs to be much higher in order to divert the
+   * taxi. Set unassign_penalty to a high number > 0 to override the default. */
+  tvg.unassign_penalty = 20000;
 
   /* Start Cargo */
   cargo.start(tvg);

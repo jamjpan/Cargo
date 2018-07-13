@@ -82,7 +82,7 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
     cargo::DistInt sync_nnd;
     if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
       grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-      print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+      print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     }
   }
@@ -93,7 +93,7 @@ void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void NearestNeighbor::end() {
-  print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
 }
 
 void NearestNeighbor::listen() {
@@ -104,12 +104,12 @@ void NearestNeighbor::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-1.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 5;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 

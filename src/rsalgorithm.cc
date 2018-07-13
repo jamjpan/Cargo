@@ -288,13 +288,17 @@ void RSAlgorithm::select_matchable_vehicles() {
     Route route(sqlite3_column_int(smv_stmt, 0), raw_rte);
     Schedule schedule(sqlite3_column_int(smv_stmt, 0), raw_sch);
 
-    /* Construct vehicle object */
+    /* Construct vehicle object
+     * If permanent taxi, set vehl.dest() to the last wp in the route */
+    SimlTime vlt = sqlite3_column_int(smv_stmt, 4);
+    NodeId vehl_dest = sqlite3_column_int(smv_stmt, 2);
+    if (vlt == -1) vehl_dest = raw_rte.back().second;
     Vehicle vehicle(
         sqlite3_column_int(smv_stmt, 0), sqlite3_column_int(smv_stmt, 1),
-        sqlite3_column_int(smv_stmt, 2), sqlite3_column_int(smv_stmt, 3),
-        sqlite3_column_int(smv_stmt, 4), sqlite3_column_int(smv_stmt, 5),
-        sqlite3_column_int(smv_stmt, 6), sqlite3_column_int(smv_stmt, 11),
-        route, schedule, sqlite3_column_int(smv_stmt, 10),
+        vehl_dest, sqlite3_column_int(smv_stmt, 3), vlt,
+        sqlite3_column_int(smv_stmt, 5), sqlite3_column_int(smv_stmt, 6),
+        sqlite3_column_int(smv_stmt, 11), route, schedule,
+        sqlite3_column_int(smv_stmt, 10),
         static_cast<VehlStatus>(sqlite3_column_int(smv_stmt, 7)));
     vehicles_.push_back(vehicle);
   }

@@ -557,6 +557,14 @@ bool TreeTaxiPath ::step(/*bool move*/) {
   return droppedPassenger; // return true if we dropped a passenger
 }
 
+NodeId TreeTaxiPath::get_dest() {
+  return root->dest;
+}
+
+void TreeTaxiPath::set_dest(NodeId nid) {
+  root->dest = nid;
+}
+
 std::queue<NodeId> TreeTaxiPath ::next() {
     std::queue<NodeId> ret;
   return ret; // todo

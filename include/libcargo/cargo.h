@@ -24,6 +24,7 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <random>
 #include <unordered_map>
 
 #include "classes.h"
@@ -37,19 +38,24 @@
 #include "../gtree/gtree.h"
 #include "../sqlite3/sqlite3.h"
 
-// Cargo is a simulator and requests generator. Its two functionalities are to
-// simulate the movement of vehicles, and to generate customer requests and
-// vehicles in "real time". These are generated from a "problem instance", a
-// special text file that lists customers, vehicles, and their properties.
-//
-// Vehicle movement is simulated based on vehicle speed, a road network,
-// vehicle routes, and time. Speed determines how much distance is covered at
-// every simulation step. Routes are sequences of nodes through the road
-// network. By default, all vehicles travel along the shortest path from their
-// origin to their destination.
-//
-// Cargo will poll an internal sqlite3 database for new vehicle routes. These
-// routes can be updated through an RSAlgorithm.
+/* Cargo is a simulator and requests generator. Its two functionalities are to
+ * simulate the movement of vehicles, and to generate customer requests and
+ * vehicles in "real time". These are generated from a "problem instance", a
+ * special text file that lists customers, vehicles, and their properties.
+ *
+ * Vehicle movement is simulated based on vehicle speed, a road network,
+ * vehicle routes, and time. Speed determines how much distance is covered at
+ * every simulation step. Routes are sequences of nodes through the road
+ * network. By default, all vehicles travel along the shortest path from their
+ * origin to their destination.
+ *
+ * A vehicle with a destination of -1 is a "permanent taxi" These will coast
+ * forever, until all customers have appeared and been dropped off or timed out.
+ * The coast strategy is to move to a random node; other coast strategies might
+ * be implemented in the future.
+ *
+ * Cargo will poll an internal sqlite3 database for new vehicle routes. These
+ * routes can be updated through an RSAlgorithm. */
 namespace cargo {
 
 class Cargo {
@@ -123,11 +129,12 @@ class Cargo {
   sqlite3_stmt* sar_stmt;  // select all routes
   sqlite3_stmt* ssv_stmt;  // select step vehicles
   sqlite3_stmt* ucs_stmt;  // update cust status
+  sqlite3_stmt* uro_stmt;  // update route
+  sqlite3_stmt* sch_stmt;  // update schedule
   sqlite3_stmt* dav_stmt;  // deactivate vehicle
   sqlite3_stmt* pup_stmt;  // pickup
   sqlite3_stmt* drp_stmt;  // dropoff
   sqlite3_stmt* vis_stmt;  // visitedAt
-  sqlite3_stmt* sch_stmt;  // schedule
   sqlite3_stmt* lvn_stmt;  // last-visited node
   sqlite3_stmt* nnd_stmt;  // nearest-node dist
 
@@ -135,6 +142,10 @@ class Cargo {
 
   void record_customer_statuses();
   DistInt total_route_cost();
+
+  std::mt19937 rng;
+  NodeId random_node();
+
 };
 
 }  // namespace cargo

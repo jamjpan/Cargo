@@ -82,7 +82,7 @@ void BilateralArrangement::match() {
         matched = true;
         break;
       } else {
-        // print_info << "best candidate is infeasible" << std::endl;
+        // print(MessageType::Info) << "best candidate is infeasible" << std::endl;
         /* Remove some random not-picked-up customer from cand and try the
          * insertion again. If it meets constraints, then accept. */
         std::vector<Stop> randomized_schedule(best_vehl->schedule().data().begin()+1,
@@ -99,35 +99,35 @@ void BilateralArrangement::match() {
           }
         }
         if (remove_me != -1) {
-          // print_info << "trying to remove " << remove_me << std::endl;
-          // print_info << "before remove:";
+          // print(MessageType::Info) << "trying to remove " << remove_me << std::endl;
+          // print(MessageType::Info) << "before remove:";
           // for (const auto& stop : best_vehl->schedule().data())
-          //   print_info << " " << stop.loc();
-          // print_info << std::endl;
+          //   print(MessageType::Info) << " " << stop.loc();
+          // print(MessageType::Info) << std::endl;
           std::vector<Stop> new_sch = best_vehl->schedule().data();
           new_sch.erase(std::remove_if(new_sch.begin(), new_sch.end(), [&](const Stop& a)
                       { return a.owner() == remove_me; }), new_sch.end());
           best_vehl->set_schedule(new_sch);
-          // print_info << "after remove:";
+          // print(MessageType::Info) << "after remove:";
           // for (const auto& stop : best_vehl->schedule().data())
-          //   print_info << " " << stop.loc();
-          // print_info << std::endl;
+          //   print(MessageType::Info) << " " << stop.loc();
+          // print(MessageType::Info) << std::endl;
           std::vector<Stop> new_best_sch;
           std::vector<Wayp> new_best_rte;
           sop_insert(best_vehl, cust, new_best_sch, new_best_rte);
-          // print_info << "after insert:";
+          // print(MessageType::Info) << "after insert:";
           // for (const auto& stop : new_best_sch)
-          //   print_info << " " << stop.loc();
-          // print_info << std::endl;
+          //   print(MessageType::Info) << " " << stop.loc();
+          // print(MessageType::Info) << std::endl;
           if (check_timewindow_constr(new_best_sch, new_best_rte)) {
-            print_info << "feasible after remove " << std::endl;
+            print(MessageType::Info) << "feasible after remove " << std::endl;
             best_sch = new_best_sch;
             best_rte = new_best_rte;
             matched = true;
             removed_cust = remove_me;
             break;
           } else {
-            // print_info << "still infeasible" << std::endl;
+            // print(MessageType::Info) << "still infeasible" << std::endl;
           }
         }
       }
@@ -142,20 +142,17 @@ void BilateralArrangement::match() {
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
       if (commit({cust}, {cust_to_del}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
         grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-        print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+        print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
         nmat_++;
       } else {
-        print_warning << "Commit rejected" << std::endl;
+        print(MessageType::Warning) << "Commit rejected" << std::endl;
       }
     }
-
-    // TODO: Add the removed cust back to waiting_customers_!
-
   } // end while !custs.empty()
 }
 
 void BilateralArrangement::end() {
-  print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
 }
 
 void BilateralArrangement::listen() {
@@ -166,12 +163,12 @@ void BilateralArrangement::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-1.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 5;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 

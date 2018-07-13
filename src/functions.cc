@@ -156,14 +156,16 @@ bool check_precedence_constr(const Schedule& s) {
 bool check_timewindow_constr(const std::vector<Stop>& sch,
                              const std::vector<Wayp>& rte) {
   // Check the end point first
-  if (sch.back().late() < rte.back().first / (float)Cargo::vspeed())
+  if (sch.back().late() != -1 &&
+      sch.back().late() < rte.back().first / (float)Cargo::vspeed())
     return false;
 
   // Walk along the schedule and the route. O(|schedule|+|route|)
   auto j = rte.begin();
   for (auto i = sch.begin(); i != sch.end(); ++i) {
     while (j->second != i->loc()) ++j;
-    if (i->late() < j->first / (float)Cargo::vspeed()) return false;
+    if (i->late() != -1 &&
+        i->late() < j->first / (float)Cargo::vspeed()) return false;
   }
   return true;
 }
