@@ -78,56 +78,15 @@ class RSAlgorithm {
    * current position going through the schedule (param5). If this new route
    * meets constraints, then the assignment is accepted. */
   bool assign(
-              const std::vector<CustId>&, // custs to add
-              const std::vector<CustId>&, // custs to del
-              const Vehicle&,             // vehicle to assign to
-              const std::vector<Wayp>&,   // new route
-              const std::vector<Stop>&,   // new schedule
-              const Vehicle&);            // output synced vehicle
+              const std::vector<Customer>&, // custs to add
+              const std::vector<CustId>&,   // custs to del
+                    MutableVehicle&,        // vehicle to assign to
+                    bool strict = false);
 
   bool assign_strict(
-              const std::vector<CustId>&, // custs to add
-              const std::vector<CustId>&, // custs to del
-              const Vehicle&,             // vehicle to assign to
-              const std::vector<Wayp>&,   // new route
-              const std::vector<Stop>&,   // new schedule
-              const Vehicle&);            // output synced vehicle
-
-  // Write assignment to the db
-  bool commit(
-          const std::vector<Customer>&, // custs to add
-          const std::vector<CustId>&,   // custs to remove
-          const Vehicle&,               // vehicle
-          const std::vector<Wayp>&,     // new route
-          const std::vector<Stop>&,     // new schedule
-                std::vector<Wayp>&,     // out (after sync) route
-                std::vector<Stop>&,     // out (after sync) schedule
-                DistInt&);              // out (after sync) nnd
-
-  bool commit( // use MutableVehicle
-          const std::vector<Customer>&,
-          const std::vector<CustId>&,
-          const std::shared_ptr<MutableVehicle>&,
-          const std::vector<Wayp>&,     // new route
-          const std::vector<Stop>&,     // new schedule
-                std::vector<Wayp>&,     // out route
-                std::vector<Stop>&,     // out schedule
-                DistInt&);              // out nnd
-
-  // Non-outputting
-  bool commit(
-          const std::vector<Customer>&,
-          const std::vector<CustId>&,
-          const Vehicle&,
-          const std::vector<Wayp>&,
-          const std::vector<Stop>&);
-
-  bool commit( // use MutableVehicle
-          const std::vector<Customer>&,
-          const std::vector<CustId>&,
-          const std::shared_ptr<MutableVehicle>&,
-          const std::vector<Wayp>&,
-          const std::vector<Stop>&);
+              const std::vector<Customer>&, // custs to add
+              const std::vector<CustId>&,   // custs to del
+                    MutableVehicle&);       // vehicle to assign to
 
   Message print;
 
