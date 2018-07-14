@@ -130,17 +130,12 @@ void KineticTrees::handle_customer(const Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    std::vector<Wayp> sync_rte;
-    std::vector<Stop> sync_sch;
-    DistInt sync_nnd;
-
-    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
-      /* Commit the synced vehicle to the grid */
-      grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-
+    best_vehl->set_route(best_rte);
+    best_vehl->set_schedule(best_sch);
+    if (assign({cust}, {}, *best_vehl)) {
       /* Accept the new kinetic tree, and sync it up to sync_sch */
       kt_.at(best_vehl->id())->push();
-      int visited_stops = compute_steps(best_sch, sync_sch);
+      int visited_stops = compute_steps(best_sch, best_vehl->schedule().data());
       for (int i = 0; i < visited_stops; ++i)
         kt_.at(best_vehl->id())->step();
 

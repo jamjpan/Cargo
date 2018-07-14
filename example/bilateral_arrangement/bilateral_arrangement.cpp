@@ -135,13 +135,11 @@ void BilateralArrangement::match() {
 
     /* Commit */
     if (matched) {
-      std::vector<cargo::Wayp> sync_rte;
-      std::vector<cargo::Stop> sync_sch;
-      cargo::DistInt sync_nnd;
+      best_vehl->set_route(best_rte);
+      best_vehl->set_schedule(best_sch);
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
-      if (commit({cust}, {cust_to_del}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
-        grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
+      if (assign({cust}, cust_to_del, *best_vehl)) {
         print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
         nmat_++;
       } else {

@@ -77,11 +77,9 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    std::vector<cargo::Wayp> sync_rte;
-    std::vector<cargo::Stop> sync_sch;
-    cargo::DistInt sync_nnd;
-    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
-      grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
+    best_vehl->set_route(best_rte);
+    best_vehl->set_schedule(best_sch);
+    if (assign({cust}, {}, *best_vehl)) {
       print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     }

@@ -515,9 +515,10 @@ void TripVehicleGrouping::match() {
     /* If the binary var for any other column is 1, then commit the
      * assignment. */
     if (glp_mip_col_val(mip, i) == 1) {
-      if (commit(trip_.at(colmap[i].second), {}, vehmap.at(colmap[i].first),
-             vt_rte.at(colmap[i].first).at(colmap[i].second),
-             vt_sch.at(colmap[i].first).at(colmap[i].second))) {
+      MutableVehicle sync_vehl(vehmap.at(colmap[i].first));
+      sync_vehl.set_route(vt_rte.at(colmap[i].first).at(colmap[i].second));
+      sync_vehl.set_schedule(vt_sch.at(colmap[i].first).at(colmap[i].second));
+      if (assign(trip_.at(colmap[i].second), {}, sync_vehl)) {
         for (const auto& cust : trip_.at(colmap[i].second))
           print(MessageType::Success) << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
         nmat_++;
