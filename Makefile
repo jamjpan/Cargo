@@ -6,6 +6,7 @@ OBJECTS = \
 		  include/libcargo.h \
 		  include/libcargo/grid.h \
 		  include/libcargo/dbsql.h \
+		  include/libcargo/debug.h \
 		  include/libcargo/distance.h \
 		  include/libcargo/message.h \
 		  include/libcargo/types.h \
@@ -26,6 +27,7 @@ build/cargo.o: \
 	include/libcargo/cargo.h \
 	include/libcargo/classes.h \
 	include/libcargo/dbsql.h \
+	include/libcargo/debug.h \
 	include/libcargo/file.h \
 	include/libcargo/message.h \
 	include/libcargo/options.h \
@@ -52,6 +54,7 @@ build/functions.o: \
 	include/libcargo/functions.h \
 	include/libcargo/cargo.h \
 	include/libcargo/classes.h \
+	include/libcargo/debug.h \
 	include/libcargo/distance.h \
 	include/libcargo/types.h \
 	include/gtree/gtree.h \
@@ -76,6 +79,7 @@ build/rsalgorithm.o: \
 	include/libcargo/rsalgorithm.h \
 	include/libcargo/classes.h \
 	include/libcargo/dbsql.h \
+	include/libcargo/debug.h \
 	include/libcargo/message.h \
 	include/libcargo/types.h \
 	src/rsalgorithm.cc

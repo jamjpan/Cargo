@@ -26,6 +26,7 @@
 
 #include "libcargo/cargo.h" /* now(), gtree(), db() */
 #include "libcargo/classes.h"
+#include "libcargo/debug.h"
 #include "libcargo/dbsql.h"
 #include "libcargo/message.h"
 #include "libcargo/rsalgorithm.h"
@@ -96,15 +97,19 @@ bool RSAlgorithm::assign(
   const std::vector<Wayp>& new_rte = vehl.route().data();
   const std::vector<Stop>& new_sch = vehl.schedule().data();
 
-  std::cout << "assign() called with new_rte:";
-  for (const auto& wp : new_rte)
-    std::cout << " (" << wp.first << "|" << wp.second << ")";
-  std::cout << std::endl;
+  DEBUG(3, {
+    std::cout << "assign() called with new_rte:";
+    for (const auto& wp : new_rte)
+      std::cout << " (" << wp.first << "|" << wp.second << ")";
+    std::cout << std::endl;
+  });
 
-  std::cout << "assign() called with new_sch:";
-  for (const auto& sp : new_sch)
-    std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
-  std::cout << std::endl;
+  DEBUG(3, {
+    std::cout << "assign() called with new_sch:";
+    for (const auto& sp : new_sch)
+      std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
+    std::cout << std::endl;
+  });
 
   /* Get current schedule */
   std::vector<Stop> cur_sch;
@@ -118,10 +123,12 @@ bool RSAlgorithm::assign(
   sqlite3_clear_bindings(sss_stmt);
   sqlite3_reset(sss_stmt);
 
-  std::cout << "assign() found cur_sch:";
-  for (const auto& sp : cur_sch)
-    std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
-  std::cout << std::endl;
+  DEBUG(3, {
+    std::cout << "assign() found cur_sch:";
+    for (const auto& sp : cur_sch)
+      std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
+    std::cout << std::endl;
+  });
 
   /* If stops belong to custs_to_del are no longer in cur_sch, the custs
    * cannot be deleted (because they've already been picked up or dropped
@@ -133,7 +140,7 @@ bool RSAlgorithm::assign(
     if (j == cur_sch.end()) return false;
   }
 
-  std::cout << "assign() found no problems with cust_del" << std::endl;
+  DEBUG(3, { std::cout << "assign() found no problems with cust_del" << std::endl; });
 
   /* Get current route */
   RteIdx cur_lvn = 0;
@@ -151,16 +158,18 @@ bool RSAlgorithm::assign(
   sqlite3_clear_bindings(ssr_stmt);
   sqlite3_reset(ssr_stmt);
 
-  std::cout << "assign() found cur_rte:";
-  for (const auto& wp : cur_rte)
-    std::cout << " (" << wp.first << "|" << wp.second << ")";
-  std::cout << std::endl;
+  DEBUG(3, {
+    std::cout << "assign() found cur_rte:";
+    for (const auto& wp : cur_rte)
+      std::cout << " (" << wp.first << "|" << wp.second << ")";
+    std::cout << std::endl;
+  });
 
   /* Attempt synchronization */
   std::vector<Wayp> sync_rte;
   std::vector<Stop> re_sch = new_sch;
   if (!sync_route(new_rte, cur_rte, cur_lvn, custs_to_add, sync_rte)) {
-    std::cout << "assign() tried sync_route but failed" << std::endl;
+    DEBUG(3, { std::cout << "assign() sync_route failed; recomputing..." << std::endl; });
 
     if (strict) return false;
 
@@ -170,35 +179,51 @@ bool RSAlgorithm::assign(
     re_sch[0] = Stop(vehl.id(), cur_rte.at(cur_lvn).second, StopType::VehlOrig, vehl.early(), vehl.late());
     re_sch.insert(re_sch.begin()+1, Stop(vehl.id(), cur_rte.at(cur_lvn+1).second, StopType::VehlOrig, vehl.early(), vehl.late()));
 
-    std::cout << "assign() created re_sch:";
-    for (const auto& sp : re_sch)
-      std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
-    std::cout << std::endl;
+    /* If the next node is a stop, move the stop to the beginning of re_sch */
+    if (cur_sch.at(0).loc() == cur_sch.at(1).loc() &&
+        cur_sch.at(1).type() != StopType::VehlDest) {
+      auto i = std::find_if(re_sch.begin(), re_sch.end(), [&](const Stop& a) {
+              return a.loc() == cur_sch.at(1).loc() && a.type() == cur_sch.at(1).type(); });
+      Stop tmp = *i;
+      re_sch.erase(i);
+      re_sch.insert(re_sch.begin()+2, tmp);
+    }
+
+    DEBUG(3, {
+      std::cout << "assign() created re_sch:";
+      for (const auto& sp : re_sch)
+        std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
+      std::cout << std::endl;
+    });
 
     /* Re-compute the route and add the traveled distance to each of the new
      * nodes */
     route_through(re_sch, sync_rte);
     for (auto& wp : sync_rte) wp.first += cur_rte.at(cur_lvn).first;
 
-    std::cout << "assign() re-computed sync_rte:";
-    for (const auto& wp : sync_rte)
-      std::cout << " (" << wp.first << "|" << wp.second << ")";
-    std::cout << std::endl;
+    DEBUG(3, {
+      std::cout << "assign() re-computed sync_rte:";
+      for (const auto& wp : sync_rte)
+        std::cout << " (" << wp.first << "|" << wp.second << ")";
+      std::cout << std::endl;
+    });
 
     /* After got the route, can delete the current location from re-sch */
     re_sch.erase(re_sch.begin());
 
     if (!check_timewindow_constr(re_sch, sync_rte)) return false;
 
-    std::cout << "assign() found no problems with timewindow" << std::endl;
+    DEBUG(3, { std::cout << "assign() found no problems with timewindow" << std::endl; });
   }
 
   std::vector<Stop> sync_sch;
   if (sync_schedule(re_sch, cur_sch, sync_rte, custs_to_add, sync_sch)) {
-    std::cout << "assign() sync_sch:";
-    for (const auto& sp : sync_sch)
-      std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
-    std::cout << std::endl;
+    DEBUG(3, {
+      std::cout << "assign() sync_sch:";
+      for (const auto& sp : sync_sch)
+        std::cout << " (" << sp.loc() << "|" << (int)sp.type() << ")";
+      std::cout << std::endl;
+    });
 
     /* Output synchronized vehicle */
     vehl.set_route(sync_rte);
@@ -265,6 +290,7 @@ bool RSAlgorithm::assign(
     }
     return true;
   }
+  DEBUG(3, { std::cout << "rsalgorithm() sync_sch failed" << std::endl; });
   return false;
 }
 
@@ -383,6 +409,7 @@ bool RSAlgorithm::sync_route(const std::vector<Wayp>& new_rte,
   /* If vehicle hasn't moved, nothing to do */
   if (cur_lvn == 0) return true;
 
+  /* Get current location in the new route */
   auto x = std::find_if(sync_rte.begin(), sync_rte.end(), [&](const Wayp& a) {
     return a.second == cur_rte.at(cur_lvn).second;
   });
@@ -390,11 +417,18 @@ bool RSAlgorithm::sync_route(const std::vector<Wayp>& new_rte,
   /* If couldn't find current lvn in the new route, sync is not possible */
   if (x == sync_rte.end()) return false;
 
+  /* Get next node in the new route */
+  auto y = std::find_if(sync_rte.begin(), sync_rte.end(), [&](const Wayp& a) {
+    return a.second == cur_rte.at(cur_lvn+1).second;
+  });
+
+  /* If couldn't find next node, sync is not possible
+   * (the vehicle cannot make a u-turn along an edge) */
+  if (y == sync_rte.end()) return false;
+
   /* Sync is possible only if all custs are in the remaining route */
   for (const auto& cust : custs) {
-    /* Don't include the current lvn in the remaining route. It's a "last"
-     * visited node; the vehicle has already visited it. Hence use x+1 */
-    auto o_itr = std::find_if(x+1, sync_rte.end(), [&](const Wayp& a) {
+    auto o_itr = std::find_if(y, sync_rte.end(), [&](const Wayp& a) {
             return a.second == cust.orig(); });
     if (o_itr == sync_rte.end()) return false;
     auto d_itr = std::find_if(o_itr, sync_rte.end(), [&](const Wayp& a) {
@@ -403,8 +437,8 @@ bool RSAlgorithm::sync_route(const std::vector<Wayp>& new_rte,
   }
 
   /* If found current loc but vehicle has moved, test the routes */
-  int j = cur_lvn;
-  auto i = x;
+  int j = cur_lvn+1;
+  auto i = y;
   while (true) {
     /* If any waypoint in the prefix does not match, or
      * if current route is finished but new_rte still has waypoints,
@@ -433,6 +467,27 @@ bool RSAlgorithm::sync_schedule(const std::vector<Stop>& new_sch,
                                 const std::vector<Wayp>& sync_rte,
                                 const std::vector<Customer>& custs,
                                 std::vector<Stop>& sync_sch) {
+  DEBUG(3, {
+    std::cout << "sync_sch() got new_sch";
+    for (const auto& sp : new_sch)
+      std::cout << " " << sp.loc();
+    std::cout << std::endl;
+  });
+
+  DEBUG(3, {
+    std::cout << "sync_sch() got cur_sch";
+    for (const auto& sp : cur_sch)
+      std::cout << " " << sp.loc();
+    std::cout << std::endl;
+  });
+
+  DEBUG(3, {
+    std::cout << "sync_sch() got sync_rte";
+    for (const auto& wp : sync_rte)
+      std::cout << " " << wp.second;
+    std::cout << std::endl;
+  });
+
   /* Ugly hack:
    * Sometimes we get a cur_sch like {a a b c} (a is the next node and is also
    * a stop). Due to matching latency, we can get a new_sch like {x y a a b c}

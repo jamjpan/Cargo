@@ -31,6 +31,7 @@
 
 #include "libcargo/cargo.h"
 #include "libcargo/classes.h"
+#include "libcargo/debug.h"
 #include "libcargo/dbsql.h"
 #include "libcargo/file.h"
 #include "libcargo/functions.h"
@@ -42,15 +43,7 @@
 #include "gtree/gtree.h"
 #include "sqlite3/sqlite3.h"
 
-/* Usage: DEBUG(int, stmt) */
-#define DEBUG(level, x)                  \
-  do {                                   \
-    if (level && debug_flag >= level) x; \
-  } while (0)
-
 namespace cargo {
-
-const int debug_flag = (int)DebugFlag::Level2;
 
 /* Initialize global vars */
 KVNodes Cargo::nodes_ = {};

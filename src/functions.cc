@@ -26,6 +26,7 @@
 
 #include "libcargo/cargo.h" /* Cargo::gtree() */
 #include "libcargo/classes.h"
+#include "libcargo/debug.h"
 #include "libcargo/distance.h"
 #include "libcargo/functions.h"
 #include "libcargo/types.h"
@@ -155,17 +156,45 @@ bool check_precedence_constr(const Schedule& s) {
 
 bool check_timewindow_constr(const std::vector<Stop>& sch,
                              const std::vector<Wayp>& rte) {
+  DEBUG(3, {
+    std::cout << "chktw() got sch:";
+    for (const auto& sp : sch)
+      std::cout << " (" << sp.loc() << "|late=" << sp.late() << ")";
+    std::cout << std::endl;
+  });
+
+  DEBUG(3, {
+    std::cout << "chktw() got rte:";
+    for (const auto& wp : rte)
+      std::cout << " (" << wp.first << "|" << wp.second << ")";
+    std::cout << std::endl;
+  });
+
   // Check the end point first
   if (sch.back().late() != -1 &&
-      sch.back().late() < rte.back().first / (float)Cargo::vspeed())
+      sch.back().late() < rte.back().first / (float)Cargo::vspeed()) {
+    DEBUG(3, {
+      std::cout << "chktw() found sch.back().late()[" << sch.back().late()
+                << "] < rte.back().first/speed["
+                << rte.back().first / (float)Cargo::vspeed() << "]"
+                << std::endl;
+    });
     return false;
+  }
 
   // Walk along the schedule and the route. O(|schedule|+|route|)
   auto j = rte.begin();
   for (auto i = sch.begin(); i != sch.end(); ++i) {
     while (j->second != i->loc()) ++j;
     if (i->late() != -1 &&
-        i->late() < j->first / (float)Cargo::vspeed()) return false;
+        i->late() < j->first / (float)Cargo::vspeed()) {
+      DEBUG(3, {
+        std::cout << "chktw() found i->late()[" << i->late()
+                  << "] < j->first/speed[" << j->first / (float)Cargo::vspeed()
+                  << "]" << std::endl;
+      });
+      return false;
+    }
   }
   return true;
 }
