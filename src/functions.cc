@@ -76,12 +76,11 @@ DistInt route_through(const Schedule& sch, std::vector<Wayp>& rteout) {
   return route_through(sch.data(), rteout);
 }
 
-bool check_precedence_constr(const Schedule& s) {
+bool chkpc(const Schedule& s) {
   // Last stop must be this vehicle destination
   if (s.data().back().type() != StopType::VehlDest ||
       s.data().back().owner() != s.owner()) {
-    // std::cout << "last stop is not a vehicle dest, or last stop owner
-    // mismatch\n";
+    DEBUG(3, { std::cout << "chk_prec() last stop is not a vehl dest, or last stop owner mismatch" << std::endl; });
     return false;
   }
 
@@ -89,7 +88,7 @@ bool check_precedence_constr(const Schedule& s) {
   if (s.data().size() > 2 &&
       (std::prev(s.data().end(), 2)->type() == StopType::CustOrig ||
        std::prev(s.data().end(), 2)->type() == StopType::VehlOrig)) {
-    // std::cout << "second-to-last stop is an origin\n";
+    DEBUG(3, { std::cout << "chk_prec() 2nd-last stop is an origin" << std::endl; });
     return false;
   }
 
@@ -99,14 +98,14 @@ bool check_precedence_constr(const Schedule& s) {
   for (auto i = s.data().begin(); i != s.data().end(); ++i) {
     // Any vehicle origin cannot appear in the schedule, aside from at 0
     if (i > s.data().begin() && i->type() == StopType::VehlOrig) {
-      // std::cout << "vehicle origin appears not at 0\n";
+      DEBUG(3, { std::cout << "chk_prec() first stop is not a VehlOrig" << std::endl; });
       return false;
     }
 
     // A vehicle origin that is not this vehicle cannot appear at 0
     if (i == s.data().begin() && i->type() == StopType::VehlOrig &&
         i->owner() != s.owner()) {
-      // std::cout << "vehicle origin mismatch\n";
+      DEBUG(3, { std::cout << "chk_prec() first stop is not this VehlOrig" << std::endl; });
       return false;
     }
 
@@ -119,43 +118,42 @@ bool check_precedence_constr(const Schedule& s) {
           paired = true;
         else if (i->type() == StopType::CustOrig &&
                  j->type() == StopType::CustDest && i > j) {
-          // std::cout << "cust origin appears after dest\n";
+          DEBUG(3, { std::cout << "CustOrig appears after its CustDest" << std::endl; });
           return false;
         } else if (i->type() == StopType::CustDest &&
                    j->type() == StopType::CustOrig && i > j)
           paired = true;
         else if (i->type() == StopType::CustDest &&
                  j->type() == StopType::CustOrig && i < j) {
-          // std::cout << "cust dest appears before origin\n";
+          DEBUG(3, { std::cout << "CustDest appears before its CustOrig" << std::endl; });
           return false;
         } else if (i->type() == StopType::VehlOrig &&
                    j->type() == StopType::VehlDest && i < j)
           paired = true;
         else if (i->type() == StopType::VehlOrig &&
                  j->type() == StopType::VehlDest && i > j) {
-          // std::cout << "veh origin appears after dest\n";
+          DEBUG(3, { std::cout << "VehlOrig appears after its VehlDest" << std::endl; });
           return false;
         } else if (i->type() == StopType::VehlDest &&
                    j->type() == StopType::VehlOrig && i > j)
           paired = true;
         else if (i->type() == StopType::VehlDest &&
                  j->type() == StopType::VehlOrig && i < j) {
-          // std::cout << "veh dest appears before origin\n";
+          DEBUG(3, { std::cout << "VehlDest appears before its VehlOrig" << std::endl; });
           return false;
         }
       }
     }
     if (!paired && (i->type() != StopType::CustDest &&
                     i->type() != StopType::VehlDest)) {
-      // std::cout << "origin is unpaired\n";
+      DEBUG(3, { std::cout << "An origin is unpaired" << std::endl; });
       return false;
     }
   }
   return true;
 }
 
-bool check_timewindow_constr(const std::vector<Stop>& sch,
-                             const std::vector<Wayp>& rte) {
+bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
   DEBUG(3, {
     std::cout << "chktw() got sch:";
     for (const auto& sp : sch)
@@ -199,8 +197,8 @@ bool check_timewindow_constr(const std::vector<Stop>& sch,
   return true;
 }
 
-bool check_timewindow_constr(const Schedule& sch, const Route& rte) {
-  return check_timewindow_constr(sch.data(), rte.data());
+bool chktw(const Schedule& sch, const Route& rte) {
+  return chktw(sch.data(), rte.data());
 }
 
 DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,

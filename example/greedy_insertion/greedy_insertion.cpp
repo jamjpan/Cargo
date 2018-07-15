@@ -57,7 +57,7 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
       continue;  // don't consider vehs already queued to capacity
 
     cst = sop_insert(cand, cust, sch, rte);  // <-- functions.h
-    bool within_time = check_timewindow_constr(sch, rte);
+    bool within_time = chktw(sch, rte);
     if ((cst < best_cst) && within_time) {
       best_cst = cst;
       best_sch = sch;

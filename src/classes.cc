@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <iostream> /* std::endl */
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -61,9 +61,8 @@ const Stop              & Schedule::front()      const { return data_.front(); }
       size_t              Schedule::size()       const { return data_.size(); }
 
 void Schedule::print() const {
-  Message print_out;
-  for (const auto& stop : data_) print_out << stop.loc() << " ";
-  print_out << std::endl;
+  for (const auto& stop : data_) std::cout << stop.loc() << " ";
+  std::cout << std::endl;
 }
 
 Route::Route(VehlId owner, std::vector<Wayp> data) {
@@ -79,9 +78,8 @@ const Wayp              & Route::at(RteIdx i)      const { return data_.at(i); }
       size_t              Route::size()            const { return data_.size(); }
 
 void Route::print() const {
-  Message print_out;
-  for (const auto& wp : data_) print_out << "(" << wp.first << "|" << wp.second << ") ";
-  print_out << std::endl;
+  for (const auto& wp : data_) std::cout << "(" << wp.first << "|" << wp.second << ") ";
+  std::cout << std::endl;
 }
 
 Trip::Trip(TripId owner, NodeId oid, NodeId did, ErlyTime e, LateTime l,
@@ -113,15 +111,14 @@ const VehlId     & Customer::assignedTo() const { return assignedTo_; }
       bool         Customer::assigned()   const { return (assignedTo_ > 0); }
 
 void Customer::print() const {
-  Message print_out;
-  print_out << "Customer " << this->id() << ":\n"
-            << "origin     \t" << this->orig() << "\n"
-            << "destination\t" << this->dest() << "\n"
-            << "early      \t" << this->early() << "\n"
-            << "late       \t" << this->late() << "\n"
-            << "status     \t" << (int)this->status() << "\n"
-            << "assignedTo \t" << this->assignedTo() << "\n"
-            << "assigned   \t" << this->assigned() << std::endl;
+    std::cout << "Customer " << this->id() << ":\n"
+              << "origin     \t" << this->orig() << "\n"
+              << "destination\t" << this->dest() << "\n"
+              << "early      \t" << this->early() << "\n"
+              << "late       \t" << this->late() << "\n"
+              << "status     \t" << (int)this->status() << "\n"
+              << "assignedTo \t" << this->assignedTo() << "\n"
+              << "assigned   \t" << this->assigned() << std::endl;
 }
 
 Vehicle::Vehicle(VehlId vid, OrigId oid, DestId did, ErlyTime et, LateTime lt,
@@ -165,23 +162,22 @@ const VehlStatus & Vehicle::status()                const { return status_; }
       Load         Vehicle::queued()                const { return queued_; }
       Load         Vehicle::capacity()              const { return -load_; }
 void Vehicle::print() const {
-  Message print_out;
-  print_out << "Vehicle " << this->id() << ":\n"
-            << "origin     \t" << this->orig() << "\n"
-            << "destination\t" << this->dest() << "\n"
-            << "early      \t" << this->early() << "\n"
-            << "late       \t" << this->late() << "\n"
-            << "load       \t" << this->load() << "\n"
-            << "nnd        \t" << this->next_node_distance() << "\n"
-            << "route      \t";
+    std::cout << "Vehicle " << this->id() << ":\n"
+              << "origin     \t" << this->orig() << "\n"
+              << "destination\t" << this->dest() << "\n"
+              << "early      \t" << this->early() << "\n"
+              << "late       \t" << this->late() << "\n"
+              << "load       \t" << this->load() << "\n"
+              << "nnd        \t" << this->next_node_distance() << "\n"
+              << "route      \t";
   for (const auto& i : this->route().data())
-    print_out << "(" << i.first << "|" << i.second << ") ";
-  print_out << "\n";
-  print_out << "schedule   \t";
+    std::cout << "(" << i.first << "|" << i.second << ") ";
+  std::cout << "\n";
+  std::cout << "schedule   \t";
   for (const auto& i : this->schedule().data())
-    print_out << i.loc() << " ";
-  print_out << "\n";
-  print_out << "idx_lvn    \t" << this->idx_last_visited_node() << "\n"
+    std::cout << i.loc() << " ";
+  std::cout << "\n";
+  std::cout << "idx_lvn    \t" << this->idx_last_visited_node() << "\n"
             << "status     \t" << (int)this->status() << std::endl;
 }
 MutableVehicle::MutableVehicle(const Vehicle& veh) : Vehicle(veh) {}

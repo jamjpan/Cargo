@@ -38,7 +38,7 @@ enum class DebugFlag {
   Level3,
 };
 
-const int debug_flag = (int)DebugFlag::Level3;
+const int debug_flag = (int)DebugFlag::Level0;
 
 }  // namespace cargo
 

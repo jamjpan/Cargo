@@ -63,7 +63,7 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
     if (cand->queued() == cand->capacity())
       continue;  // don't consider vehs already queued to capacity
     cst = cargo::sop_insert(cand, cust, sch, rte);  // <-- functions.h
-    bool within_time = cargo::check_timewindow_constr(sch, rte);
+    bool within_time = cargo::chktw(sch, rte);
     if ((cst < best_cst) && within_time) {
       best_cst = cst;
       best_sch = sch;

@@ -60,6 +60,21 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       REQUIRE(sync_vehl.schedule().data() == true_sch);
     }
 
+    SECTION("non-strict assign fails timewindow") {
+      Stop cust1_dest2(cust1.id(), cust1.dest(), StopType::CustDest, cust1.early(), 3);
+
+      int _; cargo.step(_);
+
+      vehl = rsalg.get_all_vehicles().front();
+      std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
+      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest2, vehl_dest};
+
+      MutableVehicle sync_vehl(vehl);
+      sync_vehl.set_route(rte);
+      sync_vehl.set_schedule(sch);
+      REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == false);
+    }
+
     SECTION("strict assign") {
       int _; cargo.step(_);
 

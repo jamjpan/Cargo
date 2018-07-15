@@ -211,7 +211,7 @@ bool RSAlgorithm::assign(
     /* After got the route, can delete the current location from re-sch */
     re_sch.erase(re_sch.begin());
 
-    if (!check_timewindow_constr(re_sch, sync_rte)) return false;
+    if (!chktw(re_sch, sync_rte)) return false;
 
     DEBUG(3, { std::cout << "assign() found no problems with timewindow" << std::endl; });
   }

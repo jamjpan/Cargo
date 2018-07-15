@@ -114,7 +114,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
     for (auto& wp : rte) wp.first += head;
     rte.insert(rte.begin(), cand->route().at(cand->idx_last_visited_node()));
 
-    bool within_time = check_timewindow_constr(sch, rte);
+    bool within_time = chktw(sch, rte);
     if ((cst < best_cst) && within_time) {
       if (best_vehl != nullptr)
         kt_.at(best_vehl->id())->cancel(); // <-- cancel current best

@@ -32,7 +32,7 @@ BilateralArrangement::BilateralArrangement()
     : RSAlgorithm("ba"),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;      // Initialize my private counter
+  nmat_ = 0;         // Initialize my private counter
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -40,8 +40,8 @@ void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void BilateralArrangement::match() {
-  std::vector<Customer> custs = customers();  // <-- get a local copy
-  std::random_shuffle(custs.begin(), custs.end()); // <-- random it
+  std::vector<Customer> custs = customers(); // <-- get a local copy
+  std::random_shuffle(custs.begin(), custs.end());
 
   /* Extract riders one at a time */
   while (!custs.empty()) {
@@ -76,13 +76,12 @@ void BilateralArrangement::match() {
       }
       if (best_vehl == nullptr) break; // should never happen but just to be safe
       candidates.erase(std::find(candidates.begin(), candidates.end(), best_vehl));
-      bool within_time = check_timewindow_constr(best_sch, best_rte);
+      bool within_time = chktw(best_sch, best_rte);
       bool within_cap = (best_vehl->queued() < best_vehl->capacity());
       if (within_time && within_cap) {
         matched = true;
         break;
       } else {
-        // print(MessageType::Info) << "best candidate is infeasible" << std::endl;
         /* Remove some random not-picked-up customer from cand and try the
          * insertion again. If it meets constraints, then accept. */
         std::vector<Stop> randomized_schedule(best_vehl->schedule().data().begin()+1,
@@ -99,27 +98,14 @@ void BilateralArrangement::match() {
           }
         }
         if (remove_me != -1) {
-          // print(MessageType::Info) << "trying to remove " << remove_me << std::endl;
-          // print(MessageType::Info) << "before remove:";
-          // for (const auto& stop : best_vehl->schedule().data())
-          //   print(MessageType::Info) << " " << stop.loc();
-          // print(MessageType::Info) << std::endl;
           std::vector<Stop> new_sch = best_vehl->schedule().data();
           new_sch.erase(std::remove_if(new_sch.begin(), new_sch.end(), [&](const Stop& a)
                       { return a.owner() == remove_me; }), new_sch.end());
           best_vehl->set_schedule(new_sch);
-          // print(MessageType::Info) << "after remove:";
-          // for (const auto& stop : best_vehl->schedule().data())
-          //   print(MessageType::Info) << " " << stop.loc();
-          // print(MessageType::Info) << std::endl;
           std::vector<Stop> new_best_sch;
           std::vector<Wayp> new_best_rte;
           sop_insert(best_vehl, cust, new_best_sch, new_best_rte);
-          // print(MessageType::Info) << "after insert:";
-          // for (const auto& stop : new_best_sch)
-          //   print(MessageType::Info) << " " << stop.loc();
-          // print(MessageType::Info) << std::endl;
-          if (check_timewindow_constr(new_best_sch, new_best_rte)) {
+          if (chktw(new_best_sch, new_best_rte)) {
             print(MessageType::Info) << "feasible after remove " << std::endl;
             best_sch = new_best_sch;
             best_rte = new_best_rte;
@@ -139,11 +125,14 @@ void BilateralArrangement::match() {
       best_vehl->set_schedule(best_sch);
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
+
+      /* assign() will modify best_vehl with the synchronized version to
+       * account for match latency */
       if (assign({cust}, cust_to_del, *best_vehl)) {
         print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
         nmat_++;
       } else {
-        print(MessageType::Warning) << "Commit rejected" << std::endl;
+        // print(MessageType::Warning) << "Commit rejected" << std::endl;
       }
     }
   } // end while !custs.empty()
