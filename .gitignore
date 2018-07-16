@@ -11,6 +11,7 @@
 .#*
 *.sol
 *.partial
+*.mp4
 build/
 lib/
 tool/gtreebuilder/gtreebuilder
