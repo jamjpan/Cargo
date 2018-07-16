@@ -56,8 +56,8 @@ class Cargo {
  public:
   Cargo(const Options&);
   ~Cargo();
-  const std::string & name();          // e.g. rs-lg-5
-  const std::string & road_network();  // e.g. mny, cd1, bj5
+  const std::string& name();          // e.g. rs-lg-5
+  const std::string& road_network();  // e.g. mny, cd1, bj5
   void start(RSAlgorithm&);
 
   /* Starts a dynamic simuatlion (*/
@@ -71,13 +71,13 @@ class Cargo {
   static DistInt edgeweight(const NodeId& u, const NodeId& v) {
     return edges_.at(u).at(v);
   }
-  static Point           node2pt(const NodeId& i)  { return nodes_.at(i); }
-  static DistInt         basecost(const TripId& i) { return trip_costs_.at(i); }
-  static BoundingBox     bbox()                    { return bbox_; }
-  static Speed         & vspeed()                  { return speed_; }
-  static SimlTime        now()                     { return t_; }
-  static GTree::G_Tree & gtree()                   { return gtree_; }
-  static sqlite3       * db()                      { return db_; }
+  static Point node2pt(const NodeId& i) { return nodes_.at(i); }
+  static DistInt basecost(const TripId& i) { return trip_costs_.at(i); }
+  static BoundingBox bbox() { return bbox_; }
+  static Speed& vspeed() { return speed_; }
+  static SimlTime now() { return t_; }
+  static GTree::G_Tree& gtree() { return gtree_; }
+  static sqlite3* db() { return db_; }
 
   static std::mutex dbmx;  // protect the db
 
@@ -97,19 +97,18 @@ class Cargo {
   size_t total_vehicles_;
   size_t total_customers_;
   size_t active_vehicles_;
-  int sleep_interval_;        // 1 sec/time_multiplier
-  size_t base_cost_;          // total base cost
+  int sleep_interval_;  // 1 sec/time_multiplier
+  size_t base_cost_;    // total base cost
 
   /* Global vars */
-  static KVNodes nodes_;      // nodes_[u] = Point
-  static KVEdges edges_;      // edges_[u][v] = w
+  static KVNodes nodes_;  // nodes_[u] = Point
+  static KVEdges edges_;  // edges_[u][v] = w
   static BoundingBox bbox_;
   static GTree::G_Tree gtree_;
   static sqlite3* db_;
   static Speed speed_;
-  static SimlTime t_;         // current sim time
-  static std::unordered_map<TripId, DistInt>
-      trip_costs_;            // indiv. base costs
+  static SimlTime t_;                                      // current sim time
+  static std::unordered_map<TripId, DistInt> trip_costs_;  // indiv. base costs
 
   /* Solution tables
    * (ordered, so we know exactly what to expect when iterating) */
@@ -117,6 +116,7 @@ class Cargo {
   std::ofstream f_sol_temp_;          // sol.partial
   std::vector<VehlId> sol_veh_cols_;  // veh column headers
   std::map<VehlId, NodeId> sol_routes_;
+  // std::map<VehlId, RteIdx> logger_routes_;
   std::map<CustId, std::pair<CustStatus, VehlId>> sol_statuses_;
 
   /* SQL statements */
@@ -134,6 +134,7 @@ class Cargo {
   sqlite3_stmt* sch_stmt;  // schedule
   sqlite3_stmt* lvn_stmt;  // last-visited node
   sqlite3_stmt* nnd_stmt;  // nearest-node dist
+  sqlite3_stmt* select_timeout_stmt;
 
   void initialize(const Options&);
 
@@ -144,4 +145,3 @@ class Cargo {
 }  // namespace cargo
 
 #endif  // CARGO_INCLUDE_LIBCARGO_CARGO_H_
-

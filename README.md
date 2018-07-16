@@ -242,6 +242,36 @@ int main()
    └───────────────────────┘
 ```
 
+## Log file:
+
+Log file is orgnized by several lines indicating events during runtime, which are in the formats shown below. `[var]` is a placeholder for a variable.
+
+```
+[T] R [VID] [NODEID] [NODEID] ...
+[T] V [VID] [NODEID] [VID] [NODEID] ...
+[T] P [CID] [CID] ...
+[T] D [CID] [CID] ...
+[T] T [CID] [CID] ...
+```
+
+[T] indicates the simulation time when the event happens.
+
+[VID] indicates vehicle id.
+
+[NODEID] indicates node id in the roadnetwork.
+
+[CID] indicates customer id.
+
+R means route update, followed by one vehicle id and several node ids, representing a new route from current position.
+
+V means vehicle position update, followed by pairs of vehicle id and node id.
+
+P means pick up customers, followed by customer ids which are picked up at [T] time.
+
+D means drop off customers, followed by customer ids which are dropped off at [T] time.
+
+T means customers timeout, followed by customer ids whose waiting time exceeds the matching period.
+
 ## To do:
 * Simulation statistics (number of matches, avg. trip delay, etc.)
 * Plotting and animation

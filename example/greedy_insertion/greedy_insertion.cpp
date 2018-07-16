@@ -17,18 +17,18 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <climits>
 #include <iostream> /* std::endl */
 #include <vector>
-#include <climits>
 
 #include "greedy_insertion.h"
 #include "libcargo.h"
 
 GreedyInsertion::GreedyInsertion()
     : RSAlgorithm("greedy_insertion"),
-      grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
+      grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;      // Initialize my private counter
+  nmat_ = 0;         // Initialize my private counter
 }
 
 void GreedyInsertion::handle_customer(const cargo::Customer& cust) {
@@ -71,9 +71,11 @@ void GreedyInsertion::handle_customer(const cargo::Customer& cust) {
     std::vector<cargo::Wayp> sync_rte;
     std::vector<cargo::Stop> sync_sch;
     cargo::DistInt sync_nnd;
-    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
+    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch,
+               sync_nnd)) {
       grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-      print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+      print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id()
+                    << ")\n";
       nmat_++;
     }
   }
@@ -95,14 +97,14 @@ void GreedyInsertion::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_roadnet = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem = "../../data/benchmark/rs-lg-5.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 5;
-  op.vehicle_speed    = 10;
-  op.matching_period  = 60;
+  op.time_multiplier = 5;
+  op.vehicle_speed = 10;
+  op.matching_period = 60;
 
   cargo::Cargo cargo(op);
 
@@ -112,4 +114,3 @@ int main() {
   /* Start Cargo */
   cargo.start(gr);
 }
-

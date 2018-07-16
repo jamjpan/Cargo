@@ -9,6 +9,7 @@ OBJECTS = \
 		  include/libcargo/distance.h \
 		  include/libcargo/message.h \
 		  include/libcargo/types.h \
+		  include/libcargo/logger.h \
 		  build/cargo.o \
 		  build/classes.o \
 		  build/file.o \
@@ -16,7 +17,8 @@ OBJECTS = \
 		  build/grid.o \
 		  build/gtree.o \
 		  build/rsalgorithm.o \
-		  build/sqlite3.o
+		  build/sqlite3.o \
+		  build/logger.o
 lib/libcargo.a: $(OBJECTS)
 	ar rcs $@ $^
 #-------------------------------------------------------------------------------
@@ -78,6 +80,7 @@ build/rsalgorithm.o: \
 	include/libcargo/dbsql.h \
 	include/libcargo/message.h \
 	include/libcargo/types.h \
+	include/libcargo/logger.h \
 	src/rsalgorithm.cc
 	$(CXX) $(CFLAGS) src/rsalgorithm.cc
 
@@ -85,6 +88,13 @@ build/sqlite3.o: \
 	include/sqlite3/sqlite3.h \
 	src/sqlite3/sqlite3.c
 	$(CC) -DSQLITE_ENABLE_RTREE src/sqlite3/sqlite3.c
+
+build/logger.o: \
+	include/libcargo/logger.h \
+	include/libcargo/classes.h \
+	include/libcargo/types.h \
+	src/logger.cc
+	$(CXX) $(CFLAGS) src/logger.cc
 
 build:
 	mkdir -p build
