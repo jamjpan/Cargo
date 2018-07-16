@@ -523,6 +523,8 @@ void RSAlgorithm::end() { /* Executes after the simulation finishes. */ }
 
 void RSAlgorithm::listen() {
   std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  typedef std::chrono::duration<double, std::milli> dur_milli;
+  typedef std::chrono::milliseconds milli;
 
   // Start timing -------------------------------
   t0 = std::chrono::high_resolution_clock::now();
@@ -538,18 +540,20 @@ void RSAlgorithm::listen() {
   // Stop timing --------------------------------
 
   // Don't sleep if time exceeds batch time
-  int dur = std::round(std::chrono::duration<double, std::milli>(t1-t0).count());
+  int dur = std::round(dur_milli(t1-t0).count());
   if (dur > batch_time_ * 1000)
-    print(MessageType::Warning) << "listen() (" << dur << " ms) exceeds batch time ("
-                  << batch_time_ * 1000 << " ms) for " << vehicles_.size()
-                  << " vehls and " << customers_.size() << " custs"
-                  << std::endl;
+    print(MessageType::Warning)
+        << "listen() ("           << dur                << " ms) "
+        << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
+        << vehicles_.size() << " vehls and " << customers_.size() << " custs"
+        << std::endl;
   else {
-    print << "listen() handled " << vehicles_.size() << " vehls and "
-               << customers_.size() << " custs in " << dur << " ms"
-               << std::endl;
-    std::this_thread::sleep_for(
-        std::chrono::milliseconds(batch_time_ * 1000 - dur));
+    print
+        << "listen() handled "
+        << vehicles_.size() << " vehls and " << customers_.size() << " custs "
+        << "in " << dur << " ms"
+        << std::endl;
+    std::this_thread::sleep_for(milli(batch_time_ * 1000 - dur));
   }
 }
 
