@@ -612,7 +612,7 @@ int main() {
   /* The default penalty for unassignment is a customer's base cost. But for
    * permanent taxis, the penalty needs to be much higher in order to divert the
    * taxi. Set unassign_penalty to a high number > 0 to override the default. */
-  tvg.unassign_penalty = 20000;
+  // tvg.unassign_penalty = 20000;
 
   /* Start Cargo */
   cargo.start(tvg);

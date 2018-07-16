@@ -50,6 +50,9 @@ bool chkpc(const Schedule &);
 bool chktw(const std::vector<Stop> &, const std::vector<Wayp> &);
 bool chktw(const Schedule &, const Route &);
 
+void print_rte(const std::vector<Wayp> &);
+void print_sch(const std::vector<Stop> &);
+
 // Given a schedule and a customer, return the cost of the best-insertion
 // schedule, and output the schedule and the route. The two bools are for
 // fixing the end points. Set the first bool to true to fix the start, and

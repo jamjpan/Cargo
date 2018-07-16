@@ -154,28 +154,16 @@ bool chkpc(const Schedule& s) {
 }
 
 bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
-  DEBUG(3, {
-    std::cout << "chktw() got sch:";
-    for (const auto& sp : sch)
-      std::cout << " (" << sp.loc() << "|late=" << sp.late() << ")";
-    std::cout << std::endl;
-  });
-
-  DEBUG(3, {
-    std::cout << "chktw() got rte:";
-    for (const auto& wp : rte)
-      std::cout << " (" << wp.first << "|" << wp.second << ")";
-    std::cout << std::endl;
-  });
+  DEBUG(3, { std::cout << "chktw() got sch:"; print_sch(sch); });
+  DEBUG(3, { std::cout << "chktw() got rte:"; print_rte(rte); });
 
   // Check the end point first
   if (sch.back().late() != -1 &&
       sch.back().late() < rte.back().first / (float)Cargo::vspeed()) {
-    DEBUG(3, {
-      std::cout << "chktw() found sch.back().late()[" << sch.back().late()
-                << "] < rte.back().first/speed["
-                << rte.back().first / (float)Cargo::vspeed() << "]"
-                << std::endl;
+    DEBUG(3, { std::cout << "chktw() found "
+      << "sch.back().late()["      << sch.back().late() << "] < "
+      << "rte.back().first/speed[" << rte.back().first / (float)Cargo::vspeed() << "]"
+      << std::endl;
     });
     return false;
   }
@@ -186,10 +174,10 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
     while (j->second != i->loc()) ++j;
     if (i->late() != -1 &&
         i->late() < j->first / (float)Cargo::vspeed()) {
-      DEBUG(3, {
-        std::cout << "chktw() found i->late()[" << i->late()
-                  << "] < j->first/speed[" << j->first / (float)Cargo::vspeed()
-                  << "]" << std::endl;
+      DEBUG(3, { std::cout << "chktw() found "
+        << "i->late()["      << i->late() << "] < "
+        << "j->first/speed[" << j->first / (float)Cargo::vspeed() << "]"
+        << std::endl;
       });
       return false;
     }
@@ -199,6 +187,19 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
 
 bool chktw(const Schedule& sch, const Route& rte) {
   return chktw(sch.data(), rte.data());
+}
+
+void print_rte(const std::vector<Wayp>& rte) {
+  for (const auto& wp : rte)
+    std::cout << " (" << wp.first << "|" << wp.second << ")";
+  std::cout << std::endl;
+}
+
+void print_sch(const std::vector<Stop>& sch) {
+  for (const auto& sp : sch)
+    std::cout << " (owner=" << sp.owner() << ";loc=" << sp.loc() << ";e=" << sp.early()
+              << ";late=" << sp.late() << ";type=" << (int)sp.type() << ")";
+  std::cout << std::endl;
 }
 
 DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,

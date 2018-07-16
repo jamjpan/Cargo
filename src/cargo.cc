@@ -135,11 +135,9 @@ int Cargo::step(int& ndeact) {
     DistInt nnd = sqlite3_column_int(ssv_stmt, 11) - speed_;
 
     DEBUG(2, {  // Print vehicle info
-      print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn;
-      print << "\n\tsched:";
-      for (const Stop& sp : sch) print << " " << sp.loc(); print << "\n\troute:";
-      for (const Wayp& wp : rte) print << " (" << wp.first << "|" << wp.second << ")";
-      print << std::endl;
+      print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn << "\n";
+      print << "\tsched:"; print_sch(sch);
+      print << "\troute:"; print_rte(rte);
     });
 
     bool active = true;  // all vehicles selected by ssv_stmt are active
