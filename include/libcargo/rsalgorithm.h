@@ -45,7 +45,7 @@ namespace cargo {
 class RSAlgorithm {
  public:
   // Pass along a name string to your RSAlgorithm
-  RSAlgorithm(const std::string& name = "noname");
+  RSAlgorithm(const std::string& name = "noname", bool fifo = false);
   ~RSAlgorithm();
 
   virtual void handle_customer(const Customer&);

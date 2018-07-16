@@ -34,7 +34,8 @@
 
 namespace cargo {
 
-RSAlgorithm::RSAlgorithm(const std::string& name) : print(name) {
+RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
+    : print(name, fifo) {
   name_ = name;
   done_ = false;
   batch_time_ = 1;

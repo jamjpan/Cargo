@@ -27,7 +27,7 @@
 using namespace cargo;
 
 GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion"),
+    : RSAlgorithm("greedy_insertion", true),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
   nmat_ = 0;      // Initialize my private counter
@@ -81,7 +81,6 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
 
 void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
   grid_.insert(vehl);  // Insert into my grid
-  print << "Vehl dest: " << vehl.dest() << std::endl;
 }
 
 void GreedyInsertion::end() {
@@ -99,9 +98,9 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 10;
+  op.time_multiplier  = 1;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 

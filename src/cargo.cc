@@ -55,7 +55,6 @@ sqlite3* Cargo::db_ = nullptr;
 Speed Cargo::speed_ = 0;
 SimlTime Cargo::t_ = 0;
 std::mutex Cargo::dbmx;
-std::mutex Message::mtx_;
 
 Cargo::Cargo(const Options& opt)
     : print("cargo"),
@@ -391,7 +390,7 @@ NodeId Cargo::random_node() {
 
 /* Start Cargo with the default (blank) RSAlgorithm */
 void Cargo::start() {
-  RSAlgorithm _("noalg");
+  RSAlgorithm _;
   start(_);
 }
 
