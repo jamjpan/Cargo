@@ -51,8 +51,9 @@ listener. Here the listener is `cat` (top pane). When the listener is attached,
 Cargo starts the algorithm (here, greedy) and begins simulating the vehicles in
 real time. The logger outputs results at every simulation step (one second).
 <p align="center">
-<img src="example/greedy_insertion/greedy_demo.svg" alt="Greedy" width="800"/>
+<img src="https://cdn.rawgit.com/jamjpan/Cargo/29c23bc0/example/greedy_insertion/greedy_demo.svg" alt="Greedy" width="800"/>
 </p>
+(Terminal screenshot generated with [termtosvg](https://github.com/nbedos/termtosvg))
 
 Supports:
 * Dynamically arriving vehicles and customers
