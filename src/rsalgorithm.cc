@@ -226,9 +226,9 @@ bool RSAlgorithm::assign(
     });
 
     /* Output synchronized vehicle */
-    vehl.set_route(sync_rte);
+    vehl.set_rte(sync_rte);
     vehl.set_nnd(cur_nnd);
-    vehl.set_schedule(sync_sch);
+    vehl.set_sch(sync_sch);
     vehl.reset_lvn();
 
     // Commit the synchronized route

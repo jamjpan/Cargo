@@ -516,8 +516,8 @@ void TripVehicleGrouping::match() {
      * assignment. */
     if (glp_mip_col_val(mip, i) == 1) {
       MutableVehicle sync_vehl(vehmap.at(colmap[i].first));
-      sync_vehl.set_route(vt_rte.at(colmap[i].first).at(colmap[i].second));
-      sync_vehl.set_schedule(vt_sch.at(colmap[i].first).at(colmap[i].second));
+      sync_vehl.set_rte(vt_rte.at(colmap[i].first).at(colmap[i].second));
+      sync_vehl.set_sch(vt_sch.at(colmap[i].first).at(colmap[i].second));
       if (assign(trip_.at(colmap[i].second), {}, sync_vehl)) {
         for (const auto& cust : trip_.at(colmap[i].second))
           print(MessageType::Success) << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
@@ -571,8 +571,8 @@ bool TripVehicleGrouping::travel(
     DistInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre);
     if (chktw(schctr, rtectr)) {
       cstsum += cst;
-      mtvehl.set_schedule(schctr);
-      mtvehl.set_route(rtectr);
+      mtvehl.set_sch(schctr);
+      mtvehl.set_rte(rtectr);
       mtvehl.reset_lvn();
     } else  // <-- a customer failed; trip cannot be served
       return false;

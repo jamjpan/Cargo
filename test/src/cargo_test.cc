@@ -36,8 +36,8 @@ TEST_CASE("Cargo::step()", "") {
     std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
     std::vector<Stop> sch {vehl_orig, cust1_orig, cust2_orig, cust1_dest, cust2_dest, vehl_dest};
     MutableVehicle sync_vehl(vehl);
-    sync_vehl.set_route(rte);
-    sync_vehl.set_schedule(sch);
+    sync_vehl.set_rte(rte);
+    sync_vehl.set_sch(sch);
     REQUIRE(rsalg.assign_strict({cust1, cust2}, {}, sync_vehl) == true);
 
     SECTION("speed=3") {

@@ -35,6 +35,12 @@ TEST_CASE("RSAlgorithm::assign()", "") {
     Stop cust2_orig(cust2.id(), cust2.orig(), StopType::CustOrig, cust2.early(), cust2.late());
     Stop cust2_dest(cust2.id(), cust2.dest(), StopType::CustDest, cust2.early(), cust2.late());
 
+    /* In this test, the vehicle is following the route 0 1 2 3 4 5. The vehicle
+     * is stepped once (at speed 3) to put it between 1,2 with 1 unit to go. At
+     * this time, the vehicle is assigned to pickup a customer at 1. The correct
+     * behavior is the vehicle to be routed to 1 2 1 2 3 4 5; the vehicle
+     * completes its current edge (by traveling to 2), makes a u-turn to go back
+     * to 1, then continues along to 5. */
     SECTION("non-strict assign") {
       int _; cargo.step(_);
 
@@ -42,16 +48,10 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
       std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
 
-      std::cout << "rsalg_test before assign: " << std::endl;
-      vehl.print();
-
       MutableVehicle sync_vehl(vehl);
-      sync_vehl.set_route(rte);
-      sync_vehl.set_schedule(sch);
+      sync_vehl.set_rte(rte);
+      sync_vehl.set_sch(sch);
       REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == true);
-
-      std::cout << "rsalg_test after assign: " << std::endl;
-      sync_vehl.print();
 
       Stop vehl_x1(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
       std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,1}, {8,2}, {10,3}, {12,4}, {15,5}};
@@ -60,6 +60,8 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       REQUIRE(sync_vehl.schedule().data() == true_sch);
     }
 
+    /* This test is the same as the one above, except the re-route fails time
+     * window constraint. */
     SECTION("non-strict assign fails timewindow") {
       Stop cust1_dest2(cust1.id(), cust1.dest(), StopType::CustDest, cust1.early(), 3);
 
@@ -70,11 +72,13 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest2, vehl_dest};
 
       MutableVehicle sync_vehl(vehl);
-      sync_vehl.set_route(rte);
-      sync_vehl.set_schedule(sch);
+      sync_vehl.set_rte(rte);
+      sync_vehl.set_sch(sch);
       REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == false);
     }
 
+    /* This test is the same as the above, except strict-assign is used. The
+     * correct behavior is to reject the assignment and do not do re-routing. */
     SECTION("strict assign") {
       int _; cargo.step(_);
 
@@ -82,12 +86,9 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
       std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
 
-      std::cout << "rsalg_test before assign: " << std::endl;
-      vehl.print();
-
       MutableVehicle sync_vehl(vehl);
-      sync_vehl.set_route(rte);
-      sync_vehl.set_schedule(sch);
+      sync_vehl.set_rte(rte);
+      sync_vehl.set_sch(sch);
       REQUIRE(rsalg.assign_strict({cust1}, {}, sync_vehl) == false);
     }
 }

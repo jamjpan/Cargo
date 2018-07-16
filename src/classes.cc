@@ -181,16 +181,16 @@ void Vehicle::print() const {
             << "status     \t" << (int)this->status() << std::endl;
 }
 MutableVehicle::MutableVehicle(const Vehicle& veh) : Vehicle(veh) {}
-void MutableVehicle::set_route(const std::vector<Wayp>& r) {
+void MutableVehicle::set_rte(const std::vector<Wayp>& r) {
   Route route(this->id_, r);
-  set_route(route);
+  set_rte(route);
 }
-void MutableVehicle::set_route(const Route& route) { this->route_ = route; }
-void MutableVehicle::set_schedule(const std::vector<Stop>& s) {
+void MutableVehicle::set_rte(const Route& route) { this->route_ = route; }
+void MutableVehicle::set_sch(const std::vector<Stop>& s) {
   Schedule schedule(this->id_, s);
-  set_schedule(schedule);
+  set_sch(schedule);
 }
-void MutableVehicle::set_schedule(const Schedule& schedule) {
+void MutableVehicle::set_sch(const Schedule& schedule) {
   this->schedule_ = schedule;
 }
 void MutableVehicle::set_nnd(const DistInt& sync_nnd) {

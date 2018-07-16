@@ -101,7 +101,7 @@ void BilateralArrangement::match() {
           std::vector<Stop> new_sch = best_vehl->schedule().data();
           new_sch.erase(std::remove_if(new_sch.begin(), new_sch.end(), [&](const Stop& a)
                       { return a.owner() == remove_me; }), new_sch.end());
-          best_vehl->set_schedule(new_sch);
+          best_vehl->set_sch(new_sch);
           std::vector<Stop> new_best_sch;
           std::vector<Wayp> new_best_rte;
           sop_insert(best_vehl, cust, new_best_sch, new_best_rte);
@@ -121,8 +121,8 @@ void BilateralArrangement::match() {
 
     /* Commit */
     if (matched) {
-      best_vehl->set_route(best_rte);
-      best_vehl->set_schedule(best_sch);
+      best_vehl->set_rte(best_rte);
+      best_vehl->set_sch(best_sch);
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
 

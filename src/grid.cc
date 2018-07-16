@@ -77,8 +77,8 @@ void Grid::commit(
         const std::vector<Wayp>         & new_rte,
         const std::vector<Stop>         & new_sch,
         const DistInt                   & new_nnd) {
-  mutvehl->set_route(new_rte);
-  mutvehl->set_schedule(new_sch);
+  mutvehl->set_rte(new_rte);
+  mutvehl->set_sch(new_sch);
   mutvehl->set_nnd(new_nnd);
   mutvehl->reset_lvn();
   mutvehl->incr_queued();

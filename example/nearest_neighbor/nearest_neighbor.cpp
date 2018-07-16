@@ -77,8 +77,8 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    best_vehl->set_route(best_rte);
-    best_vehl->set_schedule(best_sch);
+    best_vehl->set_rte(best_rte);
+    best_vehl->set_sch(best_sch);
     if (assign({cust}, {}, *best_vehl)) {
       print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;

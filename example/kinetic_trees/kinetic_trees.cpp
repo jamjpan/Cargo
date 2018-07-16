@@ -130,8 +130,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    best_vehl->set_route(best_rte);
-    best_vehl->set_schedule(best_sch);
+    best_vehl->set_rte(best_rte);
+    best_vehl->set_sch(best_sch);
     if (assign({cust}, {}, *best_vehl)) {
       /* Accept the new kinetic tree, and sync it up to sync_sch */
       kt_.at(best_vehl->id())->push();
