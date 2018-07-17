@@ -72,6 +72,11 @@ class Logger {
   static void put_r_message(const std::vector<Wayp> &, const Vehicle &);
   // vehicle position update
   static void put_v_message(const std::map<VehlId, NodeId> &);
+  // match update
+  static void put_m_message(const std::vector<CustId> &,
+                            const std::vector<CustId> &, const VehlId);
+  // vehicle arrived udpate
+  static void put_a_message(const std::vector<VehlId> &);
 
   static void put_c_message(
       const std::map<CustId, std::pair<CustStatus, VehlId>> &);

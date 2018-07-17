@@ -188,6 +188,9 @@ bool RSAlgorithm::commit(const std::vector<Customer>& custs_to_add,
 
     std::vector<Stop> sync_sch;
     if (sync_schedule(new_sch, cur_sch, sync_rte, custs_to_add, sync_sch)) {
+      // Get customer_ids_to_add for logger
+      std::vector<CustId> custs_id_to_add;
+
       out_sch = sync_sch;
 
       // Commit the synchronized route
@@ -227,6 +230,9 @@ bool RSAlgorithm::commit(const std::vector<Customer>& custs_to_add,
 
       // Commit the assignment
       for (const auto& cust : custs_to_add) {
+        // Just use the loop for ids
+        custs_id_to_add.push_back(cust.id());
+
         sqlite3_bind_int(com_stmt, 1, veh.id());
         sqlite3_bind_int(com_stmt, 2, cust.id());
         if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
@@ -251,6 +257,7 @@ bool RSAlgorithm::commit(const std::vector<Customer>& custs_to_add,
 
       // Write log
       Logger::put_r_message(sync_rte, veh);
+      Logger::put_m_message(custs_id_to_add, custs_to_del, veh.id());
       return true;
     }
   }

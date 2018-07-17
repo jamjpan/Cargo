@@ -142,6 +142,8 @@ int Cargo::step(int& ndeact) {
   std::vector<CustId> dropped;
   // Vehicle postion update for logger
   std::map<VehlId, NodeId> vehicle_position;
+  // Vehicle arrived update for logger
+  std::vector<VehlId> arrived;
 
   std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
 
@@ -208,10 +210,14 @@ int Cargo::step(int& ndeact) {
             print_error << "Failed (deactivate vehicle " << vid
                         << "). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
-          } else
+          } else {
+            // Add arrived vehicles
+            arrived.push_back(vid);
+
             DEBUG(1, {
               print_info << "Vehicle " << vid << " arrived." << std::endl;
             });
+          }
           sqlite3_clear_bindings(dav_stmt);
           sqlite3_reset(dav_stmt);
           active = false;  // <-- stops the while loops
@@ -368,6 +374,7 @@ int Cargo::step(int& ndeact) {
   if (picked.size() != 0) Logger::put_p_message(picked);
   if (dropped.size() != 0) Logger::put_d_message(dropped);
   if (!vehicle_position.empty()) Logger::put_v_message(vehicle_position);
+  if (arrived.size() != 0) Logger::put_a_message(arrived);
 
   return nrows;
 }  // release dblock

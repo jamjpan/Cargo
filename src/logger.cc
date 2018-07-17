@@ -74,6 +74,30 @@ void Logger::put_v_message(const std::map<VehlId, NodeId> &sol_routes) {
   push(item);
 }
 
+void Logger::put_m_message(const std::vector<CustId> &cust_to_add,
+                           const std::vector<CustId> &cust_to_del,
+                           const VehlId vid) {
+  std::string item = std::to_string(Cargo::now()) + " M " + std::to_string(vid);
+  for (CustId id : cust_to_del) {
+    item.append(" ");
+    item.append(std::to_string(-id));
+  }
+  for (CustId id : cust_to_add) {
+    item.append(" ");
+    item.append(std::to_string(id));
+  }
+  push(item);
+}
+
+void Logger::put_a_message(const std::vector<VehlId> &arrived) {
+  std::string item = std::to_string(Cargo::now()) + " A";
+  for (VehlId id : arrived) {
+    item.append(" ");
+    item.append(std::to_string(id));
+  }
+  push(item);
+}
+
 void Logger::put_c_message(
     const std::map<CustId, std::pair<CustStatus, VehlId>> &sol_status) {}
 
