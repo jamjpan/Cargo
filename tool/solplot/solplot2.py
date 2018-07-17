@@ -291,8 +291,11 @@ class Visualizer:
             # for line in lines:
             line = f_log.readline()
             while line:
+                line = line.strip()
                 col = line.split(' ')
-                while int(col[0]) == time_count:
+                if len(col) is 0:
+                    break
+                while col[0].isdigit() and int(col[0]) == time_count:
                     self.update(col[1], col[2:])
                     line = f_log.readline()
                     col = line.split(' ')
