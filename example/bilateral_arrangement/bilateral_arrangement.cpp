@@ -66,7 +66,7 @@ void BilateralArrangement::match() {
     while (!candidates.empty()) {
       /* Loop through and get the greedy match */;
       for (const auto& cand : candidates) {
-        cst = sop_insert(cand, cust, sch, rte); // <-- doesn't check time/cap constraints
+        cst = sop_insert(*cand, cust, sch, rte); // <-- doesn't check time/cap constraints
         if (cst < best_cst) {
           best_cst = cst;
           best_sch = sch;

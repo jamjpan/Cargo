@@ -1,5 +1,3 @@
-// MIT License
-//
 // Copyright (c) 2018 the Cargo authors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,28 +17,5 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_DEBUG_H_
-#define CARGO_INCLUDE_LIBCARGO_DEBUG_H_
-
-/* Usage: DEBUG(int, stmt) */
-#define DEBUG(level, x)                  \
-  do {                                   \
-    if (level && debug_flag >= level) x; \
-  } while (0)
-
-namespace cargo {
-
-// Debug levels
-enum class DebugFlag {
-  Level0,  // turn off debugging messages
-  Level1,
-  Level2,
-  Level3,
-};
-
-const int debug_flag = (int)DebugFlag::Level1;
-
-}  // namespace cargo
-
-#endif  // CARGO_INCLUDE_LIBCARGO_DEBUG_H_
+#include "libcargo.h"
 

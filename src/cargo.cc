@@ -55,6 +55,8 @@ sqlite3* Cargo::db_ = nullptr;
 Speed Cargo::speed_ = 0;
 SimlTime Cargo::t_ = 0;
 std::mutex Cargo::dbmx;
+std::mutex Cargo::spmx;
+cache::lru_cache<std::string, std::vector<NodeId>> Cargo::spcache_(10000); // <-- cache size
 
 Cargo::Cargo(const Options& opt)
     : print("cargo"),
@@ -177,8 +179,7 @@ int Cargo::step(int& ndeact) {
           Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
           Stop b(stop.owner(), new_dest  , StopType::VehlDest, stop.early(), -1);
           std::vector<Wayp> route;
-          Schedule s(stop.owner(), {a, b});
-          route_through(s, route);
+          route_through({a, b}, route);
 
           /* Don't subtract nnd here; the "extra" distance the taxi travels
            * past its destination is lost. It doesn't have a next wp anyway. */
@@ -410,10 +411,10 @@ void Cargo::start(RSAlgorithm& rsalg) {
   while (active_vehicles_ > 0 || t_ <= tmin_) {
     t0 = std::chrono::high_resolution_clock::now();
 
-    /* Timeout customers where t_ > early + matching_period_ */
+    /* Timeout customers where t_ > early + matp_ */
     sqlite3_bind_int(tim_stmt, 1, (int)CustStatus::Canceled);
     sqlite3_bind_int(tim_stmt, 2, t_);
-    sqlite3_bind_int(tim_stmt, 3, matching_period_);
+    sqlite3_bind_int(tim_stmt, 3, matp_);
     if (sqlite3_step(tim_stmt) != SQLITE_DONE) {
       print(MessageType::Error) << "Failed to timeout customers. Reason:\n";
       throw std::runtime_error(sqlite3_errmsg(db_));
@@ -519,7 +520,7 @@ void Cargo::initialize(const Options& opt) {
   print << "\t" << name() << " on " << road_network() << "\n";
 
   tmin_ = tmax_ = 0;
-  matching_period_ = opt.matching_period;
+  matp_ = opt.matching_period;
   sleep_interval_ = std::round((float)1000 / opt.time_multiplier);
   speed_ = opt.vehicle_speed;
 
@@ -617,8 +618,7 @@ void Cargo::initialize(const Options& opt) {
         Stop a(trip.id(), trip.orig(), StopType::VehlOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip_dest  , StopType::VehlDest, trip.early(), trip.late());
         std::vector<Wayp> route;
-        Schedule s(trip.id(), {a, b});
-        DistInt cost = route_through(s, route);
+        DistInt cost = route_through({a, b}, route);
         if (trip.dest() == -1) cost = 0;
         base_cost_ += cost;
         trip_costs_[trip.id()] = cost;
@@ -654,8 +654,7 @@ void Cargo::initialize(const Options& opt) {
         Stop a(trip.id(), trip.orig(), StopType::CustOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip.dest(), StopType::CustDest, trip.early(), trip.late());
         std::vector<Wayp> route;
-        Schedule s(trip.id(), {a, b});
-        DistInt cost = route_through(s, route);
+        DistInt cost = route_through({a, b}, route);
         base_cost_ += cost;
         trip_costs_[trip.id()] = cost;
         stop_type = StopType::CustOrig;
@@ -712,7 +711,7 @@ void Cargo::initialize(const Options& opt) {
   active_vehicles_ = total_vehicles_;
 
   // Minimum sim time equals time of last trip appearing, plus matching pd.
-  tmin_ += matching_period_;
+  tmin_ += matp_;
 
   sqlite3_finalize(insert_vehicle_stmt);
   sqlite3_finalize(insert_customer_stmt);

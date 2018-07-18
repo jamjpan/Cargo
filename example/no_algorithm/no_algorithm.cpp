@@ -1,5 +1,3 @@
-// MIT License
-//
 // Copyright (c) 2018 the Cargo authors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,28 +17,26 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef CARGO_INCLUDE_LIBCARGO_DEBUG_H_
-#define CARGO_INCLUDE_LIBCARGO_DEBUG_H_
+#include "no_algorithm.h"
+#include "libcargo.h"
 
-/* Usage: DEBUG(int, stmt) */
-#define DEBUG(level, x)                  \
-  do {                                   \
-    if (level && debug_flag >= level) x; \
-  } while (0)
+using namespace cargo;
 
-namespace cargo {
+int main() {
+  /* Set the options */
+  Options op;
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_solution = "a.sol";
+  op.time_multiplier  = 1;
+  op.vehicle_speed    = 10;
+  op.matching_period  = 60;
 
-// Debug levels
-enum class DebugFlag {
-  Level0,  // turn off debugging messages
-  Level1,
-  Level2,
-  Level3,
-};
+  Cargo cargo(op);
 
-const int debug_flag = (int)DebugFlag::Level1;
-
-}  // namespace cargo
-
-#endif  // CARGO_INCLUDE_LIBCARGO_DEBUG_H_
+  /* Start Cargo */
+  cargo.start();
+}
 

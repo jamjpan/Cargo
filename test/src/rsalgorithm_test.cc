@@ -49,6 +49,8 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
 
       MutableVehicle sync_vehl(vehl);
+      REQUIRE(sync_vehl.idx_last_visited_node() == 1);
+
       sync_vehl.set_rte(rte);
       sync_vehl.set_sch(sch);
       REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == true);
@@ -58,6 +60,12 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       std::vector<Stop> true_sch {vehl_x1, cust1_orig, cust1_dest, vehl_dest};
       REQUIRE(sync_vehl.route().data() == true_rte);
       REQUIRE(sync_vehl.schedule().data() == true_sch);
+      REQUIRE(sync_vehl.idx_last_visited_node() == 0);
+
+      vehl = rsalg.get_all_vehicles().front();
+      REQUIRE(vehl.route().data() == true_rte);
+      REQUIRE(vehl.schedule().data() == true_sch);
+      REQUIRE(vehl.idx_last_visited_node() == 0);
     }
 
     /* This test is the same as the one above, except the re-route fails time
@@ -75,6 +83,9 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       sync_vehl.set_rte(rte);
       sync_vehl.set_sch(sch);
       REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == false);
+
+      vehl = rsalg.get_all_vehicles().front();
+      REQUIRE(vehl.idx_last_visited_node() == 1);
     }
 
     /* This test is the same as the above, except strict-assign is used. The
@@ -90,6 +101,9 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       sync_vehl.set_rte(rte);
       sync_vehl.set_sch(sch);
       REQUIRE(rsalg.assign_strict({cust1}, {}, sync_vehl) == false);
+
+      vehl = rsalg.get_all_vehicles().front();
+      REQUIRE(vehl.idx_last_visited_node() == 1);
     }
 }
 

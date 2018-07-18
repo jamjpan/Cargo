@@ -20,9 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* iter_swap */
-#include <iostream>  /* debug */
+#include <iostream>
 #include <iterator>
 #include <memory> /* shared_ptr */
+#include <mutex> /* lock_guard */
 
 #include "libcargo/cargo.h" /* Cargo::gtree() */
 #include "libcargo/classes.h"
@@ -35,45 +36,52 @@
 
 namespace cargo {
 
-DistInt pickup_range(const Customer& cust, const SimlTime& now,
-                     GTree::G_Tree& gtree) {
+DistInt pickup_range(const Customer      & cust,
+                     const SimlTime      & now,
+                           GTree::G_Tree & gtree) {
   DistInt dist = shortest_path_dist(cust.orig(), cust.dest(), gtree);
   return (cust.late()-(dist/Cargo::vspeed())-now)*Cargo::vspeed();
 }
 
-DistInt pickup_range(const Customer& cust, const SimlTime& now) {
-    return pickup_range(cust, now, Cargo::gtree());
+DistInt pickup_range(const Customer      & cust,
+                     const SimlTime      & now) {
+  return pickup_range(cust, now, Cargo::gtree());
 }
 
 // Complexity: O(|schedule|*|route|)
 //   - for loop body executes n-1 times, for n stops
 //   - std::copy is exactly |route| operations
 //   - assume find_path, shortest_path_dist are O(1) with gtree
-DistInt route_through(const std::vector<Stop>& sch, std::vector<Wayp>& rteout, GTree::G_Tree& gtree) {
+DistInt route_through(const std::vector<Stop> & sch,
+                            std::vector<Wayp> & rteout,
+                            GTree::G_Tree     & gtree) {
   DistInt cst = 0;
   rteout.clear();
   rteout.push_back({0, sch.front().loc()});
-  for (SchIdx i = 0; i < sch.size() - 1; ++i) {
+  for (SchIdx i = 0; i < sch.size()-1; ++i) {
     std::vector<NodeId> seg;
-    gtree.find_path(sch.at(i).loc(), sch.at(i + 1).loc(), seg);
+    const NodeId& from = sch.at(i).loc();
+    const NodeId& to = sch.at(i+1).loc();
+    bool in_cache;
+    { std::lock_guard<std::mutex> splock(Cargo::spmx);   // Lock acquired
+      in_cache = Cargo::spexist(from, to); }             // Lock released
+    if (in_cache) seg = Cargo::spget(from, to);
+    else {
+      gtree.find_path(from, to, seg);
+      { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+        Cargo::spput(from, to, seg); }                   // Lock released
+    }
     for (size_t i = 1; i < seg.size(); ++i) {
-      cst += Cargo::edgeweight(seg.at(i - 1), seg.at(i));
+      cst += Cargo::edgew(seg.at(i-1), seg.at(i));
       rteout.push_back({cst, seg.at(i)});
     }
   }
   return cst;
 }
 
-DistInt route_through(const std::vector<Stop>& sch, std::vector<Wayp>& rteout) {
+DistInt route_through(const std::vector<Stop> & sch,
+                            std::vector<Wayp> & rteout) {
   return route_through(sch, rteout, Cargo::gtree());
-}
-
-DistInt route_through(const Schedule& sch, std::vector<Wayp>& rteout, GTree::G_Tree& gtree) {
-  return route_through(sch.data(), rteout, gtree);
-}
-
-DistInt route_through(const Schedule& sch, std::vector<Wayp>& rteout) {
-  return route_through(sch.data(), rteout);
 }
 
 bool chkpc(const Schedule& s) {
@@ -183,10 +191,6 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
     }
   }
   return true;
-}
-
-bool chktw(const Schedule& sch, const Route& rte) {
-  return chktw(sch.data(), rte.data());
 }
 
 void print_rte(const std::vector<Wayp>& rte) {
