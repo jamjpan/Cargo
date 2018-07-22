@@ -9,6 +9,13 @@
 // =============================================================================
 using namespace cargo;
 
+void VehiclesSynced(const MutableVehicle &local, const Vehicle &db) {
+   REQUIRE(local.route().data() == db.route().data());
+   REQUIRE(local.schedule().data() == db.schedule().data());
+   REQUIRE(local.idx_last_visited_node() == db.idx_last_visited_node());
+   REQUIRE(local.next_node_distance() == db.next_node_distance());
+}
+
 TEST_CASE("RSAlgorithm::assign()", "") {
 
     Options opt;
@@ -27,6 +34,8 @@ TEST_CASE("RSAlgorithm::assign()", "") {
     std::vector<Customer> custs = rsalg.get_all_customers();
     Customer cust1 = *(std::find_if(custs.begin(), custs.end(), [&](const Customer& a) { return a.id() == 2; }));
     Customer cust2 = *(std::find_if(custs.begin(), custs.end(), [&](const Customer& a) { return a.id() == 3; }));
+    Customer cust3 = *(std::find_if(custs.begin(), custs.end(), [&](const Customer& a) { return a.id() == 4; }));
+    Customer cust4 = *(std::find_if(custs.begin(), custs.end(), [&](const Customer& a) { return a.id() == 5; }));
 
     Stop vehl_orig(vehl.id(), vehl.orig(), StopType::VehlOrig, vehl.early(), vehl.late());
     Stop vehl_dest(vehl.id(), vehl.dest(), StopType::VehlDest, vehl.early(), vehl.late());
@@ -34,76 +43,130 @@ TEST_CASE("RSAlgorithm::assign()", "") {
     Stop cust1_dest(cust1.id(), cust1.dest(), StopType::CustDest, cust1.early(), cust1.late());
     Stop cust2_orig(cust2.id(), cust2.orig(), StopType::CustOrig, cust2.early(), cust2.late());
     Stop cust2_dest(cust2.id(), cust2.dest(), StopType::CustDest, cust2.early(), cust2.late());
+    Stop cust3_orig(cust3.id(), cust3.orig(), StopType::CustOrig, cust3.early(), cust3.late());
+    Stop cust3_dest(cust3.id(), cust3.dest(), StopType::CustDest, cust3.early(), cust3.late());
+    Stop cust4_orig(cust4.id(), cust4.orig(), StopType::CustOrig, cust4.early(), cust4.late());
+    Stop cust4_dest(cust4.id(), cust4.dest(), StopType::CustDest, cust4.early(), cust4.late());
 
-    /* In this test, the vehicle is following the route 0 1 2 3 4 5. The vehicle
-     * is stepped once (at speed 3) to put it between 1,2 with 1 unit to go. At
-     * this time, the vehicle is assigned to pickup a customer at 1. The correct
-     * behavior is the vehicle to be routed to 1 2 1 2 3 4 5; the vehicle
-     * completes its current edge (by traveling to 2), makes a u-turn to go back
-     * to 1, then continues along to 5. */
-    SECTION("non-strict assign") {
-      int _; cargo.step(_);
+    std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
+    std::vector<Wayp> rerte {{0,0}, {2,1}, {3,7}, {5,8}, {7,9}, {8,3}, {10,4}, {13,5}};
 
-      vehl = rsalg.get_all_vehicles().front();
-      std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
+    SECTION("A11. cadd in prefix (fail)") {
       std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      int _; cargo.step(_);
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      std::cout << "A11. cadd in prefix (fail)" << std::endl;
+      REQUIRE(rsalg.assign_test({cust1}, {}, sync_vehl, true) == false);
+    }
 
-      MutableVehicle sync_vehl(vehl);
-      REQUIRE(sync_vehl.idx_last_visited_node() == 1);
+    SECTION("A11->A12. normal assign (1,3) (pass)") {
+      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      REQUIRE(rsalg.assign_test({cust1}, {}, sync_vehl, true) == true);
+    }
 
-      sync_vehl.set_rte(rte);
-      sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == true);
+    SECTION("A12. cdel in prefix (fail)") {
+      /* 1) Assign */
+      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      /* 2) Try to commit a delete */
+      int _; cargo.step(_);
+      sch = {vehl_orig, vehl_dest};
+      //             0,         5
+      sync_vehl = rsalg.get_all_vehicles().front();
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      REQUIRE(rsalg.assign_test({}, {cust1.id()}, sync_vehl, true) == false);
+    }
 
-      Stop vehl_x1(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
-      std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,1}, {8,2}, {10,3}, {12,4}, {15,5}};
-      std::vector<Stop> true_sch {vehl_x1, cust1_orig, cust1_dest, vehl_dest};
+    SECTION("A14. pass existing stop (pass)") {
+      /* 1) Assign */
+      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      /* 2) Pass it */
+      int _; cargo.step(_);
+      sch = {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //             0,          1,          3,         5
+      sync_vehl = rsalg.get_all_vehicles().front();
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      REQUIRE(rsalg.assign_test({}, {}, sync_vehl, true) == true);
+
+      Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
+      std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
+      std::vector<Stop> true_sch {nn, cust1_dest, vehl_dest};
       REQUIRE(sync_vehl.route().data() == true_rte);
       REQUIRE(sync_vehl.schedule().data() == true_sch);
       REQUIRE(sync_vehl.idx_last_visited_node() == 0);
-
       vehl = rsalg.get_all_vehicles().front();
-      REQUIRE(vehl.route().data() == true_rte);
-      REQUIRE(vehl.schedule().data() == true_sch);
-      REQUIRE(vehl.idx_last_visited_node() == 0);
+      VehiclesSynced(sync_vehl, vehl);
     }
 
-    /* This test is the same as the one above, except the re-route fails time
-     * window constraint. */
-    SECTION("non-strict assign fails timewindow") {
-      Stop cust1_dest2(cust1.id(), cust1.dest(), StopType::CustDest, cust1.early(), 3);
-
-      int _; cargo.step(_);
-
-      vehl = rsalg.get_all_vehicles().front();
-      std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
-      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest2, vehl_dest};
-
-      MutableVehicle sync_vehl(vehl);
-      sync_vehl.set_rte(rte);
-      sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign({cust1}, {}, sync_vehl) == false);
-
-      vehl = rsalg.get_all_vehicles().front();
-      REQUIRE(vehl.idx_last_visited_node() == 1);
-    }
-
-    /* This test is the same as the above, except strict-assign is used. The
-     * correct behavior is to reject the assignment and do not do re-routing. */
-    SECTION("strict assign") {
-      int _; cargo.step(_);
-
-      vehl = rsalg.get_all_vehicles().front();
-      std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
+    SECTION("A1. curloc matches (pass)") {
       std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      int _; cargo.step(_);
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      REQUIRE(rsalg.assign_test({cust1}, {}, sync_vehl) == true);
 
-      MutableVehicle sync_vehl(vehl);
-      sync_vehl.set_rte(rte);
-      sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_strict({cust1}, {}, sync_vehl) == false);
-
+      Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
+      std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,1}, {8,2}, {10,3}, {12,4}, {15,5}};
+      std::vector<Stop> true_sch {nn, cust1_orig, cust1_dest, vehl_dest};
+      REQUIRE(sync_vehl.route().data() == true_rte);
+      REQUIRE(sync_vehl.schedule().data() == true_sch);
+      REQUIRE(sync_vehl.idx_last_visited_node() == 0);
       vehl = rsalg.get_all_vehicles().front();
-      REQUIRE(vehl.idx_last_visited_node() == 1);
+      VehiclesSynced(sync_vehl, vehl);
+    }
+
+    SECTION("A2. cdel (fail)") {
+      /* 1) Assign */
+      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      /* 2) Try to commit a delete */
+      int _; cargo.step(_);
+      sch = {vehl_orig, cust4_orig, cust4_dest, vehl_dest};
+      //             0,          7,         9,          5
+      sync_vehl = rsalg.get_all_vehicles().front();
+      sync_vehl.set_rte(rerte); sync_vehl.set_sch(sch);
+      REQUIRE(rsalg.assign_test({cust4}, {cust1.id()}, sync_vehl) == false);
+    }
+
+    SECTION("A3. pass existing (pass)") {
+      /* 1) Assign */
+      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+      //                             0,          1,          3,         5
+      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+      sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
+      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      /* 2) Pass it */
+      int _; cargo.step(_);
+      sch = {vehl_orig, cust1_orig, cust4_orig, cust4_dest, cust1_dest, vehl_dest};
+      //             0,          1,          7,          9,          3,         5
+      sync_vehl = rsalg.get_all_vehicles().front();
+      sync_vehl.set_rte(rerte); sync_vehl.set_sch(sch);
+      REQUIRE(rsalg.assign_test({cust4}, {}, sync_vehl) == true);
+
+      Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
+      std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,1}, {7,7}, {9,8}, {11,9}, {12,3}, {14,4}, {17,5}};
+      std::vector<Stop> true_sch {nn, cust1_orig, cust4_orig, cust4_dest, cust1_dest, vehl_dest};
+      REQUIRE(sync_vehl.route().data() == true_rte);
+      REQUIRE(sync_vehl.schedule().data() == true_sch);
+      REQUIRE(sync_vehl.idx_last_visited_node() == 0);
+      vehl = rsalg.get_all_vehicles().front();
+      VehiclesSynced(sync_vehl, vehl);
     }
 }
 

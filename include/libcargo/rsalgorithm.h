@@ -88,6 +88,12 @@ class RSAlgorithm {
               const std::vector<CustId>&,   // custs to del
                     MutableVehicle&);       // vehicle to assign to
 
+  bool assign_test(
+              const std::vector<Customer>&, // custs to add
+              const std::vector<CustId>&,   // custs to del
+                    MutableVehicle&,        // vehicle to assign to
+                    bool strict = false);
+
   Message print;
 
  private:
@@ -109,6 +115,20 @@ class RSAlgorithm {
   sqlite3_stmt* sav_stmt;  // select all vehicles
   sqlite3_stmt* swc_stmt;  // select waiting customers
   sqlite3_stmt* sac_stmt;  // select all customers
+
+  typedef enum { SUCCESS, CURLOC_MISMATCH, PREFIX_MISMATCH, CADD_SYNC_FAIL, CDEL_SYNC_FAIL }
+  SyncResult;
+
+  SyncResult sync(const std::vector<Wayp>     & new_rte,
+                  const std::vector<Wayp>     & cur_rte,
+                  const RteIdx                & idx_lvn,
+                  const std::vector<Stop>     & new_sch,
+                  const std::vector<Stop>     & cur_sch,
+                  const std::vector<CustId>   & cadd,
+                  const std::vector<CustId>   & cdel,
+                        std::vector<Wayp>     & out_rte,
+                        std::vector<Stop>     & out_sch);
+
 
   /* Returns false if sync is impossible */
   bool sync_route(const std::vector<Wayp> &,     // new route
