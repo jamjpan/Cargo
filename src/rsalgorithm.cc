@@ -90,181 +90,10 @@ std::vector<Vehicle>  & RSAlgorithm::vehicles()  { return vehicles_; }
  *
  * */
 bool RSAlgorithm::assign(
-        const std::vector<Customer> & custs_to_add,
-        const std::vector<CustId>   & custs_to_del,
-              MutableVehicle        & vehl,
-              bool                    strict) {
-  std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
-
-  const std::vector<Wayp>& new_rte = vehl.route().data();
-  const std::vector<Stop>& new_sch = vehl.schedule().data();
-
-  DEBUG(3, { std::cout << "assign() called with new_rte:"; print_rte(new_rte); });
-  DEBUG(3, { std::cout << "assign() called with new_sch:"; print_sch(new_sch); });
-
-  /* Get current schedule */
-  std::vector<Stop> cur_sch;
-  sqlite3_bind_int(sss_stmt, 1, vehl.id());
-  while ((rc = sqlite3_step(sss_stmt)) == SQLITE_ROW) {
-    const Stop* buf = static_cast<const Stop*>(sqlite3_column_blob(sss_stmt, 1));
-    std::vector<Stop> raw_sch(buf, buf + sqlite3_column_bytes(sss_stmt, 1) / sizeof(Stop));
-    cur_sch = raw_sch;
-  }
-  if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  sqlite3_clear_bindings(sss_stmt);
-  sqlite3_reset(sss_stmt);
-
-  DEBUG(3, { std::cout << "assign() found cur_sch:"; print_sch(cur_sch); });
-
-  /* If stops belong to custs_to_del are no longer in cur_sch, the custs
-   * cannot be deleted (because they've already been picked up or dropped
-   * off. Reject the commit. */
-  for (const auto& cust_id : custs_to_del) {
-    auto i = std::find_if(cur_sch.begin(), cur_sch.end(), [&](const Stop& a) { return a.owner() == cust_id; });
-    if (i == cur_sch.end()) return false;
-    auto j = std::find_if(i, cur_sch.end(), [&](const Stop& a) { return a.owner() == cust_id; });
-    if (j == cur_sch.end()) return false;
-  }
-
-  DEBUG(3, { std::cout << "assign() found no problems with cust_del" << std::endl; });
-
-  /* Get current route */
-  RteIdx cur_lvn = 0;
-  DistInt cur_nnd = 0;
-  std::vector<Wayp> cur_rte;
-  sqlite3_bind_int(ssr_stmt, 1, vehl.id());
-  while ((rc = sqlite3_step(ssr_stmt)) == SQLITE_ROW) {
-    const Wayp* buf = static_cast<const Wayp*>(sqlite3_column_blob(ssr_stmt, 1));
-    std::vector<Wayp> raw_rte(buf, buf + sqlite3_column_bytes(ssr_stmt, 1) / sizeof(Wayp));
-    cur_rte = raw_rte;
-    cur_lvn = sqlite3_column_int(ssr_stmt, 2);
-    cur_nnd = sqlite3_column_int(ssr_stmt, 3);
-  }
-  if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  sqlite3_clear_bindings(ssr_stmt);
-  sqlite3_reset(ssr_stmt);
-
-  DEBUG(3, { std::cout << "assign() found cur_rte:"; print_rte(cur_rte); });
-
-  /* Attempt synchronization */
-  std::vector<Wayp> sync_rte;
-  std::vector<Stop> re_sch = new_sch;
-  if (!sync_route(new_rte, cur_rte, cur_lvn, custs_to_add, sync_rte)) {
-    DEBUG(3, { std::cout << "assign() sync_route failed; recomputing..." << std::endl; });
-
-    if (strict) return false;
-
-    /* The recomputed schedule must include the vehicle's current location
-     * and the next node in the current route (the vehicle must arrive at
-     * its next node; it cannot change direction mid-edge) */
-    re_sch[0] = Stop(vehl.id(), cur_rte.at(cur_lvn).second, StopType::VehlOrig, vehl.early(), vehl.late());
-    re_sch.insert(re_sch.begin()+1, Stop(vehl.id(), cur_rte.at(cur_lvn+1).second, StopType::VehlOrig, vehl.early(), vehl.late()));
-
-    /* If the next node is a stop, move the stop to the beginning of re_sch */
-    if (cur_sch.at(0).loc() == cur_sch.at(1).loc() &&
-        cur_sch.at(1).type() != StopType::VehlDest) {
-      auto i = std::find_if(re_sch.begin(), re_sch.end(), [&](const Stop& a) {
-              return a.loc() == cur_sch.at(1).loc() && a.type() == cur_sch.at(1).type(); });
-      Stop tmp = *i;
-      re_sch.erase(i);
-      re_sch.insert(re_sch.begin()+2, tmp);
-    }
-
-    DEBUG(3, { std::cout << "assign() created re_sch:"; print_sch(re_sch); });
-
-    /* Re-compute the route and add the traveled distance to each of the new
-     * nodes */
-    route_through(re_sch, sync_rte);
-    for (auto& wp : sync_rte) wp.first += cur_rte.at(cur_lvn).first;
-
-    DEBUG(3, { std::cout << "assign() re-computed sync_rte:"; print_rte(sync_rte); });
-
-    /* After got the route, can delete the current location from re-sch */
-    re_sch.erase(re_sch.begin());
-
-    if (!chktw(re_sch, sync_rte)) return false;
-
-    DEBUG(3, { std::cout << "assign() found no problems with timewindow" << std::endl; });
-  }
-
-  std::vector<Stop> sync_sch;
-  if (sync_schedule(re_sch, cur_sch, sync_rte, custs_to_add, sync_sch)) {
-    DEBUG(3, { std::cout << "assign() sync_sch:"; print_sch(sync_sch); });
-
-    /* Output synchronized vehicle */
-    vehl.set_rte(sync_rte);
-    vehl.set_nnd(cur_nnd);
-    vehl.set_sch(sync_sch);
-    vehl.reset_lvn();
-
-    // Commit the synchronized route
-    sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(sync_rte.data()),
-                      sync_rte.size() * sizeof(Wayp), SQLITE_TRANSIENT);
-    sqlite3_bind_int(uro_stmt, 2, 0);
-    sqlite3_bind_int(uro_stmt, 3, cur_nnd);
-    sqlite3_bind_int(uro_stmt, 4, vehl.id());
-    if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
-      std::cout << "Error in commit new route " << rc << std::endl;
-      throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    }
-    sqlite3_clear_bindings(uro_stmt);
-    sqlite3_reset(uro_stmt);
-
-    // Commit the synchronized schedule
-    sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(sync_sch.data()),
-                      sync_sch.size() * sizeof(Stop), SQLITE_TRANSIENT);
-    sqlite3_bind_int(sch_stmt, 2, vehl.id());
-    if ((rc = sqlite3_step(sch_stmt)) != SQLITE_DONE) {
-      std::cout << "Error in commit new schedule " << rc << std::endl;
-      throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    }
-    sqlite3_clear_bindings(sch_stmt);
-    sqlite3_reset(sch_stmt);
-
-    // Increase queued
-    sqlite3_bind_int(qud_stmt, 1, (int)(custs_to_add.size()-custs_to_del.size()));
-    sqlite3_bind_int(qud_stmt, 2, vehl.id());
-    if ((rc = sqlite3_step(qud_stmt)) != SQLITE_DONE) {
-      std::cout << "Error in qud " << rc << std::endl;
-      throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-    }
-    sqlite3_clear_bindings(qud_stmt);
-    sqlite3_reset(qud_stmt);
-
-    // Commit the assignment
-    for (const auto& cust : custs_to_add) {
-      sqlite3_bind_int(com_stmt, 1, vehl.id());
-      sqlite3_bind_int(com_stmt, 2, cust.id());
-      if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
-        std::cout << "Error in commit assignment " << rc << std::endl;
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-      }
-      sqlite3_clear_bindings(com_stmt);
-      sqlite3_reset(com_stmt);
-    }
-
-    // Commit un-assignments
-    for (const auto& cust_id : custs_to_del) {
-      sqlite3_bind_null(com_stmt, 1);
-      sqlite3_bind_int(com_stmt, 2, cust_id);
-      if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
-        std::cout << "Error in commit assignment " << rc << std::endl;
-        throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-      }
-      sqlite3_clear_bindings(com_stmt);
-      sqlite3_reset(com_stmt);
-    }
-    return true;
-  }
-  DEBUG(3, { std::cout << "rsalgorithm() sync_sch failed" << std::endl; });
-  return false;
-}
-
-bool RSAlgorithm::assign_test(
-        const std::vector<Customer> & custs_to_add,
-        const std::vector<CustId>   & custs_to_del,
-              MutableVehicle        & vehl,
-              bool                    strict) {
+        const std::vector<CustId> & custs_to_add,
+        const std::vector<CustId> & custs_to_del,
+              MutableVehicle      & vehl,
+              bool                strict) {
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
 
   const std::vector<Wayp>& new_rte = vehl.route().data();
@@ -300,9 +129,7 @@ bool RSAlgorithm::assign_test(
 
   /* Attempt synchronization */
   std::vector<CustId> cdel = custs_to_del;
-  std::vector<CustId> cadd {};
-  for (const auto& cust : custs_to_add)
-    cadd.push_back(cust.id());
+  std::vector<CustId> cadd = custs_to_add;
   std::vector<Wayp> out_rte {};
   std::vector<Stop> out_sch {};
 
@@ -420,9 +247,9 @@ bool RSAlgorithm::assign_test(
   sqlite3_reset(qud_stmt);
 
   // Commit the assignment
-  for (const auto& cust : custs_to_add) {
+  for (const auto& cust_id : custs_to_add) {
     sqlite3_bind_int(com_stmt, 1, vehl.id());
-    sqlite3_bind_int(com_stmt, 2, cust.id());
+    sqlite3_bind_int(com_stmt, 2, cust_id);
     if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
       std::cout << "Error in commit assignment " << rc << std::endl;
       throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
@@ -555,13 +382,6 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
   return SUCCESS;
 }
 
-bool RSAlgorithm::assign_strict(
-        const std::vector<Customer> & custs_to_add,
-        const std::vector<CustId>   & custs_to_del,
-              MutableVehicle        & vehl) {
-  return assign(custs_to_add, custs_to_del, vehl, true);
-}
-
 void RSAlgorithm::select_matchable_vehicles() {
   vehicles_.clear();
   sqlite3_bind_int(smv_stmt, 1, Cargo::now());
@@ -650,156 +470,6 @@ std::vector<Vehicle> RSAlgorithm::get_all_vehicles() {
   if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   sqlite3_reset(sav_stmt);
   return vehls;
-}
-
-bool RSAlgorithm::sync_route(const std::vector<Wayp>& new_rte,
-                             const std::vector<Wayp>& cur_rte,
-                             const RteIdx& cur_lvn,
-                             const std::vector<Customer>& custs,
-                             std::vector<Wayp>& sync_rte) {
-  /* Strategy to sync routes
-   * Get the current route/lvn/nnd. Find the current waypoint in the
-   * new route. If not found, the new route is invalid, reject.
-   * If found, move back one in the current route, move back one in the
-   * new route, and check if equal. If not equal, reject the commit.
-   * Continue moving back one waypoint, checking if equal, until no more
-   * waypoints in the new route. */
-
-  sync_rte = new_rte;
-
-  /* If vehicle hasn't moved, nothing to do */
-  if (cur_lvn == 0) return true;
-
-  /* Get current location in the new route */
-  auto x = std::find_if(sync_rte.begin(), sync_rte.end(), [&](const Wayp& a) {
-    return a.second == cur_rte.at(cur_lvn).second;
-  });
-
-  /* If couldn't find current lvn in the new route, sync is not possible */
-  if (x == sync_rte.end()) return false;
-
-  /* Get next node in the new route */
-  auto y = x+1;
-
-  /* If couldn't find next node, sync is not possible
-   * (the vehicle cannot make a u-turn along an edge) */
-  if (y->second != cur_rte.at(cur_lvn+1).second) return false;
-
-  /* Sync is possible only if all custs are in the remaining route
-   * (this doesn't check for order! do that in sync_sch) */
-  for (const auto& cust : custs) {
-    auto o_itr = std::find_if(y, sync_rte.end(), [&](const Wayp& a) {
-            return a.second == cust.orig(); });
-    if (o_itr == sync_rte.end()) return false;
-    auto d_itr = std::find_if(o_itr, sync_rte.end(), [&](const Wayp& a) {
-            return a.second == cust.dest(); });
-    if (d_itr == sync_rte.end()) return false;
-  }
-
-  /* If found current loc but vehicle has moved, test the routes */
-  int j = cur_lvn+1;
-  auto i = y;
-  while (true) {
-    /* If any waypoint in the prefix does not match, or
-     * if current route is finished but new_rte still has waypoints,
-     * the sync is impossible. */
-    if ((i->second != cur_rte.at(j).second) ||
-        (i > sync_rte.begin() && j == 0)) {
-      return false;
-      break;
-    }
-    /* If neither route is finished yet, decrement and do again */
-    if (i > sync_rte.begin() && j > 0) {
-      j--;
-      i--;
-      /* When new_rte is finished, finish */
-    } else if (i == sync_rte.begin()) {
-      break;
-    }
-  }
-
-  /* Erase the traveled portion of the new route */
-  sync_rte.erase(sync_rte.begin(), x);
-  return true;
-}
-
-bool RSAlgorithm::sync_schedule(const std::vector<Stop>& new_sch,
-                                const std::vector<Stop>& cur_sch,
-                                const std::vector<Wayp>& sync_rte,
-                                const std::vector<Customer>& custs,
-                                std::vector<Stop>& sync_sch) {
-  DEBUG(3, { std::cout << "sync_sch() got new_sch"; print_sch(new_sch); });
-  DEBUG(3, { std::cout << "sync_sch() got cur_sch"; print_sch(cur_sch); });
-  DEBUG(3, { std::cout << "sync_sch() got sync_rte"; print_rte(sync_rte); });
-
-  /* Ugly hack:
-   * Sometimes we get a cur_sch like {a a b c} (a is the next node and is also
-   * a stop). Due to matching latency, we can get a new_sch like {x y a a b c}
-   * (x is already passed by the vehicle, hence it is not in cur_sch; y is newly
-   * added to due match). This new_sch should be invalid. sync_route catches
-   * most of these cases because it looks to see each customer origin is after
-   * the next node; i.e. y.orig should occur after a. But in some cases, the
-   * current route does have y.orig after the next node, but the schedule has it
-   * before. For example current route is {a a b y c}, the new schedule is
-   * {x y a a b c} with route {x y a a b y c}, but the first y is when the pickup
-   * gets made. sync_route will not catch these case. We try to catch these
-   * cases here by checking if the first and second stops in cur_sch are
-   * equal; if so, then we know the vehicle is moving toward a stop. In this case,
-   * we check if every cust has a stop that is after this stop in the new route.
-   */
-  if (cur_sch.at(0).loc() == cur_sch.at(1).loc()) {
-    NodeId next_id = cur_sch.at(1).loc();
-    StopType next_type = cur_sch.at(1).type();
-    auto x = std::find_if(new_sch.begin(), new_sch.end(), [&](const Stop& a) {
-      return (a.loc() == next_id && a.type() == next_type); });
-    for (const auto& cust : custs) {
-        auto y = std::find_if(x, new_sch.end(), [&](const Stop& a) {
-          return (a.loc() == cust.orig() && a.type() == StopType::CustOrig); });
-        if (y == new_sch.end()) return false;
-        auto z = std::find_if(y, new_sch.end(), [&](const Stop& a) {
-          return (a.loc() == cust.dest() && a.type() == StopType::CustDest); });
-        if (z == new_sch.end()) return false;
-    }
-  }
-  /* Strategy to sync schedules
-   * The first stop in the schedule takes from cur_sch. All subsequent
-   * stops, check if in cur_sch, or if equals orig/dest of the custs
-   * being committed. If not, then discard. */
-  sync_sch = {};
-  sync_sch.push_back(cur_sch.at(0));
-  for (size_t i = 1; i < new_sch.size(); ++i) {
-    const Stop& stop = new_sch.at(i);
-    bool in_cur = (std::find(cur_sch.begin(), cur_sch.end(), stop) != cur_sch.end());
-    if (in_cur)
-        sync_sch.push_back(stop);
-    else {
-      for (const auto& cust : custs) {
-        bool is_orig = (cust.id() == stop.owner() && cust.orig() == stop.loc());
-        if (is_orig) {
-          sync_sch.push_back(stop);
-          break;
-        }
-        bool is_dest = (cust.id() == stop.owner() && cust.dest() == stop.loc());
-        if (is_dest) {
-          sync_sch.push_back(stop);
-          break;
-        }
-      }
-    }
-  }
-  /* Here we do a final check to make sure every stop is after the vehicle's
-   * cur location, and all stops are in order as they appear in the route. */
-  for (const auto& stop : sync_sch) {
-    auto x = sync_rte.begin()+1; // <-- use +1 to skip last-visited node
-    auto y = std::find_if(x, sync_rte.end(), [&](const Wayp& a) {
-      return (a.second == stop.loc()); });
-    if (y == sync_rte.end()) return false;
-    auto z = std::find_if(y, sync_rte.end(), [&](const Wayp& a) {
-      return (a.second == stop.loc()); });
-    if (z == sync_rte.end()) return false;
-  }
-
-  return true;
 }
 
 /* Overrideables */

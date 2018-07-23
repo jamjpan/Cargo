@@ -38,7 +38,7 @@ TEST_CASE("Cargo::step()", "") {
     MutableVehicle sync_vehl(vehl);
     sync_vehl.set_rte(rte);
     sync_vehl.set_sch(sch);
-    REQUIRE(rsalg.assign_strict({cust1, cust2}, {}, sync_vehl) == true);
+    REQUIRE(rsalg.assign({cust1.id(), cust2.id()}, {}, sync_vehl, true) == true);
 
     SECTION("speed=3") {
       int stepped;

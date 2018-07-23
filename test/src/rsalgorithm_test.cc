@@ -58,7 +58,7 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
       std::cout << "A11. cadd in prefix (fail)" << std::endl;
-      REQUIRE(rsalg.assign_test({cust1}, {}, sync_vehl, true) == false);
+      REQUIRE(rsalg.assign({cust1.id()}, {}, sync_vehl, true) == false);
     }
 
     SECTION("A11->A12. normal assign (1,3) (pass)") {
@@ -66,7 +66,7 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       //                             0,          1,          3,         5
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_test({cust1}, {}, sync_vehl, true) == true);
+      REQUIRE(rsalg.assign({cust1.id()}, {}, sync_vehl, true) == true);
     }
 
     SECTION("A12. cdel in prefix (fail)") {
@@ -75,14 +75,14 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       //                             0,          1,          3,         5
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      rsalg.assign({cust1.id()}, {}, sync_vehl, true);
       /* 2) Try to commit a delete */
       int _; cargo.step(_);
       sch = {vehl_orig, vehl_dest};
       //             0,         5
       sync_vehl = rsalg.get_all_vehicles().front();
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_test({}, {cust1.id()}, sync_vehl, true) == false);
+      REQUIRE(rsalg.assign({}, {cust1.id()}, sync_vehl, true) == false);
     }
 
     SECTION("A14. pass existing stop (pass)") {
@@ -91,14 +91,14 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       //                             0,          1,          3,         5
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      rsalg.assign({cust1.id()}, {}, sync_vehl, true);
       /* 2) Pass it */
       int _; cargo.step(_);
       sch = {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
       //             0,          1,          3,         5
       sync_vehl = rsalg.get_all_vehicles().front();
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_test({}, {}, sync_vehl, true) == true);
+      REQUIRE(rsalg.assign({}, {}, sync_vehl, true) == true);
 
       Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
       std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
@@ -116,7 +116,7 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       int _; cargo.step(_);
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_test({cust1}, {}, sync_vehl) == true);
+      REQUIRE(rsalg.assign({cust1.id()}, {}, sync_vehl) == true);
 
       Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
       std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,1}, {8,2}, {10,3}, {12,4}, {15,5}};
@@ -134,14 +134,14 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       //                             0,          1,          3,         5
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      rsalg.assign({cust1.id()}, {}, sync_vehl, true);
       /* 2) Try to commit a delete */
       int _; cargo.step(_);
       sch = {vehl_orig, cust4_orig, cust4_dest, vehl_dest};
       //             0,          7,         9,          5
       sync_vehl = rsalg.get_all_vehicles().front();
       sync_vehl.set_rte(rerte); sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_test({cust4}, {cust1.id()}, sync_vehl) == false);
+      REQUIRE(rsalg.assign({cust4.id()}, {cust1.id()}, sync_vehl) == false);
     }
 
     SECTION("A3. pass existing (pass)") {
@@ -150,14 +150,14 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       //                             0,          1,          3,         5
       MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
       sync_vehl.set_rte(rte); sync_vehl.set_sch(sch);
-      rsalg.assign_test({cust1}, {}, sync_vehl, true);
+      rsalg.assign({cust1.id()}, {}, sync_vehl, true);
       /* 2) Pass it */
       int _; cargo.step(_);
       sch = {vehl_orig, cust1_orig, cust4_orig, cust4_dest, cust1_dest, vehl_dest};
       //             0,          1,          7,          9,          3,         5
       sync_vehl = rsalg.get_all_vehicles().front();
       sync_vehl.set_rte(rerte); sync_vehl.set_sch(sch);
-      REQUIRE(rsalg.assign_test({cust4}, {}, sync_vehl) == true);
+      REQUIRE(rsalg.assign({cust4.id()}, {}, sync_vehl) == true);
 
       Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
       std::vector<Wayp> true_rte {{2,1}, {4,2}, {5,8}, {7,7}, {9,8}, {11,9}, {12,3}, {14,4}, {17,5}};

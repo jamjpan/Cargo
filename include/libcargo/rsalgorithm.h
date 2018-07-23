@@ -78,20 +78,9 @@ class RSAlgorithm {
    * current position going through the schedule (param5). If this new route
    * meets constraints, then the assignment is accepted. */
   bool assign(
-              const std::vector<Customer>&, // custs to add
-              const std::vector<CustId>&,   // custs to del
-                    MutableVehicle&,        // vehicle to assign to
-                    bool strict = false);
-
-  bool assign_strict(
-              const std::vector<Customer>&, // custs to add
-              const std::vector<CustId>&,   // custs to del
-                    MutableVehicle&);       // vehicle to assign to
-
-  bool assign_test(
-              const std::vector<Customer>&, // custs to add
-              const std::vector<CustId>&,   // custs to del
-                    MutableVehicle&,        // vehicle to assign to
+              const std::vector<CustId>&, // custs to add
+              const std::vector<CustId>&, // custs to del
+                    MutableVehicle&,      // vehicle to assign to
                     bool strict = false);
 
   Message print;
@@ -128,22 +117,6 @@ class RSAlgorithm {
                   const std::vector<CustId>   & cdel,
                         std::vector<Wayp>     & out_rte,
                         std::vector<Stop>     & out_sch);
-
-
-  /* Returns false if sync is impossible */
-  bool sync_route(const std::vector<Wayp> &,     // new route
-                  const std::vector<Wayp> &,     // current route
-                  const RteIdx &,                // current last-visited-node idx
-                  const std::vector<Customer> &, // new customers in the route
-                        std::vector<Wayp> &);    // synchronized output
-
-  /* Removes from new schedule any stops not in current schedule or custs;
-   * Sets first stop in new schedule to be the same as first stop in cur sch */
-  bool sync_schedule(const std::vector<Stop> &,     // new schedule
-                     const std::vector<Stop> &,     // current schedule
-                     const std::vector<Wayp> &,     // synced route
-                     const std::vector<Customer> &, // new customers in the sch
-                           std::vector<Stop> &);    // synchronized output
 };
 
 }  // namespace cargo
