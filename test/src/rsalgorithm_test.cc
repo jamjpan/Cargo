@@ -160,8 +160,8 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       REQUIRE(rsalg.assign_test({cust4}, {}, sync_vehl) == true);
 
       Stop nn(vehl.id(), 2, StopType::VehlOrig, vehl.early(), vehl.late());
-      std::vector<Wayp> true_rte {{2,1}, {4,2}, {6,1}, {7,7}, {9,8}, {11,9}, {12,3}, {14,4}, {17,5}};
-      std::vector<Stop> true_sch {nn, cust1_orig, cust4_orig, cust4_dest, cust1_dest, vehl_dest};
+      std::vector<Wayp> true_rte {{2,1}, {4,2}, {5,8}, {7,7}, {9,8}, {11,9}, {12,3}, {14,4}, {17,5}};
+      std::vector<Stop> true_sch {nn, cust4_orig, cust4_dest, cust1_dest, vehl_dest};
       REQUIRE(sync_vehl.route().data() == true_rte);
       REQUIRE(sync_vehl.schedule().data() == true_sch);
       REQUIRE(sync_vehl.idx_last_visited_node() == 0);

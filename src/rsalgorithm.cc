@@ -347,7 +347,7 @@ bool RSAlgorithm::assign_test(
 
     /* Synchronize existing stops
      * (remove any picked-up stops) */
-    re_sch.erase(std::remove_if(re_sch.begin()+3, re_sch.end(), [&](const Stop& a) {
+    re_sch.erase(std::remove_if(re_sch.begin()+2, re_sch.end(), [&](const Stop& a) {
       /* If stop does not belong to cadd, remove the stop if its not found in cur_sch */
       if (std::find(cadd.begin(), cadd.end(), a.owner()) == cadd.end()) {
         if (std::find_if(cur_sch.begin()+1, cur_sch.end(), [&](const Stop& b) {
@@ -508,7 +508,7 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
   auto k = new_sch.begin() + 1;
   for (auto pr = new_rte.begin(); pr <= x; pr++) {
     DEBUG(3, { print << pr->second << ";" << k->loc() << std::endl; });
-    if (pr->second == k->loc())
+    while (pr->second == k->loc())
       k++;
   }
 
