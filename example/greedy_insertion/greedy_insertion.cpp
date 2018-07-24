@@ -72,7 +72,7 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
       continue;  // don't consider vehs already queued to capacity
 
     cst = sop_insert(cand, cust, sch, rte);  // (functions.h)
-    bool within_time = chktw(sch, rte);       // (functions.h)
+    bool within_time = chktw(sch, rte);      // (functions.h)
     if ((cst < best_cst) && within_time) {
       best_cst = cst;
       best_sch = sch;
@@ -84,6 +84,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
 
   /* Commit match to the db. */
   if (matched) {
+    auto old_rte = best_vehl->route().data();
+    auto old_sch = best_vehl->schedule().data();
     best_vehl->set_rte(best_rte);
     best_vehl->set_sch(best_sch);
     /* Function assign(3) will synchronize the vehicle (param3) before
@@ -94,11 +96,14 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
      * visited stops that occurred during the latency, and will also re-route
      * the vehicle if it's missed an intersection that the match instructs it
      * to make. */
-    if (assign({cust}, {}, *best_vehl)) {
+    if (assign({cust.id()}, {}, *best_vehl)) {
       print(MessageType::Success) << "Match "
           << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
           << std::endl;
       nmat_++;
+    } else {
+      best_vehl->set_rte(old_rte);
+      best_vehl->set_sch(old_sch);
     }
     if (delay_.count(cust.id())) delay_.erase(cust.id());
   } else {

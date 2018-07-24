@@ -77,8 +77,7 @@ class RSAlgorithm {
    * then the function will attempt to compute a new route using the vehicle's
    * current position going through the schedule (param5). If this new route
    * meets constraints, then the assignment is accepted. */
-  bool assign(
-              const std::vector<CustId>&, // custs to add
+  bool assign(const std::vector<CustId>&, // custs to add
               const std::vector<CustId>&, // custs to del
                     MutableVehicle&,      // vehicle to assign to
                     bool strict = false);
