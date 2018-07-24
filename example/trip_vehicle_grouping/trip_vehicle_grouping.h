@@ -87,6 +87,11 @@ class TripVehicleGrouping : public cargo::RSAlgorithm {
  public:
   TripVehicleGrouping();
 
+  /* The default penalty for unassignment is a customer's base cost. But for
+   * permanent taxis, the penalty needs to be much higher in order to divert the
+   * taxi. Set unassign_penalty to a high number > 0 to override the default. */
+  int unassign_penalty = -1; // meters
+
   /* My Overrides */
   virtual void handle_vehicle(const cargo::Vehicle &);
   virtual void match();

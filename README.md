@@ -45,6 +45,16 @@ Cargo's distinguishing features:
 * High performance -- can simulate 17,000 vehicles per second on a i5-6200 CPU @ 2.30 Ghz
   machine
 
+### Demo
+In the demo, the simulator (bottom pane) waits until the user attaches a
+listener. Here the listener is `cat` (top pane). When the listener is attached,
+Cargo starts the algorithm (here, greedy) and begins simulating the vehicles in
+real time. The logger outputs results at every simulation step (one second).
+<p align="center">
+<img src="https://cdn.rawgit.com/jamjpan/Cargo/29c23bc0/example/greedy_insertion/greedy_demo.svg" alt="Greedy" width="800"/>
+</p>
+(Terminal screenshot generated with [termtosvg](https://github.com/nbedos/termtosvg))
+
 Supports:
 * Dynamically arriving vehicles and customers
 * Vehicles with different capacities, customers with different loads
@@ -78,6 +88,7 @@ Does not (currently) support:
 * Several problem instances are provided (`data/benchmark`)
 
 Provided road networks:
+(bj5 and cd1 are in GCJ coordinates; mny is in WGS)
 
 <p align="center">
 <img src="data/roadnetwork/fig/mny.png" alt="Manhattan" width="280"/>

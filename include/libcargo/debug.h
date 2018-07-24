@@ -1,3 +1,5 @@
+// MIT License
+//
 // Copyright (c) 2018 the Cargo authors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -17,31 +19,28 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <unordered_map>
+#ifndef CARGO_INCLUDE_LIBCARGO_DEBUG_H_
+#define CARGO_INCLUDE_LIBCARGO_DEBUG_H_
 
-#include "libcargo.h"
+/* Usage: DEBUG(int, stmt) */
+#define DEBUG(level, x)                  \
+  do {                                   \
+    if (level && debug_flag >= level) x; \
+  } while (0)
 
-using namespace cargo;
+namespace cargo {
 
-// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
-// For each request, the algorithm looks for the "greedy" vehicle based on the
-// heuristic, and assigns the request to this vehicle if it exists.
-class GreedyInsertion : public RSAlgorithm {
- public:
-  GreedyInsertion();
-
-  /* My Overrides */
-  virtual void handle_customer(const Customer &);
-  virtual void handle_vehicle(const Vehicle &);
-  virtual void end();
-  virtual void listen();
-
- private:
-  /* My Custom Variables */
-  int nmat_;
-  Grid grid_;
-
-  /* If a customer doesn't get matched right away, try again after 5 seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
+// Debug levels
+enum class DebugFlag {
+  Level0,  // turn off debugging messages
+  Level1,
+  Level2,
+  Level3,
 };
+
+const int debug_flag = (int)DebugFlag::Level0;
+
+}  // namespace cargo
+
+#endif  // CARGO_INCLUDE_LIBCARGO_DEBUG_H_
 

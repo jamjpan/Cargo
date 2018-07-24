@@ -17,31 +17,26 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <unordered_map>
-
+#include "no_algorithm.h"
 #include "libcargo.h"
 
 using namespace cargo;
 
-// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
-// For each request, the algorithm looks for the "greedy" vehicle based on the
-// heuristic, and assigns the request to this vehicle if it exists.
-class GreedyInsertion : public RSAlgorithm {
- public:
-  GreedyInsertion();
+int main() {
+  /* Set the options */
+  Options op;
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_solution = "a.sol";
+  op.time_multiplier  = 1;
+  op.vehicle_speed    = 10;
+  op.matching_period  = 60;
 
-  /* My Overrides */
-  virtual void handle_customer(const Customer &);
-  virtual void handle_vehicle(const Vehicle &);
-  virtual void end();
-  virtual void listen();
+  Cargo cargo(op);
 
- private:
-  /* My Custom Variables */
-  int nmat_;
-  Grid grid_;
-
-  /* If a customer doesn't get matched right away, try again after 5 seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
-};
+  /* Start Cargo */
+  cargo.start();
+}
 

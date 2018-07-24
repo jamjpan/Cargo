@@ -207,10 +207,10 @@ class MutableVehicle : public Vehicle {
  public:
   MutableVehicle() = default;
   MutableVehicle(const Vehicle&);
-  void set_route(const std::vector<Wayp>&);
-  void set_route(const Route&);
-  void set_schedule(const std::vector<Stop>&);
-  void set_schedule(const Schedule&);
+  void set_rte(const std::vector<Wayp>&);
+  void set_rte(const Route&);
+  void set_sch(const std::vector<Stop>&);
+  void set_sch(const Schedule&);
   void set_nnd(const DistInt&);
   void reset_lvn();
   void incr_queued();

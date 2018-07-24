@@ -19,15 +19,12 @@ TEST_CASE("Cargo::step()", "") {
     opt.vehicle_speed = 3;
 
     Cargo cargo(opt);
-    RSAlgorithm rsalg;
+    RSAlgorithm rsalg("cargo_test");
 
     Vehicle vehl = rsalg.get_all_vehicles().front();
     std::vector<Customer> custs = rsalg.get_all_customers();
     Customer cust1 = *(std::find_if(custs.begin(), custs.end(), [&](const Customer& a) { return a.id() == 2; }));
     Customer cust2 = *(std::find_if(custs.begin(), custs.end(), [&](const Customer& a) { return a.id() == 3; }));
-
-    cust1.print();
-    cust2.print();
 
     Stop vehl_orig(vehl.id(), vehl.orig(), StopType::VehlOrig, vehl.early(), vehl.late());
     Stop vehl_dest(vehl.id(), vehl.dest(), StopType::VehlDest, vehl.early(), vehl.late());
@@ -38,7 +35,10 @@ TEST_CASE("Cargo::step()", "") {
 
     std::vector<Wayp> rte {{0,0}, {2,1}, {4,2}, {6,3}, {8,4}, {11,5}};
     std::vector<Stop> sch {vehl_orig, cust1_orig, cust2_orig, cust1_dest, cust2_dest, vehl_dest};
-    REQUIRE(rsalg.commit({cust1, cust2}, {}, vehl, rte, sch) == true);
+    MutableVehicle sync_vehl(vehl);
+    sync_vehl.set_rte(rte);
+    sync_vehl.set_sch(sch);
+    REQUIRE(rsalg.assign({cust1.id(), cust2.id()}, {}, sync_vehl, true) == true);
 
     SECTION("speed=3") {
       int stepped;

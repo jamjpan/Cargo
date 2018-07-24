@@ -139,14 +139,6 @@ typedef int         SqliteReturnCode;
 typedef char*       SqliteErrorMessage;
 typedef const char* SqliteQuery;
 
-// Debug levels
-enum class DebugFlag {
-  Level0,  // turn off debugging messages
-  Level1,
-  Level2,
-  Level3,
-};
-
 }  // namespace cargo
 
 #endif  // CARGO_INCLUDE_LIBCARGO_TYPES_H_

@@ -24,6 +24,7 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <random>
 #include <unordered_map>
 
 #include "classes.h"
@@ -35,70 +36,87 @@
 #include "types.h"
 
 #include "../gtree/gtree.h"
+#include "../lrucache/lrucache.hpp"
 #include "../sqlite3/sqlite3.h"
 
-// Cargo is a simulator and requests generator. Its two functionalities are to
-// simulate the movement of vehicles, and to generate customer requests and
-// vehicles in "real time". These are generated from a "problem instance", a
-// special text file that lists customers, vehicles, and their properties.
-//
-// Vehicle movement is simulated based on vehicle speed, a road network,
-// vehicle routes, and time. Speed determines how much distance is covered at
-// every simulation step. Routes are sequences of nodes through the road
-// network. By default, all vehicles travel along the shortest path from their
-// origin to their destination.
-//
-// Cargo will poll an internal sqlite3 database for new vehicle routes. These
-// routes can be updated through an RSAlgorithm.
+/* Cargo is a simulator and requests generator. Its two functionalities are to
+ * simulate the movement of vehicles, and to generate customer requests and
+ * vehicles in "real time". These are generated from a "problem instance", a
+ * special text file that lists customers, vehicles, and their properties.
+ *
+ * Vehicle movement is simulated based on vehicle speed, a road network,
+ * vehicle routes, and time. Speed determines how much distance is covered at
+ * every simulation step. Routes are sequences of nodes through the road
+ * network. By default, all vehicles travel along the shortest path from their
+ * origin to their destination.
+ *
+ * A vehicle with a destination of -1 is a "permanent taxi" These will coast
+ * forever, until all customers have appeared and been dropped off or timed out.
+ * The coast strategy is to move to a random node; other coast strategies might
+ * be implemented in the future.
+ *
+ * Cargo will poll an internal sqlite3 database for new vehicle routes. These
+ * routes can be updated through an RSAlgorithm. */
 namespace cargo {
 
 class Cargo {
  public:
-  Cargo(const Options&);
+  Cargo(const Options &);
   ~Cargo();
-  const std::string& name();          // e.g. rs-lg-5
-  const std::string& road_network();  // e.g. mny, cd1, bj5
-  void start(RSAlgorithm&);
+  const std::string & name();          // e.g. rs-lg-5
+  const std::string & road_network();  // e.g. mny, cd1, bj5
 
-  /* Starts a dynamic simuatlion (*/
+  /* Starts a dynamic simulation */
   void start();
+  void start(RSAlgorithm &);
 
   /* Returns number of stepped vehicles.
    * Outputs number of deactivated vehicles. */
-  int step(int&);
+  int step(int &);
 
   /* Accessors */
-  static DistInt edgeweight(const NodeId& u, const NodeId& v) {
-    return edges_.at(u).at(v);
-  }
-  static Point node2pt(const NodeId& i) { return nodes_.at(i); }
-  static DistInt basecost(const TripId& i) { return trip_costs_.at(i); }
-  static BoundingBox bbox() { return bbox_; }
-  static Speed& vspeed() { return speed_; }
-  static SimlTime now() { return t_; }
-  static GTree::G_Tree& gtree() { return gtree_; }
-  static sqlite3* db() { return db_; }
+  static DistInt         edgew(const NodeId& u, const NodeId& v) { return edges_.at(u).at(v); }
+  static Point           node2pt(const NodeId& i)  { return nodes_.at(i); }
+  static DistInt         basecost(const TripId& i) { return trip_costs_.at(i); }
+  static BoundingBox     bbox()                    { return bbox_; }
+  static Speed         & vspeed()                  { return speed_; }
+  static SimlTime        now()                     { return t_; }
+  static GTree::G_Tree & gtree()                   { return gtree_; }
+  static sqlite3       * db()                      { return db_; }
 
-  static std::mutex dbmx;  // protect the db
+  /* Access the shortest-paths cache */
+  static std::vector<NodeId> spget(const NodeId& u, const NodeId& v) {
+    std::string k = std::to_string(u)+"|"+std::to_string(v);
+    return spcache_.get(k);
+  }
+
+  static void spput(const NodeId& u, const NodeId& v, std::vector<NodeId>& path) {
+    std::string k = std::to_string(u)+"|"+std::to_string(v);
+    spcache_.put(k, path);
+  }
+
+  static bool spexist(const NodeId& u, const NodeId& v) {
+    std::string k = std::to_string(u)+"|"+std::to_string(v);
+    return spcache_.exists(k);
+  }
+
+  static std::mutex      dbmx;  // protect the db
+  static std::mutex      spmx;  // protect the shortest-paths cache
 
  private:
-  Message print_out;
-  Message print_info;
-  Message print_warning;
-  Message print_error;
-  Message print_success;
+  Message print;
 
   ProblemSet probset_;
 
-  SimlTime tmin_;             // max trip.early
-  SimlTime tmax_;             // max vehicle.late
-  SimlTime matching_period_;  // customer timeout
+  SimlTime tmin_;  // max trip.early
+  SimlTime tmax_;  // max vehicle.late
+  SimlTime matp_;  // matching pd. (customer timeout)
 
   size_t total_vehicles_;
   size_t total_customers_;
   size_t active_vehicles_;
-  int sleep_interval_;  // 1 sec/time_multiplier
-  size_t base_cost_;    // total base cost
+  size_t base_cost_;          // total base cost
+  int sleep_interval_;        // 1 sec/time_multiplier
 
   /* Global vars */
   static KVNodes nodes_;  // nodes_[u] = Point
@@ -107,8 +125,11 @@ class Cargo {
   static GTree::G_Tree gtree_;
   static sqlite3* db_;
   static Speed speed_;
-  static SimlTime t_;                                      // current sim time
-  static std::unordered_map<TripId, DistInt> trip_costs_;  // indiv. base costs
+  static SimlTime t_;         // current sim time
+  static std::unordered_map<TripId, DistInt> trip_costs_; // indiv. base costs
+  /* Shortest-paths cache
+   * (the key is a linear combination of two node IDs for from and to) */
+  static cache::lru_cache<std::string, std::vector<NodeId>> spcache_;
 
   /* Solution tables
    * (ordered, so we know exactly what to expect when iterating) */
@@ -127,19 +148,24 @@ class Cargo {
   sqlite3_stmt* sar_stmt;  // select all routes
   sqlite3_stmt* ssv_stmt;  // select step vehicles
   sqlite3_stmt* ucs_stmt;  // update cust status
+  sqlite3_stmt* uro_stmt;  // update route
+  sqlite3_stmt* sch_stmt;  // update schedule
   sqlite3_stmt* dav_stmt;  // deactivate vehicle
   sqlite3_stmt* pup_stmt;  // pickup
   sqlite3_stmt* drp_stmt;  // dropoff
   sqlite3_stmt* vis_stmt;  // visitedAt
-  sqlite3_stmt* sch_stmt;  // schedule
   sqlite3_stmt* lvn_stmt;  // last-visited node
   sqlite3_stmt* nnd_stmt;  // nearest-node dist
   sqlite3_stmt* select_timeout_stmt;
 
-  void initialize(const Options&);
+  void initialize(const Options &);
 
   void record_customer_statuses();
   DistInt total_route_cost();
+
+  std::mt19937 rng;
+  NodeId random_node();
+
 };
 
 }  // namespace cargo

@@ -45,7 +45,7 @@ namespace cargo {
 class RSAlgorithm {
  public:
   // Pass along a name string to your RSAlgorithm
-  RSAlgorithm(const std::string& name = "noname");
+  RSAlgorithm(const std::string& name = "noname", bool fifo = false);
   ~RSAlgorithm();
 
   virtual void handle_customer(const Customer&);
@@ -72,47 +72,17 @@ class RSAlgorithm {
   std::vector<Customer> get_all_customers();
   std::vector<Vehicle> get_all_vehicles();
 
-  // Write assignment to the db
-  bool commit(
-          const std::vector<Customer>&, // custs to add
-          const std::vector<CustId>&,   // custs to remove
-          const Vehicle&,               // vehicle
-          const std::vector<Wayp>&,     // new route
-          const std::vector<Stop>&,     // new schedule
-                std::vector<Wayp>&,     // out (after sync) route
-                std::vector<Stop>&,     // out (after sync) schedule
-                DistInt&);              // out (after sync) nnd
+  /* Function assign(...) will try to add customers (param1) into vehicle (param3)
+   * using the route and schedule (params4,5). If the route cannot be synchronized,
+   * then the function will attempt to compute a new route using the vehicle's
+   * current position going through the schedule (param5). If this new route
+   * meets constraints, then the assignment is accepted. */
+  bool assign(const std::vector<CustId>&, // custs to add
+              const std::vector<CustId>&, // custs to del
+                    MutableVehicle&,      // vehicle to assign to
+                    bool strict = false);
 
-  bool commit( // use MutableVehicle
-          const std::vector<Customer>&,
-          const std::vector<CustId>&,
-          const std::shared_ptr<MutableVehicle>&,
-          const std::vector<Wayp>&,     // new route
-          const std::vector<Stop>&,     // new schedule
-                std::vector<Wayp>&,     // out route
-                std::vector<Stop>&,     // out schedule
-                DistInt&);              // out nnd
-
-  // Non-outputting
-  bool commit(
-          const std::vector<Customer>&,
-          const std::vector<CustId>&,
-          const Vehicle&,
-          const std::vector<Wayp>&,
-          const std::vector<Stop>&);
-
-  bool commit( // use MutableVehicle
-          const std::vector<Customer>&,
-          const std::vector<CustId>&,
-          const std::shared_ptr<MutableVehicle>&,
-          const std::vector<Wayp>&,
-          const std::vector<Stop>&);
-
-  Message print_out;
-  Message print_info;
-  Message print_warning;
-  Message print_error;
-  Message print_success;
+  Message print;
 
  private:
   std::string name_;
@@ -134,20 +104,18 @@ class RSAlgorithm {
   sqlite3_stmt* swc_stmt;  // select waiting customers
   sqlite3_stmt* sac_stmt;  // select all customers
 
-  /* Returns false if sync is impossible */
-  bool sync_route(const std::vector<Wayp> &,     // new route
-                  const std::vector<Wayp> &,     // current route
-                  const RteIdx &,                // current last-visited-node idx
-                  const std::vector<Customer> &, // new customers in the route
-                        std::vector<Wayp> &);    // synchronized output
+  typedef enum { SUCCESS, CURLOC_MISMATCH, PREFIX_MISMATCH, CADD_SYNC_FAIL, CDEL_SYNC_FAIL }
+  SyncResult;
 
-  /* Removes from new schedule any stops not in current schedule or custs;
-   * Sets first stop in new schedule to be the same as first stop in cur sch */
-  bool sync_schedule(const std::vector<Stop> &,     // new schedule
-                     const std::vector<Stop> &,     // current schedule
-                     const std::vector<Wayp> &,     // synced route
-                     const std::vector<Customer> &, // new customers in the sch
-                           std::vector<Stop> &);    // synchronized output
+  SyncResult sync(const std::vector<Wayp>     & new_rte,
+                  const std::vector<Wayp>     & cur_rte,
+                  const RteIdx                & idx_lvn,
+                  const std::vector<Stop>     & new_sch,
+                  const std::vector<Stop>     & cur_sch,
+                  const std::vector<CustId>   & cadd,
+                  const std::vector<CustId>   & cdel,
+                        std::vector<Wayp>     & out_rte,
+                        std::vector<Stop>     & out_sch);
 };
 
 }  // namespace cargo

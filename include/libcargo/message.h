@@ -44,10 +44,15 @@
 
 #include <chrono>
 #include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <string>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 // Provides colored output.
 // Usage:
@@ -56,67 +61,118 @@
 namespace cargo {
 
 enum class MessageType {
-    Default,    // black
-    Info,       // blue
-    Warning,    // magenta
-    Error,      // red
-    Success,    // green
+  Default,  // black
+  Info,     // blue
+  Warning,  // magenta
+  Error,    // red
+  Success,  // green
 };
 
-class Message : public std::ostream, public std::streambuf {
-public:
-    Message() : std::ostream(this), type(MessageType::Default), name("noname") {}
-    Message(MessageType t) : std::ostream(this), type(t), name("noname") {}
-    Message(std::string n) : std::ostream(this), type(MessageType::Default), name(n) {}
-    Message(MessageType t, std::string n) : std::ostream(this), type(t), name(n) {}
+class MessageStreamBuffer : public std::streambuf {
+ public:
+  MessageStreamBuffer(MessageType t = MessageType::Default) {
+    type = t;
+  }
 
-private:
-    bool head = true;
-    MessageType type;
-    std::string name;
-    static std::mutex mtx_;
+  MessageType type;
+  bool head = true;
+  std::string name;
+  std::streambuf* sb;
 
-    int sync()
-    {
-        std::cout << RESET;
-        std::cout.flush();
-        head = true;
-        return 0;
+ private:
+  int sync() { // override
+    sb->sputn(RESET, sizeof(RESET)-1);
+    sb->pubsync();
+    head = true;
+    type = MessageType::Default;
+    return 0;
+  }
+
+  /* Message has no buffer; every char "overflows". Append the timestamp and
+   * the color code and put into buf. */
+  int overflow(int c) {
+    if (head) {
+      auto now = std::chrono::system_clock::now();
+      auto now_c = std::chrono::system_clock::to_time_t(now);
+      switch (type) {
+        case MessageType::Default:
+          sb->sputn(RESET, sizeof(RESET)-1);
+          break;
+        case MessageType::Info:
+          sb->sputn(BLUE, sizeof(BLUE)-1);
+          break;
+        case MessageType::Warning:
+          sb->sputn(MAGENTA, sizeof(MAGENTA)-1);
+          break;
+        case MessageType::Error:
+          sb->sputn(RED, sizeof(RED)-1);
+          break;
+        case MessageType::Success:
+          sb->sputn(GREEN, sizeof(GREEN)-1);
+          break;
+      }
+      auto tm = std::localtime(&now_c);
+      std::ostringstream ts;
+      ts << std::setfill('0') << "["
+         << std::setw(2) << tm->tm_hour << ":"
+         << std::setw(2) << tm->tm_min  << ":"
+         << std::setw(2) << tm->tm_sec  << "]"
+         << "[" << name << "] ";
+      const std::string& ts_str = ts.str();
+      const char* c_ts = ts_str.c_str();
+      sb->sputn(c_ts, ts_str.length());
+      head = false;
     }
-
-    int overflow(int c)
-    {
-        if (head) {
-            auto now = std::chrono::system_clock::now();
-            auto now_c = std::chrono::system_clock::to_time_t(now);
-            switch (type) {
-            case MessageType::Default:
-                std::cout << RESET;
-                break;
-            case MessageType::Info:
-                std::cout << BLUE;
-                break;
-            case MessageType::Warning:
-                std::cout << MAGENTA;
-                break;
-            case MessageType::Error:
-                std::cout << RED;
-                break;
-            case MessageType::Success:
-                std::cout << GREEN;
-                break;
-            }
-            std::lock_guard<std::mutex> lock(mtx_);
-            std::cout << std::put_time(std::localtime(&now_c), "[%F %T]") << "[" << name << "] ";
-            head = false;
-        }
-        std::cout << char(c);
-        if (c == int('\n'))
-            head = true;
-        return 0;
-    }
+    sb->sputc(c);
+    if (c == int('\n')) head = true;
+    return 0;
+  }
 };
 
-} // namespace cargo
+class Message : public std::ostream {
+ public:
+  Message(std::string n = "noname", bool fifo = false) : name(n) {
+    buf = new MessageStreamBuffer;
+    if (fifo) {
+      std::cout << "Creating " << (n+".logger") << std::endl;
+      struct stat _;
+      if (stat((n+".logger").c_str(), &_) == 0) {
+        std::remove((n+".logger").c_str()); // an old fifo exists
+        std::cout << "(removed an old logger)" << std::endl;
+      }
+      int rc = mkfifo((n+".logger").c_str(), 0666);
+      if (rc == -1) {
+        std::cout << "Failed to make logger" << std::endl;
+        throw;
+      }
+      std::cout << "Attach a listener " << "(e.g. cat " << n << ".logger | tee log.txt) "
+                << " to continue..." << std::endl;
+      of.open(n+".logger", std::ios::out);
+      if (!of.is_open()) {
+        std::cout << "Failed to open logger" << std::endl;
+        throw;
+      }
+      buf->sb = of.rdbuf();
+    } else
+      buf->sb = std::cout.rdbuf();
+    buf->name = n;
+    this->std::ios::init(buf);
+  }
+
+  ~Message() { delete buf; unlink((name+".logger").c_str()); }
+
+  Message& operator()(MessageType t) {
+    buf->type = t;
+    return *this;
+  }
+
+ private:
+  std::string name;
+  std::ofstream of;
+  MessageStreamBuffer* buf;
+};
+
+}  // namespace cargo
 
 #endif // CARGO_INCLUDE_LIBCARGO_MESSAGE_H_
+

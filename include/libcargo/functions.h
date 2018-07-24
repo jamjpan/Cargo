@@ -23,6 +23,7 @@
 #define CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
 #include <memory> /* shared_ptr */
 
+#include "cargo.h"
 #include "classes.h"
 #include "types.h"
 
@@ -38,60 +39,39 @@ DistInt pickup_range(const Customer &, const SimlTime &);
 // O(|schedule|*|nodes|)
 DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
 DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &);
-DistInt route_through(const Schedule &, std::vector<Wayp> &, GTree::G_Tree &);
-DistInt route_through(const Schedule &, std::vector<Wayp> &);
 
 // Given a schedule, find if precedence is satisfied.
 // O(|schedule|^2)
-bool check_precedence_constr(const Schedule &);
+bool chkpc(const Schedule &);
 
 // Given a schedule, find if time windows are satisfied
 // O(|schedule|+|route|)
-bool check_timewindow_constr(const std::vector<Stop> &, const std::vector<Wayp> &);
-bool check_timewindow_constr(const Schedule &, const Route &);
+bool chktw(const std::vector<Stop> &, const std::vector<Wayp> &);
+
+void print_rte(const std::vector<Wayp> &);
+void print_sch(const std::vector<Stop> &);
 
 // Given a schedule and a customer, return the cost of the best-insertion
 // schedule, and output the schedule and the route. The two bools are for
 // fixing the end points. Set the first bool to true to fix the start, and
 // set the second bool to true to fix the end.
 // O(|schedule|^2*c_route_through)
-DistInt sop_insert(
-        const std::vector<Stop> &,
-        const Stop &,
-        const Stop &,
-        bool,
-        bool,
-        std::vector<Stop> &,
-        std::vector<Wayp> &,
-        GTree::G_Tree &);
+DistInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool,
+                   std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool,
+                   std::vector<Stop> &, std::vector<Wayp> &);
 
-DistInt sop_insert( // use default GTree
-        const std::vector<Stop> &,
-        const Stop &,
-        const Stop &,
-        bool,
-        bool,
-        std::vector<Stop> &,
-        std::vector<Wayp> &);
+/* This version corrects the distances in rteout (param4) by taking into
+ * account vehicle's (param1) traveled distance. */
+DistInt sop_insert(const Vehicle &, const Customer &,
+                   std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt sop_insert(const Vehicle &, const Customer &,
+                   std::vector<Stop> &, std::vector<Wayp> &);
 
-DistInt sop_insert( // use Vehicle/Customer
-        const Vehicle &,
-        const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &,
-        GTree::G_Tree &);
-
-DistInt sop_insert( // use Vehicle/Customer default GTree
-        const Vehicle &,
-        const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &);
-
-DistInt sop_insert( // use MutableVehicle/Customer default GTree
-        const std::shared_ptr<MutableVehicle> &,
-        const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &);
+/* This version is for convenience; vehicles returned by grid are
+ * MutableVehicle pointers. */
+DistInt sop_insert(const std::shared_ptr<MutableVehicle> &, const Customer &,
+                   std::vector<Stop> &, std::vector<Wayp> &);
 
 }  // namespace cargo
 

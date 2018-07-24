@@ -32,7 +32,7 @@ BilateralArrangement::BilateralArrangement()
     : RSAlgorithm("ba"),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;      // Initialize my private counter
+  nmat_ = 0;         // Initialize my private counter
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -40,8 +40,8 @@ void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void BilateralArrangement::match() {
-  std::vector<Customer> custs = customers();  // <-- get a local copy
-  std::random_shuffle(custs.begin(), custs.end()); // <-- random it
+  std::vector<Customer> custs = customers(); // <-- get a local copy
+  std::random_shuffle(custs.begin(), custs.end());
 
   /* Extract riders one at a time */
   while (!custs.empty()) {
@@ -66,7 +66,7 @@ void BilateralArrangement::match() {
     while (!candidates.empty()) {
       /* Loop through and get the greedy match */;
       for (const auto& cand : candidates) {
-        cst = sop_insert(cand, cust, sch, rte); // <-- doesn't check time/cap constraints
+        cst = sop_insert(*cand, cust, sch, rte); // <-- doesn't check time/cap constraints
         if (cst < best_cst) {
           best_cst = cst;
           best_sch = sch;
@@ -76,13 +76,12 @@ void BilateralArrangement::match() {
       }
       if (best_vehl == nullptr) break; // should never happen but just to be safe
       candidates.erase(std::find(candidates.begin(), candidates.end(), best_vehl));
-      bool within_time = check_timewindow_constr(best_sch, best_rte);
+      bool within_time = chktw(best_sch, best_rte);
       bool within_cap = (best_vehl->queued() < best_vehl->capacity());
       if (within_time && within_cap) {
         matched = true;
         break;
       } else {
-        // print_info << "best candidate is infeasible" << std::endl;
         /* Remove some random not-picked-up customer from cand and try the
          * insertion again. If it meets constraints, then accept. */
         std::vector<Stop> randomized_schedule(best_vehl->schedule().data().begin()+1,
@@ -99,35 +98,22 @@ void BilateralArrangement::match() {
           }
         }
         if (remove_me != -1) {
-          // print_info << "trying to remove " << remove_me << std::endl;
-          // print_info << "before remove:";
-          // for (const auto& stop : best_vehl->schedule().data())
-          //   print_info << " " << stop.loc();
-          // print_info << std::endl;
           std::vector<Stop> new_sch = best_vehl->schedule().data();
           new_sch.erase(std::remove_if(new_sch.begin(), new_sch.end(), [&](const Stop& a)
                       { return a.owner() == remove_me; }), new_sch.end());
-          best_vehl->set_schedule(new_sch);
-          // print_info << "after remove:";
-          // for (const auto& stop : best_vehl->schedule().data())
-          //   print_info << " " << stop.loc();
-          // print_info << std::endl;
+          best_vehl->set_sch(new_sch);
           std::vector<Stop> new_best_sch;
           std::vector<Wayp> new_best_rte;
           sop_insert(best_vehl, cust, new_best_sch, new_best_rte);
-          // print_info << "after insert:";
-          // for (const auto& stop : new_best_sch)
-          //   print_info << " " << stop.loc();
-          // print_info << std::endl;
-          if (check_timewindow_constr(new_best_sch, new_best_rte)) {
-            print_info << "feasible after remove " << std::endl;
+          if (chktw(new_best_sch, new_best_rte)) {
+            print(MessageType::Info) << "feasible after remove " << std::endl;
             best_sch = new_best_sch;
             best_rte = new_best_rte;
             matched = true;
             removed_cust = remove_me;
             break;
           } else {
-            // print_info << "still infeasible" << std::endl;
+            // print(MessageType::Info) << "still infeasible" << std::endl;
           }
         }
       }
@@ -135,27 +121,25 @@ void BilateralArrangement::match() {
 
     /* Commit */
     if (matched) {
-      std::vector<cargo::Wayp> sync_rte;
-      std::vector<cargo::Stop> sync_sch;
-      cargo::DistInt sync_nnd;
+      best_vehl->set_rte(best_rte);
+      best_vehl->set_sch(best_sch);
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
-      if (commit({cust}, {cust_to_del}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
-        grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-        print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+
+      /* assign() will modify best_vehl with the synchronized version to
+       * account for match latency */
+      if (assign({cust}, cust_to_del, *best_vehl)) {
+        print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
         nmat_++;
       } else {
-        print_warning << "Commit rejected" << std::endl;
+        // print(MessageType::Warning) << "Commit rejected" << std::endl;
       }
     }
-
-    // TODO: Add the removed cust back to waiting_customers_!
-
   } // end while !custs.empty()
 }
 
 void BilateralArrangement::end() {
-  print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
 }
 
 void BilateralArrangement::listen() {
@@ -166,12 +150,12 @@ void BilateralArrangement::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-1.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 5;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 

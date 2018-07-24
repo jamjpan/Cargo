@@ -9,7 +9,8 @@ CARGO = -L../lib -lcargo
 OBJECTS = \
 		  build/main.o \
 		  build/message_test.o \
-		  build/cargo_test.o
+		  build/cargo_test.o \
+		  build/rsalgorithm_test.o
 all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
 #-------------------------------------------------------------------------------
@@ -24,6 +25,12 @@ build/cargo_test.o: \
 	../include/libcargo.h \
 	src/cargo_test.cc
 	$(CXX) $(CFLAGS) src/cargo_test.cc
+
+build/rsalgorithm_test.o: \
+	../lib/libcargo.a \
+	../include/libcargo.h \
+	src/rsalgorithm_test.cc
+	$(CXX) $(CFLAGS) src/rsalgorithm_test.cc
 
 build/message_test.o: \
 	../lib/libcargo.a \

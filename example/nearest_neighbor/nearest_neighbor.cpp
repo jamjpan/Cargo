@@ -63,7 +63,7 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
     if (cand->queued() == cand->capacity())
       continue;  // don't consider vehs already queued to capacity
     cst = cargo::sop_insert(cand, cust, sch, rte);  // <-- functions.h
-    bool within_time = cargo::check_timewindow_constr(sch, rte);
+    bool within_time = cargo::chktw(sch, rte);
     if ((cst < best_cst) && within_time) {
       best_cst = cst;
       best_sch = sch;
@@ -77,12 +77,10 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    std::vector<cargo::Wayp> sync_rte;
-    std::vector<cargo::Stop> sync_sch;
-    cargo::DistInt sync_nnd;
-    if (commit({cust}, {}, best_vehl, best_rte, best_sch, sync_rte, sync_sch, sync_nnd)) {
-      grid_.commit(best_vehl, sync_rte, sync_sch, sync_nnd);
-      print_success << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+    best_vehl->set_rte(best_rte);
+    best_vehl->set_sch(best_sch);
+    if (assign({cust}, {}, *best_vehl)) {
+      print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     }
   }
@@ -93,7 +91,7 @@ void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void NearestNeighbor::end() {
-  print_success << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
 }
 
 void NearestNeighbor::listen() {
@@ -104,12 +102,12 @@ void NearestNeighbor::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-1.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 5;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 
