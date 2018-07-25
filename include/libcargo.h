@@ -34,7 +34,6 @@ namespace cargo {}  // namespace cargo
 #include "libcargo/options.h"
 #include "libcargo/rsalgorithm.h"
 #include "libcargo/types.h"
-#include "libcargo/logger.h"
 #include "gtree/gtree.h"
 #include "sqlite3/sqlite3.h"
 

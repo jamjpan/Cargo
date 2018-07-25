@@ -20,11 +20,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* min(), max() */
+#include <condition_variable>
 #include <fstream>
 #include <map>
+#include <mutex>
+#include <queue>
 #include <stdexcept>
+#include <string>
+#include <vector>
 #include <unordered_map>
 
+#include "libcargo/cargo.h"
 #include "libcargo/file.h"
 #include "libcargo/classes.h"
 #include "libcargo/types.h"
@@ -103,6 +109,95 @@ size_t read_problem(const Filepath& path, ProblemSet& probset) {
   ifs.close();
   probset.set_trips(trips);
   return count_trips;
+}
+
+std::queue<std::string> Logger::queue_;
+std::condition_variable Logger::condition_;
+std::mutex Logger::mutex_;
+Logger::Logger(const Filepath &f_out)
+    : file_output_(f_out, std::ios::out) {
+  done_ = false;
+}
+
+Logger::~Logger() {
+  file_output_.flush();
+  file_output_.close();
+}
+
+void Logger::stop() {
+  done_ = true;
+  condition_.notify_all();
+}
+
+void Logger::run() {
+  while (!done_)
+    file_output_ << pop() << "\n";
+}
+
+void Logger::put_r_message(const std::vector<Wayp> &rte, const Vehicle &vehl) {
+  std::string item = std::to_string(Cargo::now()) + " R " + std::to_string(vehl.id());
+  for (RteIdx i = vehl.idx_last_visited_node(); i < rte.size(); ++i)
+    item.append(" " + std::to_string(rte.at(i).second));
+  push(item);
+}
+
+void Logger::put_v_message(const std::map<VehlId, NodeId> &curloc) {
+  std::string item = std::to_string(Cargo::now()) + " V";
+  for (const auto& kv : curloc)
+    item.append(" " + std::to_string(kv.first)
+              + " " + std::to_string(kv.second));
+  push(item);
+}
+
+void Logger::put_m_message(const std::vector<CustId> & cadd,
+                           const std::vector<CustId> & cdel,
+                           const VehlId              & vid) {
+  std::string item = std::to_string(Cargo::now()) + " M " + std::to_string(vid);
+  for (const CustId& id : cdel) item.append(" " + std::to_string(-id));
+  for (const CustId& id : cadd) item.append(" " + std::to_string(id));
+  push(item);
+}
+
+void Logger::put_a_message(const std::vector<VehlId> & arrived) {
+  std::string item = std::to_string(Cargo::now()) + " A";
+  for (const VehlId& id : arrived) item.append(" " + std::to_string(id));
+  push(item);
+}
+
+// void Logger::put_c_message()
+
+void Logger::put_t_message(const std::vector<CustId> & timeout) {
+  std::string item = std::to_string(Cargo::now()) + " T";
+  for (const CustId& id : timeout) item.append(" " + std::to_string(id));
+  push(item);
+}
+
+void Logger::put_p_message(const std::vector<CustId> & picked) {
+  std::string item = std::to_string(Cargo::now()) + " P";
+  for (const CustId& id : picked) item.append(" " + std::to_string(id));
+  push(item);
+}
+
+void Logger::put_d_message(const std::vector<CustId> & dropped) {
+  std::string item = std::to_string(Cargo::now()) + " D";
+  for (const CustId& id : dropped) item.append(" " + std::to_string(id));
+  push(item);
+}
+
+void Logger::push(std::string item) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  queue_.push(item);
+  condition_.notify_one();
+}
+
+std::string Logger::pop() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  while (queue_.empty() && !done_)
+    condition_.wait(lock);
+  if (done_) return "";
+  std::string top = queue_.front();
+  queue_.pop();
+  return top;
 }
 
 }  // namespace cargo

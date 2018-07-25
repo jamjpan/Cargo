@@ -21,27 +21,64 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_FILE_H_
 #define CARGO_INCLUDE_LIBCARGO_FILE_H_
-#include <unordered_map>
+#include <condition_variable>
+#include <fstream>
 #include <map>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <vector>
 
 #include "classes.h"
 #include "types.h"
 
 namespace cargo {
 
-// These functions throw runtime_errors if the file cannot be read.
+/* These functions throw runtime_errors if the file cannot be read. */
+size_t read_nodes(const Filepath &, KVNodes &);                // return # nodes
+size_t read_nodes(const Filepath &, KVNodes &, BoundingBox &); // output bbox
+size_t read_edges(const Filepath &, KVEdges &);                // return # edges
+size_t read_problem(const Filepath &, ProblemSet &);           // return # trips
 
-// Returns number of nodes
-size_t read_nodes(const Filepath&, KVNodes&);
+/* Thread-safe Logger for generating solplot.py input
+ * The logger is "event-based"; certain events trigger putting different
+ * messages into the log file. */
+class Logger {
+ public:
+  Logger(const Filepath &);
+  ~Logger();
 
-// Returns number of nodes, and output min/max lng/lat
-size_t read_nodes(const Filepath&, KVNodes&, BoundingBox&);
+  void run();
+  void stop();
 
-// Returns number of edges
-size_t read_edges(const Filepath&, KVEdges&);
+  /* put_r_message: route update
+   * put_v_message: vehicle position update
+   * put_m_message: match update
+   * put_t_message: customer timeout
+   * put_p_message: customer pickup
+   * put_d_message: customer dropoff */
+  // static void put_message(const std::string &);
+  static void put_r_message(const std::vector<Wayp> &, const Vehicle &);
+  static void put_v_message(const std::map<VehlId, NodeId> &);
+  static void put_m_message(const std::vector<CustId> &,
+                            const std::vector<CustId> &,
+                            const VehlId &);
+  static void put_a_message(const std::vector<VehlId> &);
+  // static void put_c_message(const std::map<CustId, std::pair<CustStatus, VehlId>> &);
+  static void put_t_message(const std::vector<CustId> &);
+  static void put_p_message(const std::vector<CustId> &);
+  static void put_d_message(const std::vector<CustId> &);
+  static void push(std::string);
+  std::string pop();
 
-// Returns number of trips
-size_t read_problem(const Filepath&, ProblemSet&);
+ private:
+  static std::queue<std::string> queue_;
+  static std::condition_variable condition_;
+  static std::mutex mutex_;
+  std::ofstream file_output_;
+  bool done_;
+};
+
 
 } // namespace cargo
 

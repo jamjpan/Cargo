@@ -29,7 +29,6 @@
 #include "libcargo/classes.h"
 #include "libcargo/debug.h"
 #include "libcargo/dbsql.h"
-#include "libcargo/logger.h"
 #include "libcargo/message.h"
 #include "libcargo/rsalgorithm.h"
 #include "libcargo/types.h"

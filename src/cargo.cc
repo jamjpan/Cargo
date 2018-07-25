@@ -35,7 +35,6 @@
 #include "libcargo/dbsql.h"
 #include "libcargo/file.h"
 #include "libcargo/functions.h"
-#include "libcargo/logger.h"
 #include "libcargo/message.h"
 #include "libcargo/options.h"
 #include "libcargo/rsalgorithm.h"
