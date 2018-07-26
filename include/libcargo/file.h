@@ -57,14 +57,12 @@ class Logger {
    * put_t_message: customer timeout
    * put_p_message: customer pickup
    * put_d_message: customer dropoff */
-  // static void put_message(const std::string &);
   static void put_r_message(const std::vector<Wayp> &, const Vehicle &);
   static void put_v_message(const std::map<VehlId, NodeId> &);
   static void put_m_message(const std::vector<CustId> &,
                             const std::vector<CustId> &,
                             const VehlId &);
   static void put_a_message(const std::vector<VehlId> &);
-  // static void put_c_message(const std::map<CustId, std::pair<CustStatus, VehlId>> &);
   static void put_t_message(const std::vector<CustId> &);
   static void put_p_message(const std::vector<CustId> &);
   static void put_d_message(const std::vector<CustId> &);

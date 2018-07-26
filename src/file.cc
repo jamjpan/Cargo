@@ -164,8 +164,6 @@ void Logger::put_a_message(const std::vector<VehlId> & arrived) {
   push(item);
 }
 
-// void Logger::put_c_message()
-
 void Logger::put_t_message(const std::vector<CustId> & timeout) {
   std::string item = std::to_string(Cargo::now()) + " T";
   for (const CustId& id : timeout) item.append(" " + std::to_string(id));

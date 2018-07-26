@@ -20,7 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <chrono>
-#include <cstdio> /* std::remove */
 #include <exception>
 #include <fstream>
 #include <iostream>
@@ -58,12 +57,10 @@ std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
 cache::lru_cache<std::string, std::vector<NodeId>> Cargo::spcache_(10000); // <-- cache size
 
-Cargo::Cargo(const Options& opt)
-    : print("cargo"),
-      f_sol_temp_("sol.partial", std::ios::out) {  // <-- needed for writing sol
+Cargo::Cargo(const Options& opt) : print("cargo") {
   print << "Initializing Cargo\n";
   rng.seed(std::random_device()());
-  this->initialize(opt);  // <-- load db
+  this->initialize(opt);  // <-- loads db
   if (sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sar_stmt, -1, &sar_stmt, NULL) != SQLITE_OK ||
@@ -76,9 +73,9 @@ Cargo::Cargo(const Options& opt)
       sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::vis_stmt, -1, &vis_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::select_timeout_stmt, -1, &select_timeout_stmt, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(db_, sql::stc_stmt, -1, &stc_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK) {
-    print(MessageType::Error) << "Failed (create step stmts). Reason:\n";
+    print(MessageType::Error) << "Failed (create stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
   print(MessageType::Success) << "Cargo initialized!" << std::endl;
@@ -98,11 +95,10 @@ Cargo::~Cargo() {
   sqlite3_finalize(vis_stmt);
   sqlite3_finalize(lvn_stmt);
   sqlite3_finalize(nnd_stmt);
-  sqlite3_finalize(select_timeout_stmt);
+  sqlite3_finalize(stc_stmt);
   if (err != NULL) sqlite3_free(err);
   sqlite3_close(db_);  // <-- calls std::terminate on failure
   print << "Database closed." << std::endl;
-  std::remove("sol.partial");
 }
 
 const std::string & Cargo::name()         { return probset_.name(); }
@@ -111,13 +107,10 @@ const std::string & Cargo::road_network() { return probset_.road_network(); }
 int Cargo::step(int& ndeact) {
   int nrows = ndeact = 0;
 
-  // Picked up customers for logger
-  std::vector<CustId> picked;
-  // Dropped off customers for logger
-  std::vector<CustId> dropped;
-  // Vehicle postion update for logger
+  // Initialize Logger containers
   std::map<VehlId, NodeId> vehicle_position;
-  // Vehicle arrived update for logger
+  std::vector<CustId> picked;
+  std::vector<CustId> dropped;
   std::vector<VehlId> arrived;
 
   std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
@@ -184,7 +177,6 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(dav_stmt);
           active = false;  // <-- stops the while loops
           ndeact++;
-          sol_routes_[vid] = rte.at(lvn).second;  // Record
 
         /* Permanent taxi arrived at "destination"
          * (essentially recreate the taxi) */
@@ -240,7 +232,6 @@ int Cargo::step(int& ndeact) {
           } else {
             // Add picked up customers
             picked.push_back(stop.owner());
-
             DEBUG(1, {
               print(MessageType::Info) << "Vehicle " << vid << " picked up Customer "
                          << stop.owner() << "(" << stop.loc() << ")" << std::endl;
@@ -262,7 +253,6 @@ int Cargo::step(int& ndeact) {
           } else {
             // Add dropped off customers
             dropped.push_back(stop.owner());
-
             DEBUG(1, {
               print(MessageType::Info) << "Vehicle " << vid << " dropped off Customer "
                          << stop.owner() << "(" << stop.loc() << ")" << std::endl;
@@ -273,8 +263,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(drp_stmt);
           sqlite3_reset(ucs_stmt);
         }
-        /* Update visitedAt
-         * (is visitedAt ever used??) */
+        /* Update visitedAt (used for TODO avg. delay statistics) */
         sqlite3_bind_int(vis_stmt, 1, t_);
         sqlite3_bind_int(vis_stmt, 2, stop.owner());
         sqlite3_bind_int(vis_stmt, 3, stop.loc());
@@ -345,13 +334,6 @@ int Cargo::step(int& ndeact) {
         sqlite3_reset(dav_stmt);
         ndeact++;
       }
-
-      /* Record vehicle status
-       * (taken at the end of t_) */
-      sol_routes_[vid] = rte.at(lvn).second;
-      // Test logger: route index
-      // logger_routes_[vid] = lvn;
-
     }  // end active
   }    // end SQLITE_ROW
   if (rc != SQLITE_DONE) {
@@ -362,28 +344,13 @@ int Cargo::step(int& ndeact) {
   sqlite3_reset(ssv_stmt);
 
   // Log pickup and dropoff
-  if (picked.size() != 0) Logger::put_p_message(picked);
-  if (dropped.size() != 0) Logger::put_d_message(dropped);
-  if (!vehicle_position.empty()) Logger::put_v_message(vehicle_position);
-  if (arrived.size() != 0) Logger::put_a_message(arrived);
+  if (picked.size() != 0)           Logger::put_p_message(picked);
+  if (dropped.size() != 0)          Logger::put_d_message(dropped);
+  if (!vehicle_position.empty())    Logger::put_v_message(vehicle_position);
+  if (arrived.size() != 0)          Logger::put_a_message(arrived);
 
   return nrows;
 }  // release dblock
-
-void Cargo::record_customer_statuses() {
-  while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
-    std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
-    const CustId cust_id = sqlite3_column_int(sac_stmt, 0);
-    const CustStatus cust_status = static_cast<CustStatus>(sqlite3_column_int(sac_stmt, 6));
-    const VehlId cust_assignedTo = sqlite3_column_int(sac_stmt, 7);
-    sol_statuses_[cust_id] = {cust_status, cust_assignedTo};
-  }
-  if (rc != SQLITE_DONE) {
-    print(MessageType::Error) << "Failure in select all customers. Reason:\n";
-    throw std::runtime_error(sqlite3_errmsg(db_));
-  }
-  sqlite3_reset(sac_stmt);
-}
 
 /* Returns cost of all vehicle routes, plus the base cost for each
  * unassigned customer trip */
@@ -435,8 +402,8 @@ void Cargo::start(RSAlgorithm& rsalg) {
       rsalg.listen();
   }});
 
-  // Logger thread
-  Logger logger("a.log");
+  /* Logger thread */
+  Logger logger(rsalg.name( ) + ".dat");
   std::thread logger_thread([&logger]() { logger.run(); });
 
   /* Cargo thread
@@ -447,16 +414,16 @@ void Cargo::start(RSAlgorithm& rsalg) {
     t0 = std::chrono::high_resolution_clock::now();
 
     /* Timeout customers where t_ > early + matching_period_ */
-    // Select timeouts and log them
+    // Log timed-out customers
     std::vector<CustId> timeout;
-    sqlite3_bind_int(select_timeout_stmt, 1, t_);
-    sqlite3_bind_int(select_timeout_stmt, 2, matp_);
-    sqlite3_bind_int(select_timeout_stmt, 3, (int)CustStatus::Canceled);
-    while ((rc = sqlite3_step(select_timeout_stmt)) == SQLITE_ROW) {
-      timeout.push_back(sqlite3_column_int(select_timeout_stmt, 0));
+    sqlite3_bind_int(stc_stmt, 1, t_);
+    sqlite3_bind_int(stc_stmt, 2, matp_);
+    sqlite3_bind_int(stc_stmt, 3, (int)CustStatus::Canceled);
+    while ((rc = sqlite3_step(stc_stmt)) == SQLITE_ROW) {
+      timeout.push_back(sqlite3_column_int(stc_stmt, 0));
     }
-    sqlite3_clear_bindings(select_timeout_stmt);
-    sqlite3_reset(select_timeout_stmt);
+    sqlite3_clear_bindings(stc_stmt);
+    sqlite3_reset(stc_stmt);
     if (timeout.size() != 0) Logger::put_t_message(timeout);
 
     // Update timeout customers
@@ -471,33 +438,11 @@ void Cargo::start(RSAlgorithm& rsalg) {
     sqlite3_clear_bindings(tim_stmt);
     sqlite3_reset(tim_stmt);
 
-    /* Prepare this step's solution tables */
-    sol_routes_.clear();
-    sol_statuses_.clear();
-
     /* Step the vehicles */
     nstepped = step(ndeact);
     active_vehicles_ -= ndeact;
     print << "t=" << t_ << "; stepped " << nstepped
           << " vehicles; remaining=" << active_vehicles_ << ";" << std::endl;
-
-    /* Log the customers */
-    record_customer_statuses();
-
-    // Write vehicle position update log
-    // Logger::put_v_message(sol_routes_);
-
-    /* Write the partial solution
-     * (sol_routes_, sol_statuses_ are now filled) */
-    f_sol_temp_ << t_;
-    for (const auto& veh_id : sol_veh_cols_)
-      f_sol_temp_ << '\t'  // line below is to put a 0 if vehicle is done
-                  << (sol_routes_.find(veh_id) != sol_routes_.end()
-                          ? sol_routes_.at(veh_id)
-                          : -1);
-    for (const auto& kv : sol_statuses_)
-      f_sol_temp_ << '\t' << (int)kv.second.first << '\t' << kv.second.second;
-    f_sol_temp_ << '\n';
 
     t1 = std::chrono::high_resolution_clock::now();
 
@@ -516,34 +461,22 @@ void Cargo::start(RSAlgorithm& rsalg) {
   rsalg.kill();
   rsalg.end();  // <-- user-defined
   thread_rsalg.join();
-  print << "Finished algorithm " << rsalg.name() << "\n";
+  print << "Finished algorithm " << rsalg.name() << std::endl;
 
-  f_sol_temp_.close();
-
-  // Stop logger
-  print << "Logger stop" << std::endl;
+  /* Stop logger */
+  print << "Logger stopped" << std::endl;
   logger.stop();
   logger_thread.join();
 
-  /* Print solution headers
-   * (we do this last so we can get total_route_cost()) */
-  std::ifstream ifs("sol.partial");
+  /* Print solution
+   * TODO avg. delay statistics, other statistics */
   std::ofstream f_sol_(solution_file_, std::ios::out);
   f_sol_ << name() << '\n'
          << road_network() << '\n'
          << "VEHICLES " << total_vehicles_ << '\n'
          << "CUSTOMERS " << total_customers_ << '\n'
          << "base cost " << base_cost_ << '\n'
-         << "solution cost " << total_route_cost() << '\n'
-         << '\n'
-         << "T";
-  for (const auto& veh_id : sol_veh_cols_)  // veh col headers
-    f_sol_ << "\tVEH" << veh_id;
-  for (const auto& kv : sol_statuses_)  // cust col headers
-    f_sol_ << "\tC" << kv.first << "_ST\tC" << kv.first << "_AT";
-  f_sol_ << '\n';
-  f_sol_ << ifs.rdbuf();  // copy sol.partial
-  ifs.close();
+         << "solution cost " << total_route_cost() << '\n';
   f_sol_.close();
 
   print << "Finished Cargo" << std::endl;
@@ -660,7 +593,6 @@ void Cargo::initialize(const Options& opt) {
           print(MessageType::Error) << "Failed (insert vehicle). Reason:\n";
           throw std::runtime_error(sqlite3_errmsg(db_));
         }
-        sol_routes_[trip.id()] = trip.orig();
 
         /* Insert route
          * If the destination is -1, then the vehicle is a permanent taxi; the
@@ -728,7 +660,6 @@ void Cargo::initialize(const Options& opt) {
           print(MessageType::Error) << "Failed (insert customer). Reason:\n";
           throw std::runtime_error(sqlite3_errmsg(db_));
         }
-        sol_statuses_[trip.id()] = {CustStatus::Waiting, 0};
       } else  // e.g. mail, packages
         print(MessageType::Warning) << "Trip" << trip.id() << " load == 0\n";
 
@@ -776,10 +707,6 @@ void Cargo::initialize(const Options& opt) {
   sqlite3_finalize(insert_route_stmt);
 
   solution_file_ = opt.path_to_solution;
-
-  /* Store vehicle column headers
-   * (sol_veh_cols_ will be ordered) */
-  for (const auto& kv : sol_routes_) sol_veh_cols_.push_back(kv.first);
 
   t_ = 0;  // Ready to begin!
   print << "Done\n";

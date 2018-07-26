@@ -100,8 +100,8 @@ class Cargo {
     return spcache_.exists(k);
   }
 
-  static std::mutex      dbmx;  // protect the db
-  static std::mutex      spmx;  // protect the shortest-paths cache
+  static std::mutex dbmx;  // protect the db
+  static std::mutex spmx;  // protect the shortest-paths cache
 
  private:
   Message print;
@@ -131,14 +131,8 @@ class Cargo {
    * (the key is a linear combination of two node IDs for from and to) */
   static cache::lru_cache<std::string, std::vector<NodeId>> spcache_;
 
-  /* Solution tables
-   * (ordered, so we know exactly what to expect when iterating) */
+  /* Solution file */
   Filepath solution_file_;
-  std::ofstream f_sol_temp_;          // sol.partial
-  std::vector<VehlId> sol_veh_cols_;  // veh column headers
-  std::map<VehlId, NodeId> sol_routes_;
-  // std::map<VehlId, RteIdx> logger_routes_;
-  std::map<CustId, std::pair<CustStatus, VehlId>> sol_statuses_;
 
   /* SQL statements */
   SqliteReturnCode rc;
@@ -156,11 +150,10 @@ class Cargo {
   sqlite3_stmt* vis_stmt;  // visitedAt
   sqlite3_stmt* lvn_stmt;  // last-visited node
   sqlite3_stmt* nnd_stmt;  // nearest-node dist
-  sqlite3_stmt* select_timeout_stmt;
+  sqlite3_stmt* stc_stmt;  // select timed-out customers
 
   void initialize(const Options &);
 
-  void record_customer_statuses();
   DistInt total_route_cost();
 
   std::mt19937 rng;

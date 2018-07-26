@@ -134,22 +134,22 @@ class Message : public std::ostream {
   Message(std::string n = "noname", bool fifo = false) : name(n) {
     buf = new MessageStreamBuffer;
     if (fifo) {
-      std::cout << "Creating " << (n+".logger") << std::endl;
+      std::cout << "Creating " << (n+".feed") << std::endl;
       struct stat _;
-      if (stat((n+".logger").c_str(), &_) == 0) {
-        std::remove((n+".logger").c_str()); // an old fifo exists
-        std::cout << "(removed an old logger)" << std::endl;
+      if (stat((n+".feed").c_str(), &_) == 0) {
+        std::remove((n+".feed").c_str()); // an old fifo exists
+        std::cout << "(removed an old feed)" << std::endl;
       }
-      int rc = mkfifo((n+".logger").c_str(), 0666);
+      int rc = mkfifo((n+".feed").c_str(), 0666);
       if (rc == -1) {
-        std::cout << "Failed to make logger" << std::endl;
+        std::cout << "Failed to make feed" << std::endl;
         throw;
       }
-      std::cout << "Attach a listener " << "(e.g. cat " << n << ".logger | tee log.txt) "
+      std::cout << "Attach a listener " << "(e.g. cat " << n << ".feed | tee log.txt) "
                 << " to continue..." << std::endl;
-      of.open(n+".logger", std::ios::out);
+      of.open(n+".feed", std::ios::out);
       if (!of.is_open()) {
-        std::cout << "Failed to open logger" << std::endl;
+        std::cout << "Failed to open feed" << std::endl;
         throw;
       }
       buf->sb = of.rdbuf();
@@ -159,7 +159,7 @@ class Message : public std::ostream {
     this->std::ios::init(buf);
   }
 
-  ~Message() { delete buf; unlink((name+".logger").c_str()); }
+  ~Message() { delete buf; unlink((name+".feed").c_str()); }
 
   Message& operator()(MessageType t) {
     buf->type = t;

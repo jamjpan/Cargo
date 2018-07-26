@@ -159,7 +159,7 @@ const SqliteQuery lvn_stmt =  // update last_visited_node
 const SqliteQuery nnd_stmt =  // update nearest_node_distance
     "update routes set next_node_distance = ? where owner = ?;";
 
-const SqliteQuery select_timeout_stmt =  // select timeout customers
+const SqliteQuery stc_stmt =  // select timeout customers
     "select * from customers where assignedTo is null and ? > ? + "
     "early and status != ?;";
 
