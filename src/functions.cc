@@ -59,25 +59,28 @@ DistInt route_through(const std::vector<Stop> & sch,
   rteout.clear();
   rteout.push_back({0, sch.front().loc()});
   for (SchIdx i = 0; i < sch.size()-1; ++i) {
-    std::vector<NodeId> seg;
     const NodeId& from = sch.at(i).loc();
     const NodeId& to = sch.at(i+1).loc();
-    bool in_cache;
-    { std::lock_guard<std::mutex> splock(Cargo::spmx);   // Lock acquired
-      in_cache = Cargo::spexist(from, to); }             // Lock released
-    if (in_cache) seg = Cargo::spget(from, to);
-    else {
+
+    std::vector<NodeId> seg {};
+    bool in_cache = false;
+    { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+    in_cache = Cargo::spexist(from, to);
+    if (in_cache)
+      seg = Cargo::spget(from, to);
+    } // Lock released
+    if(!in_cache) {
       gtree.find_path(from, to, seg);
-      { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-        Cargo::spput(from, to, seg); }                   // Lock released
-    }
+      std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+      Cargo::spput(from, to, seg);
+    } // Lock released
     for (size_t i = 1; i < seg.size(); ++i) {
       cst += Cargo::edgew(seg.at(i-1), seg.at(i));
       rteout.push_back({cst, seg.at(i)});
     }
   }
   return cst;
-}
+} // Lock Cargo::spmx released
 
 DistInt route_through(const std::vector<Stop> & sch,
                             std::vector<Wayp> & rteout) {
