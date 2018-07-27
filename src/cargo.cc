@@ -449,7 +449,7 @@ SimlDur Cargo::avg_trip_delay() {
     tdelay += ((dest_t.at(cust_id) - orig_t.at(cust_id)))
               - trip_costs_.at(cust_id)/speed_;
 
-  return keys.size() == 0 ? : -1 : tdelay/keys.size(); // int
+  return keys.size() == 0 ? -1 : tdelay/keys.size(); // int
 }
 
 NodeId Cargo::random_node() {
