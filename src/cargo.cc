@@ -263,7 +263,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(drp_stmt);
           sqlite3_reset(ucs_stmt);
         }
-        /* Update visitedAt (used for TODO avg. delay statistics) */
+        /* Update visitedAt (used for avg. delay statistics) */
         sqlite3_bind_int(vis_stmt, 1, t_);
         sqlite3_bind_int(vis_stmt, 2, stop.owner());
         sqlite3_bind_int(vis_stmt, 3, stop.loc());
@@ -356,7 +356,6 @@ int Cargo::step(int& ndeact) {
  * unassigned customer trip */
 DistInt Cargo::total_route_cost() {
   DistInt cst = 0;
-
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 1));
     const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 1) / sizeof(Wayp));
@@ -374,6 +373,83 @@ DistInt Cargo::total_route_cost() {
     if (assigned_to == 0) cst += trip_costs_.at(cust_id);
   }
   return cst;
+}
+
+SimlDur Cargo::avg_pickup_delay() {
+  /* Get all origin stops belonging to assigned customers
+   * to find (visitedAt - early) */
+  SimlDur pdelay = 0;
+  int count = 0;
+  std::string querystr = "select * from stops where type = "
+      + std::to_string((int)StopType::CustOrig) + " and "
+      + "exists (select id from customers "
+      + "where customers.id = stops.owner and customers.assignedTo not null);";
+  sqlite3_stmt* stmt;
+  sqlite3_prepare_v2(db_, querystr.c_str(), -1, &stmt, NULL);
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    const SimlTime early = sqlite3_column_int(stmt, 3);
+    const SimlTime visitedAt = sqlite3_column_int(stmt, 5);
+    pdelay += (visitedAt - early);
+    count++;
+  }
+  if (rc != SQLITE_DONE) {
+    print(MessageType::Error) << "Failure in avg_pickup_delay(). Reason:\n";
+    throw std::runtime_error(sqlite3_errmsg(db_));
+  }
+  sqlite3_reset(stmt);
+  sqlite3_finalize(stmt);
+
+  return count == 0 ? -1 : pdelay/count; // int
+}
+
+SimlDur Cargo::avg_trip_delay() {
+  /* Get all orig, dest stops belonging to assigned customers
+   * to find (dest.visitedAt - orig.visitedAt - base cost) */
+  SimlDur tdelay = 0;
+  std::unordered_map<CustId, SimlTime> orig_t;
+  std::unordered_map<CustId, SimlTime> dest_t;
+  std::vector<CustId> keys;
+  std::string querystr = "select * from stops where type = "
+      + std::to_string((int)StopType::CustOrig) + " and " // <-- origs
+      + "exists (select id from customers "
+      + "where customers.id = stops.owner and customers.assignedTo not null);";
+  sqlite3_stmt* stmt1;
+  sqlite3_prepare_v2(db_, querystr.c_str(), -1, &stmt1, NULL);
+  while ((rc = sqlite3_step(stmt1)) == SQLITE_ROW) {
+    const CustId cust_id = sqlite3_column_int(stmt1, 0);
+    const SimlTime visitedAt = sqlite3_column_int(stmt1, 5);
+    orig_t[cust_id] = visitedAt;
+    keys.push_back(cust_id);
+  }
+  if (rc != SQLITE_DONE) {
+    print(MessageType::Error) << "Failure in avg_trip_delay(). Reason:\n";
+    throw std::runtime_error(sqlite3_errmsg(db_));
+  }
+  sqlite3_reset(stmt1);
+  sqlite3_finalize(stmt1);
+  querystr = "select * from stops where type = "
+      + std::to_string((int)StopType::CustDest) + " and " // <-- dests
+      + "exists (select id from customers "
+      + "where customers.id = stops.owner and customers.assignedTo not null);";
+  sqlite3_stmt* stmt2;
+  sqlite3_prepare_v2(db_, querystr.c_str(), -1, &stmt2, NULL);
+  while ((rc = sqlite3_step(stmt2)) == SQLITE_ROW) {
+    const CustId cust_id = sqlite3_column_int(stmt2, 0);
+    const SimlTime visitedAt = sqlite3_column_int(stmt2, 5);
+    dest_t[cust_id] = visitedAt;
+  }
+  if (rc != SQLITE_DONE) {
+    print(MessageType::Error) << "Failure in avg_trip_delay(). Reason:\n";
+    throw std::runtime_error(sqlite3_errmsg(db_));
+  }
+  sqlite3_reset(stmt2);
+  sqlite3_finalize(stmt2);
+
+  for (const CustId& cust_id : keys)
+    tdelay += ((dest_t.at(cust_id) - orig_t.at(cust_id)))
+              - trip_costs_.at(cust_id)/speed_;
+
+  return keys.size() == 0 ? : -1 : tdelay/keys.size(); // int
 }
 
 NodeId Cargo::random_node() {
@@ -468,15 +544,19 @@ void Cargo::start(RSAlgorithm& rsalg) {
   logger.stop();
   logger_thread.join();
 
+  avg_pickup_delay();
+
   /* Print solution
-   * TODO avg. delay statistics, other statistics */
+   * (e.g. # matches, avg. delay statistics, other statistics) */
   std::ofstream f_sol_(solution_file_, std::ios::out);
   f_sol_ << name() << '\n'
          << road_network() << '\n'
          << "VEHICLES " << total_vehicles_ << '\n'
          << "CUSTOMERS " << total_customers_ << '\n'
          << "base cost " << base_cost_ << '\n'
-         << "solution cost " << total_route_cost() << '\n';
+         << "solution cost " << total_route_cost() << '\n'
+         << "avg. pickup delay " << avg_pickup_delay() << '\n'
+         << "avg. trip delay " << avg_trip_delay() << '\n';
   f_sol_.close();
 
   print << "Finished Cargo" << std::endl;

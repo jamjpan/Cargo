@@ -81,6 +81,7 @@ typedef double DistDbl;
  * One SimlTime is one atom of time. Simulation starts at SimlTime = 0.
  * All times (time windows, travel times) are expressed as SimlTime. */
 typedef int SimlTime;
+typedef int SimlDur;
 typedef int ErlyTime;  // time window early
 typedef int LateTime;  // time window late
 
