@@ -263,6 +263,8 @@ Log file is orgnized by several lines indicating events during runtime, which ar
 [T] P [CID] [CID] ...
 [T] D [CID] [CID] ...
 [T] T [CID] [CID] ...
+[T] A [VID] [VID] ...
+[T] M [VID] [CID] [CID] ...
 ```
 
 [T] indicates the simulation time when the event happens.
@@ -282,6 +284,10 @@ P means pick up customers, followed by customer ids which are picked up at [T] t
 D means drop off customers, followed by customer ids which are dropped off at [T] time.
 
 T means customers timeout, followed by customer ids whose waiting time exceeds the matching period.
+
+A means vehicle arrive update, followed by vehicles ids which arrive at the destination.
+
+M means match update, followed by one vehicle id and several customer ids who are matched to this vehicle.
 
 ## To do:
 * Simulation statistics (number of matches, avg. trip delay, etc.)
