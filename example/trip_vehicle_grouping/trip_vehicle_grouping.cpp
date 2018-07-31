@@ -77,14 +77,8 @@ void TripVehicleGrouping::match() {
      * -----------------
      * First create a virtual vehicle for cust_a... */
     const Customer& cust_a = *ptcust;
-    Vehicle vtvehl(
-            cust_a.id(),
-            cust_a.orig(),
-            cust_a.dest(),
-            cust_a.early(),
-            cust_a.late(),
-            0,  // load
-            lcl_gtre);
+    Vehicle vtvehl(cust_a.id(), cust_a.orig(), cust_a.dest(),
+                   cust_a.early(), cust_a.late(), 0, lcl_gtre);
     /* ...then compare against all other cust_b */
     for (const Customer& cust_b : customers()) {
       if (cust_a == cust_b) continue;
@@ -349,30 +343,6 @@ void TripVehicleGrouping::match() {
   print(MessageType::Info) << "ntrips=" << trip_.size() << std::endl;
   }  // end generate rtv-graph
 
-  // print(MessageType::Info) << "ctedges:" << std::endl;
-  // for (const auto& kv : cted_) {
-  //     print(MessageType::Info) << kv.first << ":";
-  //     for (const auto& stid : kv.second)
-  //         print(MessageType::Info) << " " << stid;
-  //     print(MessageType::Info) << std::endl;
-  // }
-
-  // print(MessageType::Info) << "vted_:" << std::endl;
-  // for (const auto& kv : vted_) {
-  //     print(MessageType::Info) << kv.first << ":";
-  //     for (const auto& kv2 : kv.second)
-  //         print(MessageType::Info) << " " << kv2.first /*<< "(" << kv2.second << ")"*/;
-  //     print(MessageType::Info) << std::endl;
-  // }
-
-  // print(MessageType::Info) << "trips:" << std::endl;
-  // for (const auto& kv : trip_) {
-  //     print(MessageType::Info) << kv.first << ":";
-  //     for (const auto& cust : kv.second)
-  //         print(MessageType::Info) << " " << cust.id();
-  //     print(MessageType::Info) << std::endl;
-  // }
-
   print(MessageType::Info) << "generating the mip..." << std::endl;
   /* Generating the mip */
   if (vted_.size() > 0) {
@@ -508,7 +478,7 @@ void TripVehicleGrouping::match() {
 
   /* Extract assignments from the results and commit to database */
   for (int i = 1; i <= ncol; ++i) {
-    /* On line 416 we set colmap[i].second to -1 for the binary vars
+    /* On line 386 we set colmap[i].second to -1 for the binary vars
      * for unassigned customer penalty. Skip those because, well,
      * they are unassigned. */
     if (colmap[i].second == -1) continue;
@@ -518,7 +488,10 @@ void TripVehicleGrouping::match() {
       MutableVehicle sync_vehl(vehmap.at(colmap[i].first));
       sync_vehl.set_rte(vt_rte.at(colmap[i].first).at(colmap[i].second));
       sync_vehl.set_sch(vt_sch.at(colmap[i].first).at(colmap[i].second));
-      if (assign(trip_.at(colmap[i].second), {}, sync_vehl)) {
+      std::vector<CustId> cadd {};
+      for (const Customer& cust : trip_.at(colmap[i].second))
+        cadd.push_back(cust.id());
+      if (assign(cadd, {}, sync_vehl)) {
         for (const auto& cust : trip_.at(colmap[i].second))
           print(MessageType::Success) << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
         nmat_++;
@@ -544,8 +517,8 @@ void TripVehicleGrouping::end() {
 }
 
 void TripVehicleGrouping::listen() {
-  grid_.clear();          // Clear the index...
-  RSAlgorithm::listen();  // ...then call listen()
+  grid_.clear();
+  RSAlgorithm::listen();
 }
 
 bool TripVehicleGrouping::travel(
@@ -598,7 +571,7 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 10;

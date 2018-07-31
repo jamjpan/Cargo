@@ -33,7 +33,7 @@ using namespace cargo;
  * standard out. Setting bool=false causes all messages to be output to
  * standard out. */
 GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion", true),
+    : RSAlgorithm("greedy_insertion"),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
   nmat_ = 0;         // Initialize my private counter
@@ -133,6 +133,7 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  // op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
   op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;

@@ -41,6 +41,8 @@ void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
 
 void BilateralArrangement::match() {
   std::vector<Customer> custs = customers(); // <-- get a local copy
+
+  /* BilateralArrangement is a random algorithm due to this shuffle. */
   std::random_shuffle(custs.begin(), custs.end());
 
   /* Extract riders one at a time */
@@ -74,7 +76,6 @@ void BilateralArrangement::match() {
           best_vehl = cand;  // copy the pointer
         }
       }
-      if (best_vehl == nullptr) break; // should never happen but just to be safe
       candidates.erase(std::find(candidates.begin(), candidates.end(), best_vehl));
       bool within_time = chktw(best_sch, best_rte);
       bool within_cap = (best_vehl->queued() < best_vehl->capacity());
@@ -121,6 +122,8 @@ void BilateralArrangement::match() {
 
     /* Commit */
     if (matched) {
+      auto old_rte = best_vehl->route().data();
+      auto old_sch = best_vehl->schedule().data();
       best_vehl->set_rte(best_rte);
       best_vehl->set_sch(best_sch);
       std::vector<CustId> cust_to_del {};
@@ -128,11 +131,12 @@ void BilateralArrangement::match() {
 
       /* assign() will modify best_vehl with the synchronized version to
        * account for match latency */
-      if (assign({cust}, cust_to_del, *best_vehl)) {
+      if (assign({cust.id()}, cust_to_del, *best_vehl)) {
         print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
         nmat_++;
       } else {
-        // print(MessageType::Warning) << "Commit rejected" << std::endl;
+        best_vehl->set_rte(old_rte);
+        best_vehl->set_sch(old_sch);
       }
     }
   } // end while !custs.empty()
@@ -153,9 +157,9 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 10;
+  op.time_multiplier  = 1;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 

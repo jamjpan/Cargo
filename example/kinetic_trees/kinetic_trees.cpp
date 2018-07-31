@@ -130,9 +130,11 @@ void KineticTrees::handle_customer(const Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
+    auto old_rte = best_vehl->route().data();
+    auto old_sch = best_vehl->schedule().data();
     best_vehl->set_rte(best_rte);
     best_vehl->set_sch(best_sch);
-    if (assign({cust}, {}, *best_vehl)) {
+    if (assign({cust.id()}, {}, *best_vehl)) {
       /* Accept the new kinetic tree, and sync it up to sync_sch */
       kt_.at(best_vehl->id())->push();
       int visited_stops = compute_steps(best_sch, best_vehl->schedule().data());
@@ -143,7 +145,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
       print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     } else {
-      print << "commit refused!!" << std::endl;
+      best_vehl->set_rte(old_rte);
+      best_vehl->set_sch(old_sch);
     }
   }
 }
@@ -151,8 +154,6 @@ void KineticTrees::handle_customer(const Customer& cust) {
 void KineticTrees::handle_vehicle(const Vehicle& vehl) {
   /* Insert into grid */
   grid_.insert(vehl);
-
-  print << "Veh dest: " << vehl.dest() << std::endl;
 
   /* Create kinetic tree */
   if (kt_.count(vehl.id()) == 0)
@@ -221,9 +222,9 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
   op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/tx-test.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 10;
+  op.time_multiplier  = 1;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
 
