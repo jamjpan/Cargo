@@ -13,6 +13,8 @@
 *.sol
 *.dat
 *.mp4
+readme.sh
+temp.html
 build/
 lib/
 tool/gtreebuilder/gtreebuilder
@@ -24,4 +26,5 @@ example/nearest_neighbor/nearest_neighbor
 example bilateral_arrangement/bilateral_arrangement
 example/trip_vehicle_grouping/trip_vehicle_grouping
 example/kinetic_trees/kinetic_trees
+example/no_algorithm/no_algorithm
 
