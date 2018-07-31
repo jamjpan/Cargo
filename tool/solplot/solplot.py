@@ -22,8 +22,11 @@ class Visualizer:
     output_file = None
     draw_inactive = False
     # colors from https://materializecss.com/color.html
-    load_color_map = [(196, 203, 128), (172, 182, 77), (154, 166, 38), (136, 150, 0),
-                      (123, 137, 0), (107, 121, 0), (92, 105, 0), (64, 77, 0)]  # teal
+    # and colorbrewer2.org
+    load_color_map = [(180,117,69),(209,173,116),(233,217,171),(248,243,224),
+            (144,224,254),(97,174,253),(67,109,244),(39,48,215)]
+    #load_color_map = [(196, 203, 128), (172, 182, 77), (154, 166, 38), (136, 150, 0),
+    #                  (123, 137, 0), (107, 121, 0), (92, 105, 0), (64, 77, 0)]  # teal
     background_color = (56, 50, 38)  # dark-green darken-4
     vehicle_finish_color = (139, 125, 96)  # cyan
     customer_timeout_color = (158, 158, 158)  # grey
@@ -34,9 +37,10 @@ class Visualizer:
     road_color = (117, 117, 117)  # grey darken-1
     text_color = (224, 224, 224)  # grey lighten-2
     customer_size = 4
-    vehicle_size = 5
+    vehicle_size = 8
+    vehicle_border_size = 2
     road_size = 1
-    text_size = .5
+    text_size = 1
 
     node = {}
     edge = defaultdict(list)
@@ -350,23 +354,35 @@ class Visualizer:
                             if self.draw_inactive:
                                 d_x = self.long2x(self.node[self.vehicle[vid].d][0])
                                 d_y = self.lat2y(self.node[self.vehicle[vid].d][1])
-                                cv2.rectangle(canvas,
-                                              (d_x - self.vehicle_size, d_y - self.vehicle_size),
-                                              (d_x + self.vehicle_size, d_y + self.vehicle_size),
-                                              self.vehicle_finish_color, cv2.FILLED)
+                                cv2.circle(canvas, (d_x, d_y), self.vehicle_size+self.vehicle_border_size,
+                                           (255,255,255), cv2.FILLED, cv2.LINE_AA)
+                                cv2.circle(canvas, (d_x, d_y), self.vehicle_size,
+                                           self.vehicle_finish_color, cv2.FILLED, cv2.LINE_AA)
+                                #cv2.rectangle(canvas,
+                                #              (d_x - self.vehicle_size, d_y - self.vehicle_size),
+                                #              (d_x + self.vehicle_size, d_y + self.vehicle_size),
+                                #              self.vehicle_finish_color, cv2.FILLED)
                         else:
                             x = self.long2x(self.node[self.vehicle[vid].p][0])
                             y = self.lat2y(self.node[self.vehicle[vid].p][1])
                             if vid in self.show_vehicle_route:
-                                cv2.rectangle(canvas,
-                                              (x - self.vehicle_size, y - self.vehicle_size),
-                                              (x + self.vehicle_size, y + self.vehicle_size),
-                                              (0, 0, 255), cv2.FILLED)
+                                cv2.circle(canvas, (x, y), self.vehicle_size+self.vehicle_border_size,
+                                           (255,255,255), cv2.FILLED, cv2.LINE_AA)
+                                cv2.circle(canvas, (x, y), self.vehicle_size,
+                                           (0, 0, 255), cv2.FILLED, cv2.LINE_AA)
+                                #cv2.rectangle(canvas,
+                                #              (x - self.vehicle_size, y - self.vehicle_size),
+                                #              (x + self.vehicle_size, y + self.vehicle_size),
+                                #              (0, 0, 255), cv2.FILLED)
                             else:
-                                cv2.rectangle(canvas,
-                                              (x - self.vehicle_size, y - self.vehicle_size),
-                                              (x + self.vehicle_size, y + self.vehicle_size),
-                                              self.load_color_map[self.vehicle[vid].l], cv2.FILLED)
+                                cv2.circle(canvas, (x, y), self.vehicle_size+self.vehicle_border_size,
+                                           (255,255,255), cv2.FILLED, cv2.LINE_AA)
+                                cv2.circle(canvas, (x, y), self.vehicle_size,
+                                           self.load_color_map[self.vehicle[vid].l], cv2.FILLED, cv2.LINE_AA)
+                                #cv2.rectangle(canvas,
+                                #              (x - self.vehicle_size, y - self.vehicle_size),
+                                #              (x + self.vehicle_size, y + self.vehicle_size),
+                                #              self.load_color_map[self.vehicle[vid].l], cv2.FILLED)
 
                 # draw time
                 text = 'Time: %d' % time_count
