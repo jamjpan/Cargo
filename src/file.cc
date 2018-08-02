@@ -92,7 +92,7 @@ size_t read_problem(const Filepath& path, ProblemSet& probset) {
   std::string _;  // unused
   size_t m, n;
   size_t count_trips = 0;
-  ifs >> probset.name() >> probset.road_network() >> _ >> m >> _ >> n;
+  ifs >> probset.name() >> probset.road_network() >> _ >> _ >> m >> _ >> n;
   ifs >> _;              // skip the blank line
   std::getline(ifs, _);  // skip the header row
   TripId tid;

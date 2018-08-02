@@ -585,6 +585,10 @@ void Cargo::initialize(const Options& opt) {
 
   print << "Reading problem...";
   const size_t ntrips = read_problem(opt.path_to_problem, probset_);
+  if (ntrips == 0) {
+    print(MessageType::Error) << "Problem file has no trips!\n";
+    throw std::runtime_error("bad");
+  }
   print << ntrips << "\n";
   print << "\t" << name() << " on " << road_network() << "\n";
 
