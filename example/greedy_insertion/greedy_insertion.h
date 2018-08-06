@@ -41,7 +41,7 @@ class GreedyInsertion : public RSAlgorithm {
   int nmat_;
   Grid grid_;
 
-  /* If a customer doesn't get matched right away, try again after 5 seconds. */
+  /* If a customer doesn't get matched right away, try again after 10 seconds. */
   std::unordered_map<CustId, SimlTime> delay_;
 };
 

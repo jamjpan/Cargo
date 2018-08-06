@@ -33,7 +33,7 @@ using namespace cargo;
  * standard out. Setting bool=false causes all messages to be output to
  * standard out. */
 GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion"),
+    : RSAlgorithm("greedy_insertion", true),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
   nmat_ = 0;         // Initialize my private counter
@@ -41,6 +41,7 @@ GreedyInsertion::GreedyInsertion()
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
+  print << cust.id() << " - " << cust.assignedTo() << " (" << (int)cust.status() << ")" << std::endl;
 
   /* Don't consider customers that are assigned but not yet picked up */
   if (cust.assigned()) return;
@@ -130,12 +131,12 @@ void GreedyInsertion::listen() {
 int main() {
   /* Set the options */
   Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  // op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
-  op.path_to_solution = "a.sol";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-3.instance";
+  op.path_to_solution = "temp.sol";
+  op.path_to_dataout  = "temp.dat";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 10;
   op.matching_period  = 60;
