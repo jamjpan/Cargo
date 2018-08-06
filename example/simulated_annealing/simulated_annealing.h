@@ -17,28 +17,31 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <unordered_map>
+
 #include "libcargo.h"
+
+using namespace cargo;
 
 // Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
 // For each request, the algorithm looks for the "greedy" vehicle based on the
 // heuristic, and assigns the request to this vehicle if it exists.
-class BilateralArrangement : public cargo::RSAlgorithm {
+class GreedyInsertion : public RSAlgorithm {
  public:
-  BilateralArrangement();
+  GreedyInsertion();
 
   /* My Overrides */
-  virtual void handle_vehicle(const cargo::Vehicle &);
-  virtual void match();
+  virtual void handle_customer(const Customer &);
+  virtual void handle_vehicle(const Vehicle &);
   virtual void end();
   virtual void listen();
 
  private:
   /* My Custom Variables */
   int nmat_;
-  int nswapped_;
-  cargo::Grid grid_;
+  Grid grid_;
 
-  /* If a customer doesn't get matched right away, try again after 10 seconds. */
-  std::unordered_map<cargo::CustId, cargo::SimlTime> delay_;
+  /* If a customer doesn't get matched right away, try again after 5 seconds. */
+  std::unordered_map<CustId, SimlTime> delay_;
 };
 

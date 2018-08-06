@@ -3,166 +3,81 @@ using this system, but we could use some help and expertise! If you would like
 to find out more or possibly collaborate, please reach out to me at
 jamesjpan@outlook.com)
 
-# Cargo - Ridesharing Simulation & Algorithms Library
+# Cargo - Ridesharing Simulator Library
 **(under development)**
 
-Dynamic ridesharing is a type of vehicle routing problem (VRP) closely related
-to the variants known as PDPTW (or VRPPDTW) and DARP (dial-a-ride). Consider
-customers and vehicles appearing over time on a road network. The objective is
-to route the vehicles to service the customers while minimizing total travel
-distance.
+Ridesharing is a type of vehicle routing problem (VRP).  Consider customers and
+vehicles appearing over time on a road network. The objective is to route the
+vehicles to service the customers while minimizing total travel distance.
 
-Cargo: a C++11 library that aims to provide a set of abstractions for easily
-developing and testing online ridesharing algorithms.
+Cargo is a C++11 library that provides tools for developing and evaluating
+ridesharing algorithms through real-time simulation. Users can develop
+algorithms by extending the `RSAlgorithm` class and evaluate their algorithms
+on provided benchmarks. Each instance comprises a road network and a "problem"
+file consisting of vehicles and customers on the network.
 
-### Quick Links
-* [Road networks](data/roadnetwork)
-* [Benchmark instances](data/benchmark)
-* [Algorithm examples](example)
-* [Optimal MIP solver](tool/rspoptsol)
+Users develop ridesharing algorithms by implementing five `RSAlgorithm`
+virtual methods: `handle_vehicle`, `handle_customer`, `listen`, `match`, and
+`end`.
 
-### Similar projects
-There are a few similar projects.
+See the docs (TODO) for more about the `RSAlgorithm` class.
 
-* [RinSim](https://github.com/rinde/RinSim) - very nice project; users implement
-  behavior at the individual vehicles level whereas in Cargo, users implement
-  central decision handlers
-* [Open-VRP](https://github.com/mck-/Open-VRP) - static solver, Common Lisp
-* [jsprit](https://github.com/graphhopper/jsprit) - static solver, part of GraphHopper
-* [VRPH](https://projects.coin-or.org/VRPH) - static solver
-* [VROOM](https://github.com/VROOM-Project/vroom) - static solver
-* [MATSim](https://github.com/matsim-org/matsim) - multi-agent transportation simulator
-* See this [Lyft article](https://eng.lyft.com/https-medium-com-adamgreenhall-simulating-a-ridesharing-marketplace-36007a8a31f2)
-  about simulation
-* Upcoming keynote by Peter Frazier, Data Science Manager at Uber, about
-  simulation during the [Winter Simulation Conference '18](http://meetings2.informs.org/wordpress/wsc2018/keynotes/)
-
-Cargo's distinguishing features:
-* Real-time (vehicles move in real-time; a simulation can take minutes,
-  hours, as long as you like)
-* Customers and vehicles are bound to road networks
-* Easy interface for implementing ridesharing algorithms
-* High performance -- can simulate 17,000 vehicles per second on a i5-6200 CPU @ 2.30 Ghz
-  machine
-
-### Demo
-In the demo, the simulator (bottom pane) waits until the user attaches a
-listener. Here the listener is `cat` (top pane). When the listener is attached,
-Cargo starts the algorithm (here, greedy) and begins simulating the vehicles in
-real time. The logger outputs results at every simulation step (one second).
-<p align="center">
-<img src="https://cdn.rawgit.com/jamjpan/Cargo/29c23bc0/example/greedy_insertion/greedy_demo.svg" alt="Greedy" width="800"/>
-</p>
-(Terminal screenshot generated with [termtosvg](https://github.com/nbedos/termtosvg))
-
-Supports:
-* Dynamically arriving vehicles and customers
-* Vehicles with different capacities, customers with different loads
-* Multiple depots
-* Time windows on origins and destinations
-
-Does not (currently) support:
-* Variable-cost roads (traffic)
-* Directed road networks (<-- probably supported but needs testing)
-* Vehicles "waiting" at a stop (*possible* but needs some work)
-* Service-time at stops (for later)
-
-### Built-ins:
-*(Documentation is upcoming)*
-* Classes: Stop, Schedule, Route, Trip, Customer, Vehicle, etc.
-* Functions: constraints checking, schedule insertion, schedule routing,
-  shortest-paths, Haversine, etc.
-* Abstract RSAlgorithm class (you must implement these methods):
-  - `RSAlgorithm::handle_customer()`: called for every customer request
-  - `RSAlgorithm::handle_vehicle()`: called whenever a new vehicle appears
-  - `RSAlgorithm::match()`: called at some configurable frequency
-  - `RSAlgorithm::end()`: called at the end of the simulation
-  - `RSAlgorithm::listen()`: fine-tune an algorithm's polling (batch vs streaming)
-    (default listen() is provided)
-
-### Simulation platform:
-* Simulation state is stored in an in-memory Sqlite3 database
-* `Cargo::step()` runs every second to update locations of vehicles
-* `RSAlgorithm::listen()` polls every second (configurable) for new vehicles/customers
-* Three cleaned road networks are provided (`data/roadnetwork`)
-* Several problem instances are provided (`data/benchmark`)
-
-Provided road networks:
-(bj5 and cd1 are in GCJ coordinates; mny is in WGS)
-
-<p align="center">
-<img src="data/roadnetwork/fig/mny.png" alt="Manhattan" width="280"/>
-<img src="data/roadnetwork/fig/cd1.png" alt="Chengdu, China" width="280"/>
-<img src="data/roadnetwork/fig/bj5.png" alt="Beijing, China" width="280"/>
-</p>
-
-### Options
-* Time multiplier (run the simulation in 1x, 2x, etc. speed)
-* Matching period (time before customer requests timeout)
-* Vehicle speed (meters/second)
-
-### Extra tools
-* `tool/gtreebuilder` - build a GTree spatial index (Zhong 2015) for fast
-  shortest-path finding
-* `tool/probplot` - plot road networks and problem sets using matplotlib
-* `tool/rspgen` - generate ridesharing problem instances
-* `tool/rspoptsol` - solve problem instances using a mixed-integer
-  mathematical program model to find their offline optimal solutions
-
-### Example
-This example implements a greedy-insertion matching strategy. The example
-overrides handle_customer() in order to match each customer as it arrives.
-Check the `example` folder for more.
+In this example, an algorithm `MyAlgorithm` stores new vehicles in a local
+index and matches customers as they arrive. The class extends `RSAlgorithm` and
+imports a custom spatial index:
 ```cpp
-void GreedyInsertion::handle_customer(const cargo::Customer cust)
-{
-    /* Don't consider customers that are assigned but not yet picked up */
-    if (cust.assigned())
-        return;
+#include "libcargo.h"
+#include "myindex.h"
+class MyAlgorithm : public RSAlgorithm {
+ public:
+  // ...
+ private:
+  MyIndex myidx;  // a custom spatial index
+};
+```
 
-    /* Containers for storing outputs */
-    cargo::DistanceInt cost;
-    cargo::DistanceInt best_cost = cargo::InfinityInt;
-    std::vector<cargo::Stop> schedule, best_schedule;
-    std::vector<cargo::Waypoint> route, best_route;
+The algorithm adds each active vehicle to the index.  The method
+`cargo::Vehicle::id()` returns the ID of a vehicle.
+```cpp
+MyAlgorithm::handle_vehicle(const cargo::Vehicle vehl) {
+    my_index.add(vehl);
+}
+```
 
-    /* best_vehicle will point to an underlying MutableVehicle in our grid */
-    std::shared_ptr<cargo::MutableVehicle> best_vehicle;
-    bool matched = false;
+To keep the vehicles fresh, the algorithm clears the index each time new
+vehicles and customers are polled:
+```cpp
+MyAlgorithm::listen() {
+    my_index.clear();
+    RSAlgorithm::listen();  // call the base listen()
+}
+```
 
-    /* Get candidates from the local grid index
-     * (the grid is refreshed during listen()) */
-    cargo::DistanceInt range = cargo::pickup_range(cust, cargo::Cargo::now());
-    auto candidates = grid_.within_about(range, cust.origin());
-
-    /* Loop through candidates and check which is the greedy match */
-    for (const auto& cand : candidates) {
-
-        // Don't consider vehicles that are already queued to capacity
-        if (cand->queued() == cand->capacity())
-            continue;
-
-        cost = cargo::sop_insert(cand, cust, schedule, route);
-        bool within_time = cargo::check_timewindow_constr(schedule, route);
-        if ((cost < best_cost) && within_time) {
-            best_cost = cost;
-            best_schedule = schedule;
-            best_route = route;
-            best_vehicle = cand; // copy the pointer
-            matched = true;
-        }
-    }
-
-    /* Commit match to the db. Also refresh our local grid index, so data is
-     * fresh for other handle_customers that occur before the next listen(). */
-    if (matched) {
-        grid_.commit(best_vehicle, best_route, best_schedule); // <-- update local
-        commit(cust, *best_vehicle, best_route, best_schedule); // <-- write to the db TODO make commit accept pointer as 2nd arg
-        print_success << "Match (cust" << cust.id() << ", veh" << best_vehicle->id() << ")\n";
-        nmatches++;
+The algorithm tries to match a customer to the nearest vehicle. Here, the index
+returns a `MutableVehicle` in order to modify the vehicle's schedule with the
+customer's stops. The method `cargo::Customer::orig()` returns a customer's
+origin node. Types `Stop` and `Wayp` represent physical stops and waypoints.  A
+sequence of waypoints represents a route through the road network. The function
+`sop_insert` performs Jaw's insertion heuristic to insert the customer's stops
+into the vehicle's schedule (`new_schedule` and `new_route` are the outputs).
+The function `chktw` checks if the new schedule and route meet time window
+constraints; finally `assign` attempts to commit the assignment to the
+database. The flag `true` indicates to perform a "strict assign".
+```
+MyAlgorithm::handle_customer(const cargo::Customer cust) {
+    MutableVehicle closest_vehl = my_index.find_nearest_to(cust.orig());
+    std::vector<Stop> new_schedule;
+    std::vector<Wayp> new_route;
+    sop_insert(closest_vehl, cust, new_schedule, new_route);
+    if (chktw(new_schedule, new_route) {
+        assign({cust.id()}, {}, *closest_vehl, true);
     }
 }
 ```
+
+See the `examples` folder for complete examples. See the docs (TODO) for more
+about the classes and functions.
+
 
 ## Building and usage
 

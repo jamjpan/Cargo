@@ -33,6 +33,8 @@ BilateralArrangement::BilateralArrangement()
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
   nmat_ = 0;         // Initialize my private counter
+  nswapped_ = 0;
+  delay_ = {};
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -50,6 +52,10 @@ void BilateralArrangement::match() {
     Customer cust = custs.back();
     custs.pop_back();
     if (cust.assigned()) continue; // <-- skip already assigned
+
+    /* Don't consider customers already looked at within the last 10 seconds */
+    if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - 10)
+      continue;
 
     /* Containers for storing outputs */
     cargo::DistInt cst, best_cst = cargo::InfInt;
@@ -76,6 +82,7 @@ void BilateralArrangement::match() {
           best_vehl = cand;  // copy the pointer
         }
       }
+      /* Remove the best candidate. If match is valid, accept it. */
       candidates.erase(std::find(candidates.begin(), candidates.end(), best_vehl));
       bool within_time = chktw(best_sch, best_rte);
       bool within_cap = (best_vehl->queued() < best_vehl->capacity());
@@ -85,37 +92,34 @@ void BilateralArrangement::match() {
       } else {
         /* Remove some random not-picked-up customer from cand and try the
          * insertion again. If it meets constraints, then accept. */
-        std::vector<Stop> randomized_schedule(best_vehl->schedule().data().begin()+1,
-                                              best_vehl->schedule().data().end()-1);
-
-        std::random_shuffle(randomized_schedule.begin(), randomized_schedule.end());
-        /* Look for the first pair of stops with the same owner */
-        CustId remove_me = -1;
-        for (auto i = randomized_schedule.begin(); i != randomized_schedule.end(); ++i) {
-          auto j = std::find_if(i, randomized_schedule.end(), [&](const Stop& a) { return a.owner() == i->owner(); });
-          if (j != randomized_schedule.end()) {
-            remove_me = i->owner();
-            break;
-          }
+        CustId remove_me = randcust(best_vehl->schedule().data());
+        if (remove_me == best_vehl->id()) {
+          print(MessageType::Error) << "remove_me (" << remove_me << ") == vehicle id" << std::endl;
+          throw;
         }
         if (remove_me != -1) {
-          std::vector<Stop> new_sch = best_vehl->schedule().data();
-          new_sch.erase(std::remove_if(new_sch.begin(), new_sch.end(), [&](const Stop& a)
-                      { return a.owner() == remove_me; }), new_sch.end());
+          std::vector<Stop> old_sch = best_vehl->schedule().data(); // make a backup
+          std::vector<Stop> new_sch = old_sch;                      // make a copy
+          if (!remove_cust(new_sch, remove_me)) {
+            print(MessageType::Error) << "could not remove cust..." << std::endl;
+            print_sch(new_sch);
+            print << "remove_me=" << remove_me << std::endl;
+            throw;
+          }
           best_vehl->set_sch(new_sch);
           std::vector<Stop> new_best_sch;
           std::vector<Wayp> new_best_rte;
           sop_insert(best_vehl, cust, new_best_sch, new_best_rte);
           if (chktw(new_best_sch, new_best_rte)) {
             print(MessageType::Info) << "feasible after remove " << std::endl;
+            nswapped_++;
             best_sch = new_best_sch;
             best_rte = new_best_rte;
             matched = true;
             removed_cust = remove_me;
             break;
-          } else {
-            // print(MessageType::Info) << "still infeasible" << std::endl;
-          }
+          } else
+            best_vehl->set_sch(old_sch); // restore the backup
         }
       }
     } // end while !candidates.empty()
@@ -138,12 +142,16 @@ void BilateralArrangement::match() {
         best_vehl->set_rte(old_rte);
         best_vehl->set_sch(old_sch);
       }
+      if (delay_.count(cust.id())) delay_.erase(cust.id());
+    } else {
+      delay_[cust.id()] = Cargo::now();
     }
   } // end while !custs.empty()
 }
 
 void BilateralArrangement::end() {
-  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
+  print(MessageType::Success) << "Swapped: " << nswapped_ << std::endl;
 }
 
 void BilateralArrangement::listen() {
@@ -154,10 +162,10 @@ void BilateralArrangement::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 10;
