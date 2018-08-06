@@ -178,7 +178,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(dav_stmt);
           active = false;  // <-- stops the while loops
           ndeact++;
-
+          arrived.push_back(stop.owner());
         /* Permanent taxi arrived at "destination"
          * (essentially recreate the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
