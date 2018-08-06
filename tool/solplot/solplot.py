@@ -38,7 +38,7 @@ class Visualizer:
     text_color = (224, 224, 224)  # grey lighten-2
     customer_size = 4
     vehicle_size = 8
-    vehicle_border_size = 2
+    vehicle_border_size = 0
     road_size = 1
     text_size = 1
 

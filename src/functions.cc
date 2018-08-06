@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <algorithm> /* iter_swap */
+#include <algorithm> /* iter_swap, random_shuffle */
 #include <iostream>
 #include <iterator>
 #include <memory> /* shared_ptr */
@@ -35,6 +35,20 @@
 #include "gtree/gtree.h"
 
 namespace cargo {
+
+void print_rte(const std::vector<Wayp>& rte) {
+  for (const auto& wp : rte)
+    std::cout << " (" << wp.first << "|" << wp.second << ")";
+  std::cout << std::endl;
+}
+
+void print_sch(const std::vector<Stop>& sch) {
+  for (const auto& sp : sch)
+    std::cout << " (owner=" << sp.owner() << ";loc=" << sp.loc() << ";e=" << sp.early()
+              << ";late=" << sp.late() << ";type=" << (int)sp.type() << ")";
+  std::cout << std::endl;
+}
+
 
 DistInt pickup_range(const Customer      & cust,
                      const SimlTime      & now,
@@ -196,17 +210,27 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
   return true;
 }
 
-void print_rte(const std::vector<Wayp>& rte) {
-  for (const auto& wp : rte)
-    std::cout << " (" << wp.first << "|" << wp.second << ")";
-  std::cout << std::endl;
+CustId randcust(const std::vector<Stop>& sch) {
+  std::vector<Stop> s = sch; // make a copy
+  std::random_shuffle(s.begin(), s.end());  // randomize the order
+  for (auto i = s.begin(); i != s.end()-1; ++i)
+    if (i->type() != StopType::VehlOrig && i->type() != StopType::VehlDest)
+      for (auto j = i+1; j != s.end(); ++j)
+        if (j->owner() == i->owner())
+            return i->owner();
+  return -1;
 }
 
-void print_sch(const std::vector<Stop>& sch) {
-  for (const auto& sp : sch)
-    std::cout << " (owner=" << sp.owner() << ";loc=" << sp.loc() << ";e=" << sp.early()
-              << ";late=" << sp.late() << ";type=" << (int)sp.type() << ")";
-  std::cout << std::endl;
+bool remove_cust(std::vector<Stop>& sch, const CustId& cust_id) {
+  std::vector<Stop> new_sch {};
+  for (const Stop& a : sch)
+    if (a.owner() != cust_id)
+      new_sch.push_back(a);
+  if (sch.size() - new_sch.size() == 2) { // should remove exactly two stops
+    sch = new_sch;
+    return true;
+  }
+  return false;
 }
 
 DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,

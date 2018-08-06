@@ -94,6 +94,14 @@ bool RSAlgorithm::assign(
         const std::vector<CustId> & custs_to_del,
               MutableVehicle      & vehl,
               bool                strict) {
+  /* Sanity check the schedule */
+  if (vehl.schedule().data().front().owner() != vehl.id()
+   || vehl.schedule().data().back().owner() != vehl.id()) {
+    print(MessageType::Error) << "tried to assign non-valid schedule" << std::endl;
+    print_sch(vehl.schedule().data());
+    throw;
+  }
+
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
 
   const std::vector<Wayp>& new_rte = vehl.route().data();

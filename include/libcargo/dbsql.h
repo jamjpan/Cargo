@@ -86,6 +86,10 @@ const SqliteQuery create_cargo_tables =
 const SqliteQuery sac_stmt =  // select all customers
     "select * from customers;";
 
+const SqliteQuery stc_stmt =  // select timeout customers
+    "select * from customers where assignedTo is null and ? > ? + early "
+    "and status != ?;";
+
 const SqliteQuery sav_stmt =  // select all vehicles
     "select * "
     "from   (vehicles inner join routes on vehicles.id=routes.owner"
@@ -126,8 +130,7 @@ const SqliteQuery com_stmt =  // assign customer
     "update customers set assignedTo = ? where id = ?;";
 
 const SqliteQuery tim_stmt =  // timeout customers
-    "update customers set status = ? where assignedTo is null and ? > ? + "
-    "early;";
+    "update customers set status = ? where assignedTo is null and ? > ? + early;";
 
 /* Update vehicles */
 const SqliteQuery pup_stmt =  // increase load (pickup)
@@ -158,10 +161,6 @@ const SqliteQuery lvn_stmt =  // update last_visited_node
 
 const SqliteQuery nnd_stmt =  // update nearest_node_distance
     "update routes set next_node_distance = ? where owner = ?;";
-
-const SqliteQuery stc_stmt =  // select timeout customers
-    "select * from customers where assignedTo is null and ? > ? + "
-    "early and status != ?;";
 
 }  // namespace sql
 }  // namespace cargo

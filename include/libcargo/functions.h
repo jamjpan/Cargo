@@ -31,6 +31,9 @@
 
 namespace cargo {
 
+void print_rte(const std::vector<Wayp> &);
+void print_sch(const std::vector<Stop> &);
+
 DistInt pickup_range(const Customer &, const SimlTime &, GTree::G_Tree &);
 DistInt pickup_range(const Customer &, const SimlTime &);
 
@@ -48,8 +51,15 @@ bool chkpc(const Schedule &);
 // O(|schedule|+|route|)
 bool chktw(const std::vector<Stop> &, const std::vector<Wayp> &);
 
-void print_rte(const std::vector<Wayp> &);
-void print_sch(const std::vector<Stop> &);
+// Pick a random customer from a vehicle's schedule
+// (only customers with both stops in the schedule remaining can be selected;
+// returns -1 if no eligible customer)
+CustId randcust(const std::vector<Stop> &);
+
+// Remove a customer from a vehicle's schedule
+// (only performs removal if both customer stops are in the schedule. otherwise
+// returns false)
+bool remove_cust(std::vector<Stop> &, const CustId &);
 
 // Given a schedule and a customer, return the cost of the best-insertion
 // schedule, and output the schedule and the route. The two bools are for

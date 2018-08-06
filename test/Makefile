@@ -8,6 +8,7 @@ CARGO = -L../lib -lcargo
 #-------------------------------------------------------------------------------
 OBJECTS = \
 		  build/main.o \
+		  build/functions_test.o \
 		  build/message_test.o \
 		  build/cargo_test.o \
 		  build/rsalgorithm_test.o
@@ -37,6 +38,12 @@ build/message_test.o: \
 	../include/libcargo.h \
 	src/message_test.cc
 	$(CXX) $(CFLAGS) src/message_test.cc
+
+build/functions_test.o: \
+	../lib/libcargo.a \
+	../include/libcargo.h \
+	src/functions_test.cc
+	$(CXX) $(CFLAGS) src/functions_test.cc
 
 build:
 	mkdir -p build

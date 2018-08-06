@@ -44,6 +44,8 @@
 
 namespace cargo {
 
+const int LRU_CACHE_SIZE = 10000;
+
 /* Initialize global vars */
 KVNodes Cargo::nodes_ = {};
 KVEdges Cargo::edges_ = {};
@@ -55,7 +57,7 @@ Speed Cargo::speed_ = 0;
 SimlTime Cargo::t_ = 0;
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
-cache::lru_cache<std::string, std::vector<NodeId>> Cargo::spcache_(10000); // <-- cache size
+cache::lru_cache<std::string, std::vector<NodeId>> Cargo::spcache_(LRU_CACHE_SIZE);
 
 Cargo::Cargo(const Options& opt) : print("cargo") {
   print << "Initializing Cargo\n";
@@ -109,8 +111,7 @@ int Cargo::step(int& ndeact) {
 
   // Initialize Logger containers
   std::map<VehlId, NodeId> vehicle_position;
-  std::vector<CustId> picked;
-  std::vector<CustId> dropped;
+  std::vector<CustId> picked, dropped;
   std::vector<VehlId> arrived;
 
   std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
@@ -279,15 +280,12 @@ int Cargo::step(int& ndeact) {
 
     if (active) {
       if (nstops > 0) {
-        /* Update schedule
-         * (remove the just-visited stops) */
+        /* Update schedule (remove the just-visited stops) */
         new_sch.erase(new_sch.begin() + 1, new_sch.begin() + 1 + nstops);
       }
       if (moved) {
-        /* Update schedule[0]
-         * (set to be the next node in the route) */
-        new_sch[0] =
-            Stop(vid, rte.at(lvn + 1).second, StopType::VehlOrig, vet, vlt, t_);
+        /* Update schedule[0] (set to be the next node in the route) */
+        new_sch[0] = Stop(vid, rte.at(lvn + 1).second, StopType::VehlOrig, vet, vlt, t_);
 
         /* Commit the new schedule */
         sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(new_sch.data()),
@@ -479,7 +477,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   }});
 
   /* Logger thread */
-  Logger logger(rsalg.name( ) + ".dat");
+  Logger logger(dataout_file_);
   std::thread logger_thread([&logger]() { logger.run(); });
 
   /* Cargo thread
@@ -791,6 +789,7 @@ void Cargo::initialize(const Options& opt) {
   sqlite3_finalize(insert_route_stmt);
 
   solution_file_ = opt.path_to_solution;
+  dataout_file_ = opt.path_to_dataout;
 
   t_ = 0;  // Ready to begin!
   print << "Done\n";
