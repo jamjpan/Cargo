@@ -13,7 +13,7 @@ OBJECTS = \
 		  build/cargo_test.o \
 		  build/rsalgorithm_test.o
 all: $(OBJECTS)
-	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -o run_tests
+	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -fopenmp -o run_tests
 #-------------------------------------------------------------------------------
 $(OBJECTS): | build
 
@@ -25,7 +25,7 @@ build/cargo_test.o: \
 	../lib/libcargo.a \
 	../include/libcargo.h \
 	src/cargo_test.cc
-	$(CXX) $(CFLAGS) src/cargo_test.cc
+	$(CXX) $(CFLAGS) -fopenmp src/cargo_test.cc
 
 build/rsalgorithm_test.o: \
 	../lib/libcargo.a \

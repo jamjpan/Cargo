@@ -82,14 +82,6 @@ const SqliteQuery create_cargo_tables =
     "foreign key (owner) references vehicles(id)"
     ") without rowid;";
 
-const SqliteQuery create_active_vehicles_view = (
-    std::string("create view active_vehicles as ") +
-    std::string("select * from (vehicles inner join routes on vehicles.id=routes.owner ") +
-    std::string("inner schedules on vehicles.id=schedules.owner) ") +
-    std::string("where vehicles.status != ") +
-    std::to_string((int)VehlStatus::Arrived) +
-    std::string(";")).c_str();
-
 /* Select statements */
 const SqliteQuery sac_stmt =  // select all customers
     "select * from customers;";
@@ -126,6 +118,9 @@ const SqliteQuery ssr_stmt =  // select single route
 
 const SqliteQuery sss_stmt =  // select single schedule
     "select * from schedules where owner = ?;";
+
+const SqliteQuery svs_stmt = // select vehicle status
+    "select status from vehicles where id = ?;";
 
 const SqliteQuery swc_stmt =  // select waiting customers
     "select * from customers where status = ? and ? >= early;";

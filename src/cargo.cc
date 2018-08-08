@@ -119,6 +119,8 @@ int Cargo::step(int& ndeact) {
   sqlite3_bind_int(ssv_stmt, 1, t_);
   sqlite3_bind_int(ssv_stmt, 2, (int)VehlStatus::Arrived);
 
+  sqlite3_exec(db_, "BEGIN TRANSACTION;", NULL, NULL, &err);
+
   while ((rc = sqlite3_step(ssv_stmt)) == SQLITE_ROW) {  // O(|vehicles|)
     // DEBUG(3, {                                        // Print column headers
     //   for (int i = 0; i < sqlite3_column_count(ssv_stmt); ++i)
@@ -141,6 +143,7 @@ int Cargo::step(int& ndeact) {
     DistInt nnd = sqlite3_column_int(ssv_stmt, 11) - speed_;
 
     DEBUG(2, {  // Print vehicle info
+      print << "t=" << t_ << std::endl;
       print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn << "\n";
       print << "\tsched:"; print_sch(sch);
       print << "\troute:"; print_rte(rte);
@@ -152,7 +155,7 @@ int Cargo::step(int& ndeact) {
 
     while (nnd <= 0 && active) {  // O(|schedule|)
       lvn++;
-      // Set new position
+      /* Record position */
       vehicle_position[vid] = rte.at(lvn).second;
 
       /* Did vehicle move to a stop?
@@ -163,10 +166,10 @@ int Cargo::step(int& ndeact) {
         const Stop& stop = sch.at(1 + nstops);
         nstops++;
 
-        /* Ridesharing vehicle arrives at destination; OR
-         * Permanent taxi arrives at destination and no more customers remain */
         if (stop.type() == StopType::VehlDest &&
            (stop.late() != -1 || t_ >= tmin_)) {
+          /* Ridesharing vehicle arrives at destination; OR
+           * Permanent taxi arrives at destination and no more customers remain */
           sqlite3_bind_int(dav_stmt, 1, (int)VehlStatus::Arrived);
           sqlite3_bind_int(dav_stmt, 2, vid);
           if (sqlite3_step(dav_stmt) != SQLITE_DONE) {
@@ -179,9 +182,9 @@ int Cargo::step(int& ndeact) {
           active = false;  // <-- stops the while loops
           ndeact++;
           arrived.push_back(stop.owner());
-        /* Permanent taxi arrived at "destination"
-         * (essentially recreate the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
+          /* Permanent taxi arrived at "destination"
+           * (essentially recreate the taxi) */
           NodeId new_dest = random_node();
           Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
           Stop b(stop.owner(), new_dest  , StopType::VehlDest, stop.early(), -1);
@@ -340,6 +343,7 @@ int Cargo::step(int& ndeact) {
   }
   sqlite3_clear_bindings(ssv_stmt);
   sqlite3_reset(ssv_stmt);
+  sqlite3_exec(db_, "COMMIT TRANSACTION;", NULL, NULL, &err);
 
   // Log pickup and dropoff
   if (picked.size() != 0)           Logger::put_p_message(picked);
@@ -621,6 +625,8 @@ void Cargo::initialize(const Options& opt) {
   print << "Done\n";
 
   print << "\t Inserting nodes...";
+
+  sqlite3_exec(db_, "BEGIN TRANSACTION;", NULL, NULL, &err);
   sqlite3_stmt* insert_node_stmt;
   if (sqlite3_prepare_v2(db_, "insert into nodes values(?, ?, ?);", -1, &insert_node_stmt, NULL) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create insert node stmt). Reason:\n";
@@ -776,6 +782,7 @@ void Cargo::initialize(const Options& opt) {
       tmax_ = std::max(trip.late(), tmax_);
     }
   }
+  sqlite3_exec(db_, "END TRANSACTION;", NULL, NULL, &err);
 
   active_vehicles_ = total_vehicles_;
 

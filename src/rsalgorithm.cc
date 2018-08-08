@@ -49,6 +49,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
       sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt, -1, &sav_stmt, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::svs_stmt, -1, &svs_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create rsalg stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
@@ -66,6 +67,7 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(swc_stmt);
   sqlite3_finalize(sac_stmt);
   sqlite3_finalize(sav_stmt);
+  sqlite3_finalize(svs_stmt);
 }
 
 const std::string & RSAlgorithm::name() const { return name_; }
@@ -94,18 +96,29 @@ bool RSAlgorithm::assign(
         const std::vector<CustId> & custs_to_del,
               MutableVehicle      & vehl,
               bool                strict) {
-  /* Sanity check the schedule */
-  if (vehl.schedule().data().front().owner() != vehl.id()
-   || vehl.schedule().data().back().owner() != vehl.id()) {
-    print(MessageType::Error) << "tried to assign non-valid schedule" << std::endl;
-    print_sch(vehl.schedule().data());
-    throw;
-  }
-
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
 
   const std::vector<Wayp>& new_rte = vehl.route().data();
   const std::vector<Stop>& new_sch = vehl.schedule().data();
+
+  /* Get current status */
+  sqlite3_bind_int(svs_stmt, 1, vehl.id());
+  if (sqlite3_step(svs_stmt) != SQLITE_ROW) {
+    vehl.print();
+    throw std::runtime_error("select status stmt returned no rows.");
+  }
+  if (static_cast<VehlStatus>(sqlite3_column_int(svs_stmt, 0))
+        == VehlStatus::Arrived) {
+    sqlite3_clear_bindings(svs_stmt);
+    sqlite3_reset(svs_stmt);
+    return false;
+  }
+  if (sqlite3_step(svs_stmt) != SQLITE_DONE) {
+    vehl.print();
+    throw std::runtime_error("select status stmt returned multiple rows.");
+  }
+  sqlite3_clear_bindings(svs_stmt);
+  sqlite3_reset(svs_stmt);
 
   /* Get current schedule */
   std::vector<Stop> cur_sch;
@@ -182,15 +195,15 @@ bool RSAlgorithm::assign(
 
     /* Synchronize existing stops
      * (remove any picked-up stops) */
-    re_sch.erase(std::remove_if(re_sch.begin()+2, re_sch.end(), [&](const Stop& a) {
+    re_sch.erase(std::remove_if(re_sch.begin()+2, re_sch.end()-1, [&](const Stop& a) {
       /* If stop does not belong to cadd, remove the stop if its not found in cur_sch */
       if (std::find(cadd.begin(), cadd.end(), a.owner()) == cadd.end()) {
-        if (std::find_if(cur_sch.begin()+1, cur_sch.end(), [&](const Stop& b) {
-          return a.owner() == b.owner() && a.loc() == b.loc(); }) == cur_sch.end()) {
+        if (std::find_if(cur_sch.begin()+1, cur_sch.end()-1, [&](const Stop& b) {
+          return a.owner() == b.owner() && a.loc() == b.loc(); }) == cur_sch.end()-1) {
           return true;
         }
       }
-      return false; }), re_sch.end());
+      return false; }), re_sch.end()-1);
 
     DEBUG(3, { print << "assign() created re_sch:"; print_sch(re_sch); });
 
@@ -212,6 +225,15 @@ bool RSAlgorithm::assign(
     DEBUG(3, { print(MessageType::Info) << "assign() re-route complete." << std::endl; });
     out_rte = re_rte;
     out_sch = re_sch;
+  }
+
+  /* Sanity check the schedule */
+  if (out_sch.front().owner() != vehl.id()
+   || out_sch.back().owner() != vehl.id()) {
+    print(MessageType::Error) << "tried to assign non-valid schedule" << std::endl;
+    print_sch(out_sch);
+    print_sch(new_sch);
+    throw;
   }
 
   /* Output synchronized vehicle */

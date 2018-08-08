@@ -103,9 +103,15 @@ class RSAlgorithm {
   sqlite3_stmt* sav_stmt;  // select all vehicles
   sqlite3_stmt* swc_stmt;  // select waiting customers
   sqlite3_stmt* sac_stmt;  // select all customers
+  sqlite3_stmt* svs_stmt;  // select vehicle status
 
-  typedef enum { SUCCESS, CURLOC_MISMATCH, PREFIX_MISMATCH, CADD_SYNC_FAIL, CDEL_SYNC_FAIL }
-  SyncResult;
+  typedef enum {
+    SUCCESS,
+    INVALID_VEHICLE,
+    CURLOC_MISMATCH,
+    PREFIX_MISMATCH,
+    CADD_SYNC_FAIL,
+    CDEL_SYNC_FAIL } SyncResult;
 
   SyncResult sync(const std::vector<Wayp>     & new_rte,
                   const std::vector<Wayp>     & cur_rte,

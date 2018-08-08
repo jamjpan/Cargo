@@ -165,30 +165,30 @@ TEST_CASE("Cargo::step()", "") {
     }
 }
 
-TEST_CASE("step() stress", "") {
-
-    Options opt;
-    opt.path_to_roadnet = "../data/roadnetwork/bj5.rnet";
-    opt.path_to_gtree = "../data/roadnetwork/bj5.gtree";
-    opt.path_to_edges = "../data/roadnetwork/bj5.edges";
-    opt.path_to_problem = "vehicles_stress.instance";
-    opt.time_multiplier = 1;
-    opt.matching_period = 60;
-    opt.vehicle_speed = 10;
-
-    Cargo cargo(opt);
-    RSAlgorithm rsalg();
-    int _;
-    std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-    typedef std::chrono::duration<double, std::milli> dur_milli;
-    t0 = std::chrono::high_resolution_clock::now();
-    cargo.step(_);
-    cargo.step(_);
-    cargo.step(_);
-    cargo.step(_);
-    cargo.step(_);
-    t1 = std::chrono::high_resolution_clock::now();
-    int dur = std::round(dur_milli(t1-t0).count());
-    REQUIRE(dur <= 5000);
-}
+// TEST_CASE("step() stress", "") {
+// 
+//     Options opt;
+//     opt.path_to_roadnet = "../data/roadnetwork/bj5.rnet";
+//     opt.path_to_gtree = "../data/roadnetwork/bj5.gtree";
+//     opt.path_to_edges = "../data/roadnetwork/bj5.edges";
+//     opt.path_to_problem = "vehicles_stress.instance";
+//     opt.time_multiplier = 1;
+//     opt.matching_period = 60;
+//     opt.vehicle_speed = 10;
+// 
+//     Cargo cargo(opt);
+//     RSAlgorithm rsalg();
+//     int _;
+//     std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+//     typedef std::chrono::duration<double, std::milli> dur_milli;
+//     t0 = std::chrono::high_resolution_clock::now();
+//     cargo.step(_);
+//     cargo.step(_);
+//     cargo.step(_);
+//     cargo.step(_);
+//     cargo.step(_);
+//     t1 = std::chrono::high_resolution_clock::now();
+//     int dur = std::round(dur_milli(t1-t0).count());
+//     REQUIRE(dur <= 5000);
+// }
 
