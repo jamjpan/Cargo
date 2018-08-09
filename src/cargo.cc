@@ -66,23 +66,17 @@ Cargo::Cargo(const Options& opt) : print("cargo") {
   if (sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sar_stmt2,-1, &sar_stmt2,NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sar_stmt, -1, &sar_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::ssv_stmt2,-1, &ssv_stmt2,NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::ssv_stmt, -1, &ssv_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::ucs_stmt, -1, &ucs_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::uro_stmt2,-1, &uro_stmt2,NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sch_stmt2,-1, &sch_stmt2,NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::dav_stmt, -1, &dav_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::pup_stmt, -1, &pup_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::vis_stmt, -1, &vis_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::lvn_stmt2,-1, &lvn_stmt2,NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::stc_stmt, -1, &stc_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::nnd_stmt2,-1, &nnd_stmt2,NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK) {
+      sqlite3_prepare_v2(db_, sql::nnd_stmt2,-1, &nnd_stmt2,NULL) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
@@ -93,22 +87,16 @@ Cargo::~Cargo() {
   sqlite3_finalize(tim_stmt);
   sqlite3_finalize(sac_stmt);
   sqlite3_finalize(sar_stmt2);
-  sqlite3_finalize(sar_stmt);
   sqlite3_finalize(ssv_stmt2);
-  sqlite3_finalize(ssv_stmt);
   sqlite3_finalize(ucs_stmt);
   sqlite3_finalize(uro_stmt2);
-  sqlite3_finalize(uro_stmt);
   sqlite3_finalize(sch_stmt2);
-  sqlite3_finalize(sch_stmt);
   sqlite3_finalize(dav_stmt);
   sqlite3_finalize(pup_stmt);
   sqlite3_finalize(drp_stmt);
   sqlite3_finalize(vis_stmt);
   sqlite3_finalize(lvn_stmt2);
-  sqlite3_finalize(lvn_stmt);
   sqlite3_finalize(nnd_stmt2);
-  sqlite3_finalize(nnd_stmt);
   sqlite3_finalize(stc_stmt);
   if (err != NULL) sqlite3_free(err);
   sqlite3_close(db_);  // <-- calls std::terminate on failure
