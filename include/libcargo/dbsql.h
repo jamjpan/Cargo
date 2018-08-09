@@ -43,6 +43,10 @@ const SqliteQuery create_cargo_tables =
     "load           int not null,"
     "queued         int not null,"
     "status         int not null,"
+    "route         blob not null,"
+    "idx_last_visited_node int not null,"
+    "next_node_distance int not null,"
+    "schedule      blob not null,"
     "foreign key (origin_id) references nodes(id),"
     "foreign key (destination_id) references nodes(id)"
     ") without rowid;"
@@ -68,59 +72,32 @@ const SqliteQuery create_cargo_tables =
     "visitedAt      int,"
     "primary key (owner, location),"
     "foreign key (location) references nodes(id)"
-    ") without rowid;"
-    "create table schedules("
-    "owner          int primary key,"
-    "data           blob not null,"
-    "foreign key (owner) references vehicles(id)"
-    ") without rowid;"
-    "create table routes("
-    "owner          int primary key,"
-    "data           blob not null,"
-    "idx_last_visited_node int not null,"
-    "next_node_distance int not null,"
-    "foreign key (owner) references vehicles(id)"
     ") without rowid;";
 
 /* Select statements */
 const SqliteQuery sac_stmt =  // select all customers
     "select * from customers;";
 
+const SqliteQuery sav_stmt =  // select all vehicles
+    "select * from vehicles;";
+
+const SqliteQuery sar_stmt =  // select all routes
+    " select route from vehicles;";
+
 const SqliteQuery stc_stmt =  // select timeout customers
     "select * from customers where assignedTo is null and ? > ? + early "
     "and status != ?;";
 
-const SqliteQuery sav_stmt =  // select all vehicles
-    "select * "
-    "from   (vehicles inner join routes on vehicles.id=routes.owner"
-    "                 inner join schedules on vehicles.id=schedules.owner);";
-
-const SqliteQuery sar_stmt =  // select all routes
-    " select * from routes;";
-
 const SqliteQuery ssv_stmt =  // select stepping vehicles
-    "select * "
-    "from   (vehicles inner join routes on vehicles.id=routes.owner"
-    "                 inner join schedules on vehicles.id=schedules.owner) "
-    "where  ? >= vehicles.early and "
-    "       ? != vehicles.status;";
+    "select * from vehicles where ? >= vehicles.early and "
+    "next_node_distance <= 0 and ? != vehicles.status;";
 
 const SqliteQuery smv_stmt =  // select matchable vehicles
-    "select * "
-    "from   (vehicles inner join routes on vehicles.id=routes.owner"
-    "                 inner join schedules on vehicles.id=schedules.owner) "
-    "where  ? >= vehicles.early and "
-    "       ? != vehicles.status and "
-    "       0 >  vehicles.load;";
+    "select * from vehicles "
+    "where ? >= vehicles.early and ? != vehicles.status and 0 > vehicles.load;";
 
-const SqliteQuery ssr_stmt =  // select single route
-    "select * from routes where owner = ?;";
-
-const SqliteQuery sss_stmt =  // select single schedule
-    "select * from schedules where owner = ?;";
-
-const SqliteQuery svs_stmt = // select vehicle status
-    "select status from vehicles where id = ?;";
+const SqliteQuery sov_stmt =  // select one vehicle
+    "select * from vehicles where id = ?;";
 
 const SqliteQuery swc_stmt =  // select waiting customers
     "select * from customers where status = ? and ? >= early;";
@@ -148,22 +125,23 @@ const SqliteQuery drp_stmt =  // decrease load, queued (dropoff)
 const SqliteQuery dav_stmt =  // deactivate vehicle
     "update vehicles set status = ? where id = ?;";
 
-/* Other updates */
 const SqliteQuery vis_stmt =  // update visited at
     "update stops set visitedAt = ? where owner = ? and location = ?;";
 
 const SqliteQuery uro_stmt =  // update route, lvn, nnd
-    "update routes set data = ?, idx_last_visited_node = ?, next_node_distance "
-    "= ? where owner = ?;";
+    "update vehicles set route = ?, idx_last_visited_node = ?, "
+    "next_node_distance = ? where id = ?;";
+
+const SqliteQuery stp_stmt =  // step (update schedule, lvn, nnd)
+    "update vehicles set schedule = ?, idx_last_visited_node = ?, "
+    "next_node_distance = ? where id = ?;";
 
 const SqliteQuery sch_stmt =  // update schedule
-    "update schedules set data = ? where owner = ?;";
-
-const SqliteQuery lvn_stmt =  // update last_visited_node
-    "update routes set idx_last_visited_node = ? where owner = ?;";
+    "update vehicles set schedule = ? where id = ?;";
 
 const SqliteQuery nnd_stmt =  // update nearest_node_distance
-    "update routes set next_node_distance = ? where owner = ?;";
+    "update vehicles set next_node_distance = next_node_distance - ? "
+    "where ? >= early and ? != status;";
 
 }  // namespace sql
 }  // namespace cargo

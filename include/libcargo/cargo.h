@@ -138,6 +138,11 @@ class Cargo {
   SimlDur avg_pickup_delay(); // (time-to-pickup) - cust.early()
   SimlDur avg_trip_delay();   // (dropoff - pickup) - base cost
 
+  /* Logger containers */
+  std::map<VehlId, NodeId>  log_v_;
+  std::vector<CustId>       log_p_, log_d_, log_t_;
+  std::vector<VehlId>       log_a_;
+
   /* SQL statements */
   SqliteReturnCode rc;
   SqliteErrorMessage err;
@@ -152,9 +157,9 @@ class Cargo {
   sqlite3_stmt* pup_stmt;  // pickup
   sqlite3_stmt* drp_stmt;  // dropoff
   sqlite3_stmt* vis_stmt;  // visitedAt
-  sqlite3_stmt* lvn_stmt;  // last-visited node
   sqlite3_stmt* nnd_stmt;  // nearest-node dist
   sqlite3_stmt* stc_stmt;  // select timed-out customers
+  sqlite3_stmt* stp_stmt;  // step a vehicle (update sch, lvn)
 
   void initialize(const Options &);
 
