@@ -160,6 +160,7 @@ class Cargo {
   sqlite3_stmt* lvn_stmt2; // last-visited node
   sqlite3_stmt* nnd_stmt2; // nearest-node dist
   sqlite3_stmt* stc_stmt;  // select timed-out customers
+  sqlite3_stmt* mov_stmt;  // bulk-move vehicles
 
   void initialize(const Options &);
 

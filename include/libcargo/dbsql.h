@@ -107,7 +107,7 @@ const SqliteQuery sar_stmt = // (DEPRECATED)
     " select * from routes;";
 
 // Select vehicles to step
-const SqliteQuery ssv_stmt2= "select * from vehicles where ? >= early and ? != status;";
+const SqliteQuery ssv_stmt2= "select * from vehicles where ? >= early and ? != status and next_node_distance <= 0;";
 const SqliteQuery ssv_stmt = // (DEPRECATED)
     "select * "
     "from   (vehicles inner join routes on vehicles.id=routes.owner"
@@ -187,6 +187,9 @@ const SqliteQuery lvn_stmt = // (DEPRECATED)
 const SqliteQuery nnd_stmt2= "update vehicles set next_node_distance = ? where id = ?;";
 const SqliteQuery nnd_stmt = // (DEPRECATED)
     "update routes set next_node_distance = ? where owner = ?;";
+
+// Move vehicles (bulk-update nnd)
+const SqliteQuery mov_stmt = "update vehicles set next_node_distance = next_node_distance - ?;";
 
 
 /* Update stops */
