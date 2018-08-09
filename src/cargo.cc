@@ -109,10 +109,11 @@ const std::string & Cargo::road_network() { return probset_.road_network(); }
 int Cargo::step(int& ndeact) {
   int nrows = ndeact = 0;
 
-  // Initialize Logger containers
-  std::map<VehlId, NodeId> vehicle_position;
-  std::vector<CustId> picked, dropped;
-  std::vector<VehlId> arrived;
+  /* Prepare logger containers */
+  log_v_.clear();
+  log_p_.clear();
+  log_d_.clear();
+  log_a_.clear();
 
   std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
 
@@ -147,8 +148,8 @@ int Cargo::step(int& ndeact) {
 
     while (nnd <= 0 && active) {  // O(|schedule|)
       lvn++;
-      // Set new position
-      vehicle_position[vid] = rte.at(lvn).second;
+      /* Log position */
+      log_v_[vid] = rte.at(lvn).second;
 
       /* Did vehicle move to a stop?
        * (schedule[0] gives the node the vehicle is currently traveling to.
@@ -173,7 +174,8 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(dav_stmt);
           active = false;  // <-- stops the while loops
           ndeact++;
-          arrived.push_back(stop.owner());
+          /* Log arrival */
+          log_a_.push_back(stop.owner());
         /* Permanent taxi arrived at "destination"
          * (essentially recreate the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
@@ -226,10 +228,10 @@ int Cargo::step(int& ndeact) {
             print(MessageType::Error) << "Failed (veh" << vid << " pickup " << stop.owner() << "). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           } else {
-            // Add picked up customers
-            picked.push_back(stop.owner());
+            /* Log pickup */
+            log_p_.push_back(stop.owner());
             DEBUG(1, {
-              print(MessageType::Info) << "Vehicle " << vid << " picked up Customer "
+              print(MessageType::Info) << "Vehicle " << vid << " log_p_ up Customer "
                          << stop.owner() << "(" << stop.loc() << ")" << std::endl;
             });
           }
@@ -247,10 +249,10 @@ int Cargo::step(int& ndeact) {
             print(MessageType::Error) << "Failed (veh" << vid << " dropoff " << stop.owner() << "). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           } else {
-            // Add dropped off customers
-            dropped.push_back(stop.owner());
+            /* Log dropoff */
+            log_d_.push_back(stop.owner());
             DEBUG(1, {
-              print(MessageType::Info) << "Vehicle " << vid << " dropped off Customer "
+              print(MessageType::Info) << "Vehicle " << vid << " log_d_ off Customer "
                          << stop.owner() << "(" << stop.loc() << ")" << std::endl;
             });
           }
@@ -336,11 +338,11 @@ int Cargo::step(int& ndeact) {
   sqlite3_clear_bindings(ssv_stmt2);
   sqlite3_reset(ssv_stmt2);
 
-  // Log pickup and dropoff
-  if (picked.size() != 0)           Logger::put_p_message(picked);
-  if (dropped.size() != 0)          Logger::put_d_message(dropped);
-  if (!vehicle_position.empty())    Logger::put_v_message(vehicle_position);
-  if (arrived.size() != 0)          Logger::put_a_message(arrived);
+  /* Record events */
+  if (!log_p_.empty()) Logger::put_p_message(log_p_);
+  if (!log_d_.empty()) Logger::put_d_message(log_d_);
+  if (!log_v_.empty()) Logger::put_v_message(log_v_);
+  if (!log_a_.empty()) Logger::put_a_message(log_a_);
 
   return nrows;
 }  // release dblock

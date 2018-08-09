@@ -138,6 +138,11 @@ class Cargo {
   SimlDur avg_pickup_delay(); // (time-to-pickup) - cust.early()
   SimlDur avg_trip_delay();   // (dropoff - pickup) - base cost
 
+  /* Logger containers */
+  std::map<VehlId, NodeId> log_v_;
+  std::vector<CustId> log_p_, log_d_;
+  std::vector<VehlId> log_a_;
+
   /* SQL statements */
   SqliteReturnCode rc;
   SqliteErrorMessage err;
