@@ -128,29 +128,24 @@ int Cargo::step(int& ndeact) {
 
   std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
 
-  sqlite3_bind_int(ssv_stmt, 1, t_);
-  sqlite3_bind_int(ssv_stmt, 2, (int)VehlStatus::Arrived);
+  sqlite3_bind_int(ssv_stmt2, 1, t_);
+  sqlite3_bind_int(ssv_stmt2, 2, (int)VehlStatus::Arrived);
 
-  while ((rc = sqlite3_step(ssv_stmt)) == SQLITE_ROW) {  // O(|vehicles|)
-    // DEBUG(3, {                                        // Print column headers
-    //   for (int i = 0; i < sqlite3_column_count(ssv_stmt); ++i)
-    //     print << "[" << i << "] " << sqlite3_column_name(ssv_stmt, i) << "\n";
-    // });
-
+  while ((rc = sqlite3_step(ssv_stmt2)) == SQLITE_ROW) {  // O(|vehicles|)
     nrows++;
 
     /* Extract */
-    const VehlId vid = sqlite3_column_int(ssv_stmt, 0);    // id
-    const SimlTime vet = sqlite3_column_int(ssv_stmt, 3);  // early
-    const SimlTime vlt = sqlite3_column_int(ssv_stmt, 4);  // late
-    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt,  9));
-    const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt, 13));
-    const std::vector<Wayp> rte(rtebuf, rtebuf + sqlite3_column_bytes(ssv_stmt,  9) / sizeof(Wayp));
-    const std::vector<Stop> sch(schbuf, schbuf + sqlite3_column_bytes(ssv_stmt, 13) / sizeof(Stop));
+    const VehlId vid = sqlite3_column_int(ssv_stmt2, 0);    // id
+    const SimlTime vet = sqlite3_column_int(ssv_stmt2, 3);  // early
+    const SimlTime vlt = sqlite3_column_int(ssv_stmt2, 4);  // late
+    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt2,  8));
+    const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt2, 11));
+    const std::vector<Wayp> rte(rtebuf, rtebuf + sqlite3_column_bytes(ssv_stmt2,  8) / sizeof(Wayp));
+    const std::vector<Stop> sch(schbuf, schbuf + sqlite3_column_bytes(ssv_stmt2, 11) / sizeof(Stop));
 
     std::vector<Stop> new_sch = sch; // mutable copy
-    RteIdx  lvn = sqlite3_column_int(ssv_stmt, 10); // last-visited node
-    DistInt nnd = sqlite3_column_int(ssv_stmt, 11) - speed_;
+    RteIdx  lvn = sqlite3_column_int(ssv_stmt2, 9); // last-visited node
+    DistInt nnd = sqlite3_column_int(ssv_stmt2, 10) - speed_;
 
     DEBUG(2, {  // Print vehicle info
       print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn << "\n";
@@ -205,32 +200,32 @@ int Cargo::step(int& ndeact) {
           int new_nnd = route.at(1).first;
 
           /* Insert the new route */
-          sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(route.data()),
+          sqlite3_bind_blob(uro_stmt2, 1, static_cast<void const*>(route.data()),
                             route.size()*sizeof(Wayp), SQLITE_TRANSIENT);
-          sqlite3_bind_int(uro_stmt, 2, 0);        // lvn
-          sqlite3_bind_int(uro_stmt, 3, new_nnd);  // nnd
-          sqlite3_bind_int(uro_stmt, 4, stop.owner());
-          if (sqlite3_step(uro_stmt) != SQLITE_DONE) {
+          sqlite3_bind_int(uro_stmt2, 2, 0);        // lvn
+          sqlite3_bind_int(uro_stmt2, 3, new_nnd);  // nnd
+          sqlite3_bind_int(uro_stmt2, 4, stop.owner());
+          if (sqlite3_step(uro_stmt2) != SQLITE_DONE) {
             print(MessageType::Error) << "Failure at route " << stop.owner() << "\n";
             print(MessageType::Error) << "Failed (insert route). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           }
-          sqlite3_clear_bindings(uro_stmt);
-          sqlite3_reset(uro_stmt);
+          sqlite3_clear_bindings(uro_stmt2);
+          sqlite3_reset(uro_stmt2);
 
           /* Insert schedule */
           Stop next_loc(stop.owner(), route.at(1).second, StopType::VehlOrig, stop.early(), -1);
           std::vector<Stop> sch{next_loc, b};
-          sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(sch.data()),
+          sqlite3_bind_blob(sch_stmt2, 1, static_cast<void const*>(sch.data()),
                             sch.size() * sizeof(Stop), SQLITE_TRANSIENT);
-          sqlite3_bind_int(sch_stmt, 2, stop.owner());
-          if (sqlite3_step(sch_stmt) != SQLITE_DONE) {
+          sqlite3_bind_int(sch_stmt2, 2, stop.owner());
+          if (sqlite3_step(sch_stmt2) != SQLITE_DONE) {
             print(MessageType::Error) << "Failure at schedule " << stop.owner() << "\n";
             print(MessageType::Error) << "Failed (insert schedule). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           }
-          sqlite3_clear_bindings(sch_stmt);
-          sqlite3_reset(sch_stmt);
+          sqlite3_clear_bindings(sch_stmt2);
+          sqlite3_reset(sch_stmt2);
 
           active = false; // stop the loop
 
@@ -300,35 +295,35 @@ int Cargo::step(int& ndeact) {
         new_sch[0] = Stop(vid, rte.at(lvn + 1).second, StopType::VehlOrig, vet, vlt, t_);
 
         /* Commit the new schedule */
-        sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(new_sch.data()),
+        sqlite3_bind_blob(sch_stmt2, 1, static_cast<void const*>(new_sch.data()),
                           new_sch.size() * sizeof(Stop), SQLITE_TRANSIENT);
-        sqlite3_bind_int(sch_stmt, 2, vid);
-        if (sqlite3_step(sch_stmt) != SQLITE_DONE) {
+        sqlite3_bind_int(sch_stmt2, 2, vid);
+        if (sqlite3_step(sch_stmt2) != SQLITE_DONE) {
           print(MessageType::Error) << "Failed (update schedule for vehicle " << vid << "). Reason:\n";
           throw std::runtime_error(sqlite3_errmsg(db_));
         }
-        sqlite3_clear_bindings(sch_stmt);
-        sqlite3_reset(sch_stmt);
+        sqlite3_clear_bindings(sch_stmt2);
+        sqlite3_reset(sch_stmt2);
 
         /* Update idx_last_visited_node */
-        sqlite3_bind_int(lvn_stmt, 1, lvn);
-        sqlite3_bind_int(lvn_stmt, 2, vid);
-        if (sqlite3_step(lvn_stmt) != SQLITE_DONE) {
+        sqlite3_bind_int(lvn_stmt2, 1, lvn);
+        sqlite3_bind_int(lvn_stmt2, 2, vid);
+        if (sqlite3_step(lvn_stmt2) != SQLITE_DONE) {
           print(MessageType::Error) << "Failed (update idx lvn for vehicle " << vid << "). Reason:\n";
           throw std::runtime_error(sqlite3_errmsg(db_));
         }
-        sqlite3_clear_bindings(lvn_stmt);
-        sqlite3_reset(lvn_stmt);
+        sqlite3_clear_bindings(lvn_stmt2);
+        sqlite3_reset(lvn_stmt2);
       }  // end moved
       /* Update next_node_distance */
-      sqlite3_bind_int(nnd_stmt, 1, nnd);
-      sqlite3_bind_int(nnd_stmt, 2, vid);
-      if (sqlite3_step(nnd_stmt) != SQLITE_DONE) {
+      sqlite3_bind_int(nnd_stmt2, 1, nnd);
+      sqlite3_bind_int(nnd_stmt2, 2, vid);
+      if (sqlite3_step(nnd_stmt2) != SQLITE_DONE) {
         print(MessageType::Error) << "Failed (update nnd for vehicle " << vid << "). Reason:\n";
         throw std::runtime_error(sqlite3_errmsg(db_));
       }
-      sqlite3_clear_bindings(nnd_stmt);
-      sqlite3_reset(nnd_stmt);
+      sqlite3_clear_bindings(nnd_stmt2);
+      sqlite3_reset(nnd_stmt2);
 
       /* Kill permanent taxis after all customers have appeared and
        * taxi has no more dropoffs to make */
@@ -350,8 +345,8 @@ int Cargo::step(int& ndeact) {
     print(MessageType::Error) << "Failure in select step vehicles. Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
-  sqlite3_clear_bindings(ssv_stmt);
-  sqlite3_reset(ssv_stmt);
+  sqlite3_clear_bindings(ssv_stmt2);
+  sqlite3_reset(ssv_stmt2);
 
   // Log pickup and dropoff
   if (picked.size() != 0)           Logger::put_p_message(picked);
@@ -366,16 +361,16 @@ int Cargo::step(int& ndeact) {
  * unassigned customer trip */
 DistInt Cargo::total_route_cost() {
   DistInt cst = 0;
-  while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
-    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 1));
-    const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 1) / sizeof(Wayp));
+  while ((rc = sqlite3_step(sar_stmt2)) == SQLITE_ROW) {
+    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt2, 0));
+    const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt2, 0) / sizeof(Wayp));
     cst += route.back().first;
   }
   if (rc != SQLITE_DONE) {
     print(MessageType::Error) << "Failure in select all routes. Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
-  sqlite3_reset(sar_stmt);
+  sqlite3_reset(sar_stmt2);
 
   while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
     const CustId cust_id = sqlite3_column_int(sac_stmt, 0);

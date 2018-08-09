@@ -35,18 +35,18 @@ const SqliteQuery create_cargo_tables =
     "unique (lng, lat)"
     ") without rowid;"
     "create table vehicles("
-    "id             int primary key,"
-    "origin_id      int not null,"
-    "destination_id int not null,"
-    "early          int not null,"
-    "late           int not null,"
-    "load           int not null,"
-    "queued         int not null,"
-    "status         int not null,"
-    "route          blob not null,"
-    "idx_last_visited_node int not null,"
-    "next_node_distace int not null,"
-    "schedule       blob not null,"
+    "id             int primary key," // col 0
+    "origin_id      int not null,"    // col 1
+    "destination_id int not null,"    // col 2
+    "early          int not null,"    // col 3
+    "late           int not null,"    // col 4
+    "load           int not null,"    // col 5
+    "queued         int not null,"    // col 6
+    "status         int not null,"    // col 7
+    "route          blob not null,"   // col 8
+    "idx_last_visited_node int not null," // col 9
+    "next_node_distance int not null,"// col 10
+    "schedule       blob not null,"   // col 11
     "foreign key (origin_id) references nodes(id),"
     "foreign key (destination_id) references nodes(id)"
     ") without rowid;"
