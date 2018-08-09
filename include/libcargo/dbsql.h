@@ -125,6 +125,9 @@ const SqliteQuery smv_stmt = // (DEPRECATED)
     "       ? != vehicles.status and "
     "       0 >  vehicles.load;";
 
+// Select vehicle status
+const SqliteQuery svs_stmt = "select status from vehicles where id = ?;";
+
 // Select single route
 const SqliteQuery ssr_stmt2= "select route from vehicles where id = ?;";
 const SqliteQuery ssr_stmt = // (DEPRECATED)
