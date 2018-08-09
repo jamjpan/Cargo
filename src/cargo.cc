@@ -44,7 +44,7 @@
 
 namespace cargo {
 
-const int LRU_CACHE_SIZE = 100000;
+const int LRU_CACHE_SIZE = 10000;
 
 /* Initialize global vars */
 KVNodes Cargo::nodes_ = {};
@@ -198,8 +198,9 @@ int Cargo::step(int& ndeact) {
         /* Permanent taxi arrived at "destination"
          * ("recreate" the taxi) */
         else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
-          Stop a(stop.owner(), stop.loc(),    StopType::VehlOrig, stop.early(), -1);
-          Stop b(stop.owner(), random_node(), StopType::VehlDest, stop.early(), -1);
+          NodeId new_dest = random_node();
+          Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
+          Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
           std::vector<Wayp> new_rte;
           route_through({a, b}, new_rte);
 
@@ -564,7 +565,7 @@ void Cargo::initialize(const Options& opt) {
   total_customers_ = total_vehicles_ = base_cost_ = 0;
 
   print << "Starting initialization sequence\n";
-  print << "Reading nodes...";
+  print << "Reading nodes " << opt.path_to_roadnet << "... ";
   const size_t nnodes = read_nodes(opt.path_to_roadnet, nodes_, bbox_);
   nodes_[-1] = {-1, -1}; // special "no destination" node
   print << nnodes << "\n";
@@ -572,16 +573,16 @@ void Cargo::initialize(const Options& opt) {
             << bbox().lower_left.lat << "), (" << bbox().upper_right.lng << ","
             << bbox().upper_right.lat << ")\n";
 
-  print << "Reading edges...";
+  print << "Reading edges... " << opt.path_to_edges << "... ";
   const size_t nedges = read_edges(opt.path_to_edges, edges_);
   print << nedges << "\n";
 
-  print << "Reading gtree...";
+  print << "Reading gtree " << opt.path_to_gtree << "... ";
   GTree::load(opt.path_to_gtree);
   gtree_ = GTree::get();
   print << "Done\n";
 
-  print << "Reading problem...";
+  print << "Reading problem... " << opt.path_to_problem << "... ";
   const size_t ntrips = read_problem(opt.path_to_problem, probset_);
   if (ntrips == 0) {
     print(MessageType::Error) << "Problem file has no trips!\n";

@@ -91,7 +91,7 @@ build/sqlite3.o: \
 	$(CC) -DSQLITE_ENABLE_RTREE src/sqlite3/sqlite3.c
 
 build:
-	mkdir -p build
+	mkdir -p build lib
 
 clean:
 	rm -rf build/ lib/libcargo.a
