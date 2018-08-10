@@ -25,14 +25,15 @@ using namespace cargo;
 int main() {
   /* Set the options */
   Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "a.sol";
-  op.time_multiplier  = 1;
-  op.vehicle_speed    = 10;
-  op.matching_period  = 60;
+  op.path_to_dataout  = "a.dat";
+  op.time_multiplier  = 10;
+  op.vehicle_speed    = 1;
+  op.matching_period  = 30;
 
   Cargo cargo(op);
 

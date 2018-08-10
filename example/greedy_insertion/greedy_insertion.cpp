@@ -135,9 +135,9 @@ int main() {
   op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "temp.sol";
   op.path_to_dataout  = "temp.dat";
-  op.time_multiplier  = 1;
-  op.vehicle_speed    = 10;
-  op.matching_period  = 60;
+  op.time_multiplier  = 10;
+  op.vehicle_speed    = 20;
+  op.matching_period  = 30;
 
   Cargo cargo(op);
 
