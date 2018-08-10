@@ -138,16 +138,16 @@ int Cargo::step(int& ndeact) {
     sqlite3_exec(db_, "BEGIN", NULL, NULL, &err);
 
     /* Extract */
-    const VehlId vid = sqlite3_column_int(ssv_stmt2, 0);    // id
-    const SimlTime vet = sqlite3_column_int(ssv_stmt2, 3);  // early
-    const SimlTime vlt = sqlite3_column_int(ssv_stmt2, 4);  // late
-    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt2,  8));
-    const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt2, 11));
-    const std::vector<Wayp> rte(rtebuf, rtebuf + sqlite3_column_bytes(ssv_stmt2,  8) / sizeof(Wayp));
-    const std::vector<Stop> sch(schbuf, schbuf + sqlite3_column_bytes(ssv_stmt2, 11) / sizeof(Stop));
-    std::vector<Stop> new_sch = sch;                        // mutable copy
-    RteIdx  lvn = sqlite3_column_int(ssv_stmt2, 9);         // last-visited node
-    DistInt nnd = sqlite3_column_int(ssv_stmt2, 10);        // next-node dist
+    const VehlId vid = sqlite3_column_int(ssv_stmt2,0);    // id
+    const SimlTime vet = sqlite3_column_int(ssv_stmt2,3);  // early
+    const SimlTime vlt = sqlite3_column_int(ssv_stmt2,4);  // late
+    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt2, 8));
+    const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt2,11));
+    const std::vector<Wayp> rte(rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt2, 8) / sizeof(Wayp));
+    const std::vector<Stop> sch(schbuf,schbuf+sqlite3_column_bytes(ssv_stmt2,11) / sizeof(Stop));
+    std::vector<Stop> new_sch = sch;                       // mutable copy
+    RteIdx  lvn = sqlite3_column_int(ssv_stmt2,9);         // last-visited node
+    DistInt nnd = sqlite3_column_int(ssv_stmt2,10);        // next-node dist
 
     DEBUG(2, {  // Print vehicle info
       print << "t=" << t_ << std::endl;
@@ -324,7 +324,8 @@ int Cargo::step(int& ndeact) {
       }
     }  // end active
     sqlite3_exec(db_, "END", NULL, NULL, &err);
-  }    // end SQLITE_ROW
+  } // end SQLITE_ROW
+
   if (rc != SQLITE_DONE) {
     print(MessageType::Error) << "Failure in select step vehicles. Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
