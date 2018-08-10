@@ -128,8 +128,8 @@ const SqliteQuery smv_stmt = // (DEPRECATED)
 // Select vehicle status
 const SqliteQuery svs_stmt = "select status from vehicles where id = ?;";
 
-// Select single route
-const SqliteQuery ssr_stmt2= "select route from vehicles where id = ?;";
+// Select single route, lvn, nnd
+const SqliteQuery ssr_stmt2= "select route, idx_last_visited_node, next_node_distance from vehicles where id = ?;";
 const SqliteQuery ssr_stmt = // (DEPRECATED)
     "select * from routes where owner = ?;";
 

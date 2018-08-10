@@ -291,6 +291,14 @@ int Cargo::step(int& ndeact) {
         sqlite3_clear_bindings(vis_stmt);
         sqlite3_reset(vis_stmt);
       }  // end inner while (vehicle at stop)
+      // DEBUG
+      if (active && lvn+1 == rte.size()) {
+        print << "t=" << t_ << std::endl;
+        print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn << "\n";
+        print << "\tsched:"; print_sch(sch);
+        print << "\troute:"; print_rte(rte);
+        throw;
+      }
       if (active) nnd += (rte.at(lvn + 1).first - rte.at(lvn).first);
     }  // end outer while (vehicle negative nnd)
 

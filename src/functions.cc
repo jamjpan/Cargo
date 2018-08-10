@@ -84,8 +84,13 @@ DistInt route_through(const std::vector<Stop> & sch,
       seg = Cargo::spget(from, to);
     } // Lock released
     if(!in_cache) {
-      gtree.find_path(from, to, seg);
       std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+      try { gtree.find_path(from, to, seg); }
+      catch (...) {
+        std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
+        print_sch(sch);
+        std::cout << "index: " << i << std::endl;
+      }
       Cargo::spput(from, to, seg);
     } // Lock released
     for (size_t i = 1; i < seg.size(); ++i) {
@@ -94,7 +99,7 @@ DistInt route_through(const std::vector<Stop> & sch,
     }
   }
   return cst;
-} // Lock Cargo::spmx released
+}
 
 DistInt route_through(const std::vector<Stop> & sch,
                             std::vector<Wayp> & rteout) {
@@ -196,7 +201,15 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
   // Walk along the schedule and the route. O(|schedule|+|route|)
   auto j = rte.begin();
   for (auto i = sch.begin(); i != sch.end(); ++i) {
-    while (j->second != i->loc()) ++j;
+    while (j->second != i->loc()) {
+      ++j;
+      if (j == rte.end()) {
+        std::cout << "chktw reached end before schedule" << std::endl;
+        print_sch(sch);
+        print_rte(rte);
+        throw;
+      }
+    }
     if (i->late() != -1 &&
         i->late() < j->first / (float)Cargo::vspeed()) {
       DEBUG(3, { std::cout << "chktw() found "
