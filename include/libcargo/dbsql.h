@@ -188,6 +188,9 @@ const SqliteQuery nnd_stmt2= "update vehicles set next_node_distance = ? where i
 const SqliteQuery nnd_stmt = // (DEPRECATED)
     "update routes set next_node_distance = ? where owner = ?;";
 
+// Update schedule, lvn, and nnd
+const SqliteQuery usc_stmt = "update vehicles set schedule = ?, idx_last_visited_node = ?, next_node_distance = ? where id = ?;";
+
 // Move vehicles (bulk-update nnd)
 const SqliteQuery mov_stmt = "update vehicles set next_node_distance = next_node_distance - ?;";
 

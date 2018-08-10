@@ -151,7 +151,7 @@ class Cargo {
   sqlite3_stmt* sar_stmt2; // select all routes
   sqlite3_stmt* ssv_stmt2; // select step vehicles
   sqlite3_stmt* ucs_stmt;  // update cust status
-  sqlite3_stmt* uro_stmt2; // update route
+  sqlite3_stmt* uro_stmt2; // update route, lvn, nnd
   sqlite3_stmt* sch_stmt2; // update schedule
   sqlite3_stmt* dav_stmt;  // deactivate vehicle
   sqlite3_stmt* pup_stmt;  // pickup
@@ -161,6 +161,7 @@ class Cargo {
   sqlite3_stmt* nnd_stmt2; // nearest-node dist
   sqlite3_stmt* stc_stmt;  // select timed-out customers
   sqlite3_stmt* mov_stmt;  // bulk-move vehicles
+  sqlite3_stmt* usc_stmt;  // update schedule, lvn, nnd
 
   void initialize(const Options &);
 
