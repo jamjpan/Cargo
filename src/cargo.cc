@@ -213,7 +213,7 @@ int Cargo::step(int& ndeact) {
 
           /* Insert the new route */
           sqlite3_bind_blob(uro_stmt2, 1,
-            static_cast<void const*>(route.data()),route.size()*sizeof(Wayp),SQLITE_TRANSIENT);
+            static_cast<void const*>(new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
           sqlite3_bind_int(uro_stmt2, 2, 0);        // lvn
           sqlite3_bind_int(uro_stmt2, 3, new_nnd);  // nnd
           sqlite3_bind_int(uro_stmt2, 4, stop.owner());
@@ -240,7 +240,6 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(sch_stmt2);
 
           active = false; // stop the loop
-        }
 
         /* Vehicle arrives at a pickup */
         } else if (stop.type() == StopType::CustOrig) {
@@ -262,7 +261,6 @@ int Cargo::step(int& ndeact) {
           sqlite3_clear_bindings(ucs_stmt);
           sqlite3_reset(pup_stmt);
           sqlite3_reset(ucs_stmt);
-        }
 
         /* Vehicle arrived at dropoff */
         } else if (stop.type() == StopType::CustDest) {
@@ -305,9 +303,6 @@ int Cargo::step(int& ndeact) {
         print << "\troute:"; print_rte(rte);
         throw;
       }
-      if (active) nnd += (rte.at(lvn + 1).first - rte.at(lvn).first);
-    }  // end outer while (vehicle negative nnd)
-
       /* Update next-node distance to the new next-node */
       if (active) nnd += (rte.at(lvn+1).first - rte.at(lvn).first);
     }  // end outer while (moved)

@@ -40,17 +40,18 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   name_ = name;
   done_ = false;
   batch_time_ = 1;
-  if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt2, -1, &ssr_stmt2, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt2, -1, &sss_stmt2, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt2, -1, &uro_stmt2, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt2, -1, &sch_stmt2, NULL) != SQLITE_OK ||
+  if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt2,-1, &ssr_stmt2,NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt2,-1, &sss_stmt2,NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt2,-1, &uro_stmt2,NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt2,-1, &sch_stmt2,NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt2, -1, &smv_stmt2, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt2,-1, &smv_stmt2,NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt2, -1, &sav_stmt2, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt2,-1, &sav_stmt2,NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::svs_stmt, -1, &svs_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK) {
+      sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sov_stmt, -1, &sov_stmt, NULL) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create rsalg stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
@@ -68,6 +69,7 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(sac_stmt);
   sqlite3_finalize(sav_stmt2);
   sqlite3_finalize(svs_stmt);
+  sqlite3_finalize(sov_stmt);
 }
 
 const std::string & RSAlgorithm::name() const { return name_; }
@@ -128,38 +130,8 @@ bool RSAlgorithm::assign(
 
   if (sqlite3_step(sov_stmt) != SQLITE_DONE) {
     vehl.print();
-    throw std::runtime_error("select status stmt returned multiple rows.");
+    throw std::runtime_error("select one vehicle stmt returned multiple rows.");
   }
-  sqlite3_clear_bindings(svs_stmt);
-  sqlite3_reset(svs_stmt);
-
-  /* Get current schedule */
-  std::vector<Stop> cur_sch;
-  sqlite3_bind_int(sss_stmt2, 1, vehl.id());
-  while ((rc = sqlite3_step(sss_stmt2)) == SQLITE_ROW) {
-    const Stop* buf = static_cast<const Stop*>(sqlite3_column_blob(sss_stmt2, 0));
-    std::vector<Stop> raw_sch(buf, buf + sqlite3_column_bytes(sss_stmt2, 0) / sizeof(Stop));
-    cur_sch = raw_sch;
-  }
-  if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  sqlite3_clear_bindings(sss_stmt2);
-  sqlite3_reset(sss_stmt2);
-
-  /* Get current route */
-  RteIdx cur_lvn = 0;
-  DistInt cur_nnd = 0;
-  std::vector<Wayp> cur_rte;
-  sqlite3_bind_int(ssr_stmt2, 1, vehl.id());
-  while ((rc = sqlite3_step(ssr_stmt2)) == SQLITE_ROW) {
-    const Wayp* buf = static_cast<const Wayp*>(sqlite3_column_blob(ssr_stmt2, 0));
-    std::vector<Wayp> raw_rte(buf, buf + sqlite3_column_bytes(ssr_stmt2, 0) / sizeof(Wayp));
-    cur_rte = raw_rte;
-    cur_lvn = sqlite3_column_int(ssr_stmt2, 1);
-    cur_nnd = sqlite3_column_int(ssr_stmt2, 2);
-  }
-  if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  sqlite3_clear_bindings(ssr_stmt2);
-  sqlite3_reset(ssr_stmt2);
 
   /* Attempt synchronization */
   std::vector<CustId> cdel = custs_to_del;

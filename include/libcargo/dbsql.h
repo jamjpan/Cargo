@@ -76,6 +76,10 @@ const SqliteQuery create_cargo_tables =
 
 /* Select statements */
 
+// Select one vehicle
+const SqliteQuery sov_stmt =  // select one vehicle
+    "select * from vehicles where id = ?;";
+
 // Select all customers
 const SqliteQuery sac_stmt = "select * from customers;";
 
