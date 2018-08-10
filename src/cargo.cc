@@ -155,10 +155,13 @@ int Cargo::step(int& ndeact) {
 
     DEBUG(2, {  // Print vehicle info
       print << "t=" << t_ << std::endl;
-      print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn << "\n";
-      print << "\tsched:"; print_sch(sch);
-      print << "\troute:"; print_rte(rte);
-    });
+      print << "Vehicle " << vid << "\n"
+            << " early: " << vet << "\n"
+            << " late:  " << vlt << "\n"
+            << " nnd:   " << nnd << "\n"  // next-node dist
+            << " lvn:   " << lvn << "\n"  // last-visited node index
+            << " sched: "; print_sch(sch);
+      print << " route: "; print_rte(rte); });
 
 
     bool active = true;  // all vehicles selected by ssv_stmt are active
@@ -200,13 +203,13 @@ int Cargo::step(int& ndeact) {
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
           NodeId new_dest = random_node();
           Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
-          Stop b(stop.owner(), new_dest  , StopType::VehlDest, stop.early(), -1);
-          std::vector<Wayp> route;
-          route_through({a, b}, route);
+          Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
+          std::vector<Wayp> new_rte;
+          route_through({a, b}, new_rte);
 
           /* Don't subtract nnd here; the "extra" distance the taxi travels
            * past its destination is lost. It doesn't have a next wp anyway. */
-          int new_nnd = route.at(1).first;
+          int new_nnd = new_rte.at(1).first;
 
           /* Insert the new route */
           sqlite3_bind_blob(uro_stmt2, 1,
@@ -223,7 +226,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(uro_stmt2);
 
           /* Insert schedule */
-          Stop next_loc(stop.owner(), route.at(1).second, StopType::VehlOrig, stop.early(), -1);
+          Stop next_loc(stop.owner(), new_rte.at(1).second, StopType::VehlOrig, stop.early(), -1);
           std::vector<Stop> sch{next_loc, b};
           sqlite3_bind_blob(sch_stmt2, 1,
             static_cast<void const*>(sch.data()),sch.size()*sizeof(Stop),SQLITE_TRANSIENT);
@@ -237,6 +240,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(sch_stmt2);
 
           active = false; // stop the loop
+        }
 
         /* Vehicle arrives at a pickup */
         } else if (stop.type() == StopType::CustOrig) {
@@ -258,6 +262,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_clear_bindings(ucs_stmt);
           sqlite3_reset(pup_stmt);
           sqlite3_reset(ucs_stmt);
+        }
 
         /* Vehicle arrived at dropoff */
         } else if (stop.type() == StopType::CustDest) {
@@ -280,6 +285,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(drp_stmt);
           sqlite3_reset(ucs_stmt);
         }
+
         /* Update visitedAt (used for avg. delay statistics) */
         sqlite3_bind_int(vis_stmt, 1, t_);
         sqlite3_bind_int(vis_stmt, 2, stop.owner());
@@ -302,6 +308,11 @@ int Cargo::step(int& ndeact) {
       if (active) nnd += (rte.at(lvn + 1).first - rte.at(lvn).first);
     }  // end outer while (vehicle negative nnd)
 
+      /* Update next-node distance to the new next-node */
+      if (active) nnd += (rte.at(lvn+1).first - rte.at(lvn).first);
+    }  // end outer while (moved)
+
+    /* Adjust active vehicles */
     if (active) {
       if (nstops > 0) {
         /* Update schedule (remove the just-visited stops) */
@@ -354,8 +365,8 @@ int Cargo::step(int& ndeact) {
   if (!log_v_.empty()) Logger::put_v_message(log_v_);
   if (!log_a_.empty()) Logger::put_a_message(log_a_);
 
-  return nrows;
-}  // release dblock
+  return nrows;  // return number of stepped vehicles
+}   // dblock exits scope and is released
 
 /* Returns cost of all vehicle routes, plus the base cost for each
  * unassigned customer trip */
@@ -492,25 +503,29 @@ void Cargo::start(RSAlgorithm& rsalg) {
 
   /* Cargo thread
    * (Don't call any rsalg methods here) */
+  typedef std::chrono::duration<double, std::milli> dur_milli;
+  typedef std::chrono::milliseconds milli;
   std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
     t0 = std::chrono::high_resolution_clock::now();
 
-    /* Timeout customers where t_ > early + matching_period_ */
-    // Log timed-out customers
-    std::vector<CustId> timeout;
+    /* Log timed-out customers */
+    log_t_.clear();
     sqlite3_bind_int(stc_stmt, 1, t_);
     sqlite3_bind_int(stc_stmt, 2, matp_);
     sqlite3_bind_int(stc_stmt, 3, (int)CustStatus::Canceled);
-    while ((rc = sqlite3_step(stc_stmt)) == SQLITE_ROW) {
-      timeout.push_back(sqlite3_column_int(stc_stmt, 0));
+    while ((rc = sqlite3_step(stc_stmt)) == SQLITE_ROW)
+      log_t_.push_back(sqlite3_column_int(stc_stmt, 0));
+    if (rc != SQLITE_DONE) {
+      print(MessageType::Error) << "Failure in select timeout customers. Reason:\n";
+      throw std::runtime_error(sqlite3_errmsg(db_));
     }
     sqlite3_clear_bindings(stc_stmt);
     sqlite3_reset(stc_stmt);
-    if (timeout.size() != 0) Logger::put_t_message(timeout);
+    if (!log_t_.empty()) Logger::put_t_message(log_t_);
 
-    // Update timeout customers
+    /* Timeout customers waited beyond the matching period (matp_) */
     sqlite3_bind_int(tim_stmt, 1, (int)CustStatus::Canceled);
     sqlite3_bind_int(tim_stmt, 2, t_);
     sqlite3_bind_int(tim_stmt, 3, matp_);
@@ -518,7 +533,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
       print(MessageType::Error) << "Failed to timeout customers. Reason:\n";
       throw std::runtime_error(sqlite3_errmsg(db_));
     }
-    DEBUG(1, { print << "(Timed out " << sqlite3_changes(db_) << " customers)\n"; });
+    DEBUG(1, { print << sqlite3_changes(db_) << " customers have timed out.\n"; });
     sqlite3_clear_bindings(tim_stmt);
     sqlite3_reset(tim_stmt);
 
@@ -529,14 +544,12 @@ void Cargo::start(RSAlgorithm& rsalg) {
           << " vehicles; remaining=" << active_vehicles_ << ";" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
-
-    dur = std::round(std::chrono::duration<double, std::milli>(t1 - t0).count());
+    dur = std::round(dur_milli(t1 - t0).count());
     if (dur > sleep_interval_)
-      print(MessageType::Warning) << "step() (" << dur << " ms) exceeds interval ("
-                    << sleep_interval_ << " ms)\n";
+      print(MessageType::Warning)
+        << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
     else
-      std::this_thread::sleep_for(
-          std::chrono::milliseconds(sleep_interval_ - dur));
+      std::this_thread::sleep_for(milli(sleep_interval_ - dur));
 
     /* Increment the time step */
     t_ += 1;
@@ -547,12 +560,9 @@ void Cargo::start(RSAlgorithm& rsalg) {
   thread_rsalg.join();
   print << "Finished algorithm " << rsalg.name() << std::endl;
 
-  /* Stop logger */
-  print << "Logger stopped" << std::endl;
   logger.stop();
   logger_thread.join();
-
-  avg_pickup_delay();
+  print << "Stopped logger" << std::endl;
 
   /* Print solution
    * (e.g. # matches, avg. delay statistics, other statistics) */
@@ -791,7 +801,7 @@ void Cargo::initialize(const Options& opt) {
       tmax_ = std::max(trip.late(), tmax_);
     }
   }
-  sqlite3_exec(db_, "END TRANSACTION;", NULL, NULL, &err);
+  sqlite3_exec(db_, "END", NULL, NULL, &err);
 
   active_vehicles_ = total_vehicles_;
 

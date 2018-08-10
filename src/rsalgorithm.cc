@@ -101,19 +101,32 @@ bool RSAlgorithm::assign(
   const std::vector<Wayp>& new_rte = vehl.route().data();
   const std::vector<Stop>& new_sch = vehl.schedule().data();
 
-  /* Get current status */
-  sqlite3_bind_int(svs_stmt, 1, vehl.id());
-  if (sqlite3_step(svs_stmt) != SQLITE_ROW) {
+  /* Query current vehicle properties */
+  sqlite3_clear_bindings(sov_stmt);
+  sqlite3_reset(sov_stmt);
+  sqlite3_bind_int(sov_stmt, 1, vehl.id());
+  if (sqlite3_step(sov_stmt) != SQLITE_ROW) {
     vehl.print();
-    throw std::runtime_error("select status stmt returned no rows.");
+    throw std::runtime_error("select one vehicle stmt returned no rows.");
   }
-  if (static_cast<VehlStatus>(sqlite3_column_int(svs_stmt, 0))
-        == VehlStatus::Arrived) {
-    sqlite3_clear_bindings(svs_stmt);
-    sqlite3_reset(svs_stmt);
+
+  /* Return false if vehicle is already arrived */
+  if (static_cast<VehlStatus>(sqlite3_column_int(sov_stmt, 7)) == VehlStatus::Arrived)
     return false;
-  }
-  if (sqlite3_step(svs_stmt) != SQLITE_DONE) {
+
+  /* Extract current schedule */
+  const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(sov_stmt, 11));
+  std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(sov_stmt, 11) / sizeof(Stop));
+  std::vector<Stop> cur_sch = raw_sch;
+
+  /* Extract current route */
+  const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sov_stmt, 8));
+  std::vector<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(sov_stmt, 8) / sizeof(Wayp));
+  std::vector<Wayp> cur_rte = raw_rte;
+  RteIdx  cur_lvn = sqlite3_column_int(sov_stmt, 9);
+  DistInt cur_nnd = sqlite3_column_int(sov_stmt, 10);
+
+  if (sqlite3_step(sov_stmt) != SQLITE_DONE) {
     vehl.print();
     throw std::runtime_error("select status stmt returned multiple rows.");
   }
@@ -266,7 +279,7 @@ bool RSAlgorithm::assign(
   sqlite3_clear_bindings(sch_stmt2);
   sqlite3_reset(sch_stmt2);
 
-  // Increase queued
+  /* Increase queued */
   sqlite3_bind_int(qud_stmt, 1, (int)(custs_to_add.size()-custs_to_del.size()));
   sqlite3_bind_int(qud_stmt, 2, vehl.id());
   if ((rc = sqlite3_step(qud_stmt)) != SQLITE_DONE) {
@@ -276,7 +289,7 @@ bool RSAlgorithm::assign(
   sqlite3_clear_bindings(qud_stmt);
   sqlite3_reset(qud_stmt);
 
-  // Commit the assignment
+  /* Commit the assignment */
   for (const auto& cust_id : custs_to_add) {
     sqlite3_bind_int(com_stmt, 1, vehl.id());
     sqlite3_bind_int(com_stmt, 2, cust_id);
@@ -288,7 +301,7 @@ bool RSAlgorithm::assign(
     sqlite3_reset(com_stmt);
   }
 
-  // Commit un-assignments
+  /* Commit un-assignments */
   for (const auto& cust_id : custs_to_del) {
     sqlite3_bind_null(com_stmt, 1);
     sqlite3_bind_int(com_stmt, 2, cust_id);
@@ -300,7 +313,7 @@ bool RSAlgorithm::assign(
     sqlite3_reset(com_stmt);
   }
 
-  // Write log
+  /* Log the route and match events */
   Logger::put_r_message(out_rte, vehl);
   Logger::put_m_message(custs_to_add, custs_to_del, vehl.id());
 

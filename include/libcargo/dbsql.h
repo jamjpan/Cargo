@@ -72,18 +72,6 @@ const SqliteQuery create_cargo_tables =
     "visitedAt      int,"
     "primary key (owner, location),"
     "foreign key (location) references nodes(id)"
-    ") without rowid;"
-    "create table schedules("
-    "owner          int primary key,"
-    "data           blob not null,"
-    "foreign key (owner) references vehicles(id)"
-    ") without rowid;"
-    "create table routes("
-    "owner          int primary key,"
-    "data           blob not null,"
-    "idx_last_visited_node int not null,"
-    "next_node_distance int not null,"
-    "foreign key (owner) references vehicles(id)"
     ") without rowid;";
 
 /* Select statements */
