@@ -26,7 +26,7 @@
 using namespace cargo;
 
 NearestNeighbor::NearestNeighbor()
-    : RSAlgorithm("nn"),
+    : RSAlgorithm("nearest_neighbor"),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 1;  // Set batch to 1 second
   nmat_ = 0;      // Initialize my private counter
@@ -77,16 +77,9 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
   /* Commit match to the db. Also refresh our local grid index, so data is
    * fresh for other handle_customers that occur before the next listen(). */
   if (matched) {
-    auto old_rte = best_vehl->route().data();
-    auto old_sch = best_vehl->schedule().data();
-    best_vehl->set_rte(best_rte);
-    best_vehl->set_sch(best_sch);
-    if (assign({cust.id()}, {}, *best_vehl)) {
+    if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
-    } else {
-      best_vehl->set_rte(old_rte);
-      best_vehl->set_sch(old_sch);
     }
   }
 }
@@ -107,13 +100,14 @@ void NearestNeighbor::listen() {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
-  op.path_to_solution = "a.sol";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_solution = "nearest_neighbor.sol";
+  op.path_to_dataout  = "nearest_neighbor.dat";
   op.time_multiplier  = 1;
-  op.vehicle_speed    = 10;
+  op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
   cargo::Cargo cargo(op);

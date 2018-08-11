@@ -83,10 +83,6 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
 
   /* Commit match to the db. */
   if (matched) {
-    auto old_rte = best_vehl->route().data();
-    auto old_sch = best_vehl->schedule().data();
-    best_vehl->set_rte(best_rte);
-    best_vehl->set_sch(best_sch);
     /* Function assign(3) will synchronize the vehicle (param3) before
      * committing it the database. Synchronize is necessary due to "match
      * latency". The vehicle may have moved since the match began computing,
@@ -95,14 +91,11 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
      * visited stops that occurred during the latency, and will also re-route
      * the vehicle if it's missed an intersection that the match instructs it
      * to make. */
-    if (assign({cust.id()}, {}, *best_vehl)) {
+    if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       print(MessageType::Success) << "Match "
           << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
           << std::endl;
       nmat_++;
-    } else {
-      best_vehl->set_rte(old_rte);
-      best_vehl->set_sch(old_sch);
     }
     if (delay_.count(cust.id())) delay_.erase(cust.id());
   } else {
@@ -133,11 +126,11 @@ int main() {
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  op.path_to_solution = "temp.sol";
-  op.path_to_dataout  = "temp.dat";
-  op.time_multiplier  = 10;
+  op.path_to_solution = "greedy_insertion.sol";
+  op.path_to_dataout  = "greedy_insertion.dat";
+  op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
-  op.matching_period  = 30;
+  op.matching_period  = 60;
 
   Cargo cargo(op);
 

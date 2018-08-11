@@ -486,12 +486,12 @@ void TripVehicleGrouping::match() {
      * assignment. */
     if (glp_mip_col_val(mip, i) == 1) {
       MutableVehicle sync_vehl(vehmap.at(colmap[i].first));
-      sync_vehl.set_rte(vt_rte.at(colmap[i].first).at(colmap[i].second));
-      sync_vehl.set_sch(vt_sch.at(colmap[i].first).at(colmap[i].second));
+      std::vector<Wayp>& new_rte = vt_rte.at(colmap[i].first).at(colmap[i].second);
+      std::vector<Stop>& new_sch = vt_sch.at(colmap[i].first).at(colmap[i].second);
       std::vector<CustId> cadd {};
       for (const Customer& cust : trip_.at(colmap[i].second))
         cadd.push_back(cust.id());
-      if (assign(cadd, {}, sync_vehl)) {
+      if (assign(cadd, {}, new_rte, new_sch, sync_vehl)) {
         for (const auto& cust : trip_.at(colmap[i].second))
           print(MessageType::Success) << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
         nmat_++;
@@ -568,13 +568,13 @@ SharedTripId TripVehicleGrouping::add_trip(const SharedTrip& trip) {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;
-  op.vehicle_speed    = 10;
+  op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
   cargo::Cargo cargo(op);
@@ -585,7 +585,7 @@ int main() {
   /* The default penalty for unassignment is a customer's base cost. But for
    * permanent taxis, the penalty needs to be much higher in order to divert the
    * taxi. Set unassign_penalty to a high number > 0 to override the default. */
-  // tvg.unassign_penalty = 20000;
+  tvg.unassign_penalty = 20000;
 
   /* Start Cargo */
   cargo.start(tvg);

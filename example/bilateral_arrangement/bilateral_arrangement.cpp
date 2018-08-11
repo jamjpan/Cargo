@@ -93,19 +93,10 @@ void BilateralArrangement::match() {
         /* Remove some random not-picked-up customer from cand and try the
          * insertion again. If it meets constraints, then accept. */
         CustId remove_me = randcust(best_vehl->schedule().data());
-        if (remove_me == best_vehl->id()) {
-          print(MessageType::Error) << "remove_me (" << remove_me << ") == vehicle id" << std::endl;
-          throw;
-        }
         if (remove_me != -1) {
           std::vector<Stop> old_sch = best_vehl->schedule().data(); // make a backup
           std::vector<Stop> new_sch = old_sch;                      // make a copy
-          if (!remove_cust(new_sch, remove_me)) {
-            print(MessageType::Error) << "could not remove cust..." << std::endl;
-            print_sch(new_sch);
-            print << "remove_me=" << remove_me << std::endl;
-            throw;
-          }
+          remove_cust(new_sch, remove_me);
           best_vehl->set_sch(new_sch);
           std::vector<Stop> new_best_sch;
           std::vector<Wayp> new_best_rte;
@@ -126,26 +117,19 @@ void BilateralArrangement::match() {
 
     /* Commit */
     if (matched) {
-      auto old_rte = best_vehl->route().data();
-      auto old_sch = best_vehl->schedule().data();
-      best_vehl->set_rte(best_rte);
-      best_vehl->set_sch(best_sch);
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
 
       /* assign() will modify best_vehl with the synchronized version to
        * account for match latency */
-      if (assign({cust.id()}, cust_to_del, *best_vehl)) {
-        print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+      if (assign({cust.id()}, cust_to_del, best_rte, best_sch, *best_vehl)) {
+        print(MessageType::Success)
+          << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
         nmat_++;
-      } else {
-        best_vehl->set_rte(old_rte);
-        best_vehl->set_sch(old_sch);
       }
       if (delay_.count(cust.id())) delay_.erase(cust.id());
-    } else {
+    } else
       delay_[cust.id()] = Cargo::now();
-    }
   } // end while !custs.empty()
 }
 
@@ -168,7 +152,7 @@ int main() {
   op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;
-  op.vehicle_speed    = 10;
+  op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
   cargo::Cargo cargo(op);
