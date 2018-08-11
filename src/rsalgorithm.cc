@@ -149,10 +149,10 @@ bool RSAlgorithm::assign(
       return false;
     }
 
-    /* If sync failed due to customer out of sync (a customer to add/delete has
+    /* If sync failed due to customer out of sync (a customer to delete has
      * already been picked up, don't re-route */
-    if (synced == CDEL_SYNC_FAIL || synced == CADD_SYNC_FAIL) {
-      DEBUG(3, { print(MessageType::Error) << "assign() failed due to c-sync." << std::endl; });
+    if (synced == CDEL_SYNC_FAIL) {
+      DEBUG(3, { print(MessageType::Error) << "assign() failed due to cdel-sync." << std::endl; });
       return false;
     }
 
@@ -314,7 +314,7 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
   });
 
   /* VALIDATE CUSTOMERS
-   * If any customer stops are passed already, sync fails */
+   * If any customer stops are visited already, sync fails */
   for (const CustId& cid : cadd) {
     sqlite3_bind_int(sva_stmt, 1, cid);
     sqlite3_bind_int(sva_stmt, 2, (int)StopType::CustOrig);
@@ -425,17 +425,17 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
 
   /* Synchronize fails if any stops in the prefix belong to cadd
    * (both stops must be in the remaining schedule) */
-  // for (const CustId& cust_id : cadd) {
-  //   auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
-  //           return a.owner() == cust_id && a.type() == StopType::CustOrig; });
-  //   if (g == new_sch.end()) {
-  //     DEBUG(3, { print
-  //       << "sync(9) bad add(owner=" << cust_id << ")"
-  //       << std::endl;
-  //     });
-  //     return CADD_SYNC_FAIL;
-  //   }
-  // }
+  for (const CustId& cust_id : cadd) {
+    auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
+            return a.owner() == cust_id && a.type() == StopType::CustOrig; });
+    if (g == new_sch.end()) {
+      DEBUG(3, { print
+        << "sync(9) bad add(owner=" << cust_id << ")"
+        << std::endl;
+      });
+      return CADD_SYNC_FAIL;
+    }
+  }
 
   /* Synchronize fails if any stops in the prefix belong to cdel
    * (both stops must be in the remaining schedule) */
