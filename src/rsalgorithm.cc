@@ -96,12 +96,11 @@ std::vector<Vehicle>  & RSAlgorithm::vehicles()  { return vehicles_; }
 bool RSAlgorithm::assign(
         const std::vector<CustId> & custs_to_add,
         const std::vector<CustId> & custs_to_del,
+        const std::vector<Wayp>   & new_rte,
+        const std::vector<Stop>   & new_sch,
               MutableVehicle      & vehl,
               bool                strict) {
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
-
-  const std::vector<Wayp>& new_rte = vehl.route().data();
-  const std::vector<Stop>& new_sch = vehl.schedule().data();
 
   /* Query current vehicle properties */
   sqlite3_clear_bindings(sov_stmt);

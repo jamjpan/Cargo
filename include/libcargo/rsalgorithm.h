@@ -79,6 +79,8 @@ class RSAlgorithm {
    * meets constraints, then the assignment is accepted. */
   bool assign(const std::vector<CustId>&, // custs to add
               const std::vector<CustId>&, // custs to del
+              const std::vector<Wayp>  &, // new route
+              const std::vector<Stop>  &, // new schedule
                     MutableVehicle&,      // vehicle to assign to
                     bool strict = false);
 
