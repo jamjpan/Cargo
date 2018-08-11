@@ -93,14 +93,14 @@ class RSAlgorithm {
   std::vector<Vehicle>  vehicles_;
 
   SqliteReturnCode rc;
-  sqlite3_stmt* ssr_stmt2; // select route
-  sqlite3_stmt* sss_stmt2; // select schedule
-  sqlite3_stmt* uro_stmt2; // update route
-  sqlite3_stmt* sch_stmt2; // update sched
+  sqlite3_stmt* ssr_stmt;  // select route
+  sqlite3_stmt* sss_stmt;  // select schedule
+  sqlite3_stmt* uro_stmt;  // update route
+  sqlite3_stmt* sch_stmt;  // update sched
   sqlite3_stmt* qud_stmt;  // increase queued
   sqlite3_stmt* com_stmt;  // assign cust to veh
-  sqlite3_stmt* smv_stmt2; // select matchable vehicles
-  sqlite3_stmt* sav_stmt2; // select all vehicles
+  sqlite3_stmt* smv_stmt;  // select matchable vehicles
+  sqlite3_stmt* sav_stmt;  // select all vehicles
   sqlite3_stmt* swc_stmt;  // select waiting customers
   sqlite3_stmt* sac_stmt;  // select all customers
   sqlite3_stmt* svs_stmt;  // select vehicle status

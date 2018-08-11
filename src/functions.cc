@@ -243,6 +243,8 @@ bool remove_cust(std::vector<Stop>& sch, const CustId& cust_id) {
     sch = new_sch;
     return true;
   }
+  std::cout << "remove_cust() unknown error" << std::endl;
+  throw;
   return false;
 }
 

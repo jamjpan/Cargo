@@ -148,17 +148,17 @@ class Cargo {
   SqliteErrorMessage err;
   sqlite3_stmt* tim_stmt;  // timeout customers
   sqlite3_stmt* sac_stmt;  // select all customers
-  sqlite3_stmt* sar_stmt2; // select all routes
-  sqlite3_stmt* ssv_stmt2; // select step vehicles
+  sqlite3_stmt* sar_stmt;  // select all routes
+  sqlite3_stmt* ssv_stmt;  // select step vehicles
   sqlite3_stmt* ucs_stmt;  // update cust status
-  sqlite3_stmt* uro_stmt2; // update route, lvn, nnd
-  sqlite3_stmt* sch_stmt2; // update schedule
+  sqlite3_stmt* uro_stmt;  // update route, lvn, nnd
+  sqlite3_stmt* sch_stmt;  // update schedule
   sqlite3_stmt* dav_stmt;  // deactivate vehicle
   sqlite3_stmt* pup_stmt;  // pickup
   sqlite3_stmt* drp_stmt;  // dropoff
   sqlite3_stmt* vis_stmt;  // visitedAt
-  sqlite3_stmt* lvn_stmt2; // last-visited node
-  sqlite3_stmt* nnd_stmt2; // nearest-node dist
+  sqlite3_stmt* lvn_stmt;  // last-visited node
+  sqlite3_stmt* nnd_stmt;  // nearest-node dist
   sqlite3_stmt* stc_stmt;  // select timed-out customers
   sqlite3_stmt* mov_stmt;  // bulk-move vehicles
   sqlite3_stmt* usc_stmt;  // update schedule, lvn, nnd
