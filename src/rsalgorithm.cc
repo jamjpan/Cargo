@@ -51,7 +51,8 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
       sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt, -1, &sav_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::svs_stmt, -1, &svs_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sov_stmt, -1, &sov_stmt, NULL) != SQLITE_OK) {
+      sqlite3_prepare_v2(Cargo::db(), sql::sov_stmt, -1, &sov_stmt, NULL) != SQLITE_OK ||
+      sqlite3_prepare_v2(Cargo::db(), sql::sva_stmt, -1, &sva_stmt, NULL) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create rsalg stmts). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
@@ -70,6 +71,7 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(sav_stmt);
   sqlite3_finalize(svs_stmt);
   sqlite3_finalize(sov_stmt);
+  sqlite3_finalize(sva_stmt);
 }
 
 const std::string & RSAlgorithm::name() const { return name_; }
@@ -147,10 +149,10 @@ bool RSAlgorithm::assign(
       return false;
     }
 
-    /* If sync failed due to customer out of sync (a customer to delete has
+    /* If sync failed due to customer out of sync (a customer to add/delete has
      * already been picked up, don't re-route */
-    if (synced == CDEL_SYNC_FAIL) {
-      DEBUG(3, { print(MessageType::Error) << "assign() failed due to cdel-sync." << std::endl; });
+    if (synced == CDEL_SYNC_FAIL || synced == CADD_SYNC_FAIL) {
+      DEBUG(3, { print(MessageType::Error) << "assign() failed due to c-sync." << std::endl; });
       return false;
     }
 
@@ -158,14 +160,14 @@ bool RSAlgorithm::assign(
 
     /* Re-route is only possible if no customers marked for deletion are already
      * passed (necessary in case of curloc/prefix mismatch). */
-    for (const CustId& cust_id : cdel) {
-      auto x = std::find_if(cur_sch.begin(), cur_sch.end(), [&](const Stop& a) {
-              return a.owner() == cust_id && a.type() == StopType::CustOrig; });
-      if (x == cur_sch.end()) {
-        DEBUG(3, { print(MessageType::Error) << "assign() failed due to cdel-sync." << std::endl; });
-        return false;
-      }
-    }
+    // for (const CustId& cust_id : cdel) {
+    //   auto x = std::find_if(cur_sch.begin(), cur_sch.end(), [&](const Stop& a) {
+    //           return a.owner() == cust_id && a.type() == StopType::CustOrig; });
+    //   if (x == cur_sch.end()) {
+    //     DEBUG(3, { print(MessageType::Error) << "assign() failed due to cdel-sync." << std::endl; });
+    //     return false;
+    //   }
+    // }
 
     /* The recomputed route must include the vehicle's current location
      * and the next node in the current route (the vehicle must arrive at
@@ -311,6 +313,69 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
     std::cout << "sync(9) got cur_sch: "; print_sch(cur_sch);
   });
 
+  /* VALIDATE CUSTOMERS
+   * If any customer stops are passed already, sync fails */
+  for (const CustId& cid : cadd) {
+    sqlite3_bind_int(sva_stmt, 1, cid);
+    sqlite3_bind_int(sva_stmt, 2, (int)StopType::CustOrig);
+    if (sqlite3_step(sva_stmt) != SQLITE_ROW) {
+      print(MessageType::Error) << "sva_stmt failed" << std::endl;
+      throw;
+    }
+    if (sqlite3_step(sva_stmt) != SQLITE_DONE) {
+      print(MessageType::Error) << "sva_stmt multiple rows" << std::endl;
+      throw;
+    }
+    if (sqlite3_column_int(sva_stmt, 0) == -1)
+      return CADD_SYNC_FAIL;
+    sqlite3_clear_bindings(sva_stmt);
+    sqlite3_reset(sva_stmt);
+    sqlite3_bind_int(sva_stmt, 1, cid);
+    sqlite3_bind_int(sva_stmt, 2, (int)StopType::CustDest);
+    if (sqlite3_step(sva_stmt) != SQLITE_ROW) {
+      print(MessageType::Error) << "sva_stmt failed" << std::endl;
+      throw;
+    }
+    if (sqlite3_step(sva_stmt) != SQLITE_DONE) {
+      print(MessageType::Error) << "sva_stmt multiple rows" << std::endl;
+      throw;
+    }
+    if (sqlite3_column_int(sva_stmt, 0) == -1)
+      return CADD_SYNC_FAIL;
+    sqlite3_clear_bindings(sva_stmt);
+    sqlite3_reset(sva_stmt);
+  }
+  for (const CustId& cid : cdel) {
+    sqlite3_bind_int(sva_stmt, 1, cid);
+    sqlite3_bind_int(sva_stmt, 2, (int)StopType::CustOrig);
+    if (sqlite3_step(sva_stmt) != SQLITE_ROW) {
+      print(MessageType::Error) << "sva_stmt failed" << std::endl;
+      throw;
+    }
+    if (sqlite3_step(sva_stmt) != SQLITE_DONE) {
+      print(MessageType::Error) << "sva_stmt multiple rows" << std::endl;
+      throw;
+    }
+    if (sqlite3_column_int(sva_stmt, 0) == -1)
+      return CDEL_SYNC_FAIL;
+    sqlite3_clear_bindings(sva_stmt);
+    sqlite3_reset(sva_stmt);
+    sqlite3_bind_int(sva_stmt, 1, cid);
+    sqlite3_bind_int(sva_stmt, 2, (int)StopType::CustDest);
+    if (sqlite3_step(sva_stmt) != SQLITE_ROW) {
+      print(MessageType::Error) << "sva_stmt failed" << std::endl;
+      throw;
+    }
+    if (sqlite3_step(sva_stmt) != SQLITE_DONE) {
+      print(MessageType::Error) << "sva_stmt multiple rows" << std::endl;
+      throw;
+    }
+    if (sqlite3_column_int(sva_stmt, 0) == -1)
+      return CDEL_SYNC_FAIL;
+    sqlite3_clear_bindings(sva_stmt);
+    sqlite3_reset(sva_stmt);
+  }
+
   /* COMPARE PREFIXES
    * If mismatch, sync fails. If match, proceed with checking stops */
   const NodeId& curloc = cur_rte.at(idx_lvn).second;
@@ -360,31 +425,31 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
 
   /* Synchronize fails if any stops in the prefix belong to cadd
    * (both stops must be in the remaining schedule) */
-  for (const CustId& cust_id : cadd) {
-    auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
-            return a.owner() == cust_id && a.type() == StopType::CustOrig; });
-    if (g == new_sch.end()) {
-      DEBUG(3, { print
-        << "sync(9) bad add(owner=" << cust_id << ")"
-        << std::endl;
-      });
-      return CADD_SYNC_FAIL;
-    }
-  }
+  // for (const CustId& cust_id : cadd) {
+  //   auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
+  //           return a.owner() == cust_id && a.type() == StopType::CustOrig; });
+  //   if (g == new_sch.end()) {
+  //     DEBUG(3, { print
+  //       << "sync(9) bad add(owner=" << cust_id << ")"
+  //       << std::endl;
+  //     });
+  //     return CADD_SYNC_FAIL;
+  //   }
+  // }
 
   /* Synchronize fails if any stops in the prefix belong to cdel
    * (both stops must be in the remaining schedule) */
-  for (const CustId& cust_id : cdel) {
-    auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
-            return a.owner() == cust_id && a.type() == StopType::CustOrig; });
-    if (g == new_sch.end()) {
-      DEBUG(3, { print
-        << "sync(9) bad del(owner=" << cust_id << ")"
-        << std::endl;
-      });
-      return CDEL_SYNC_FAIL;
-    }
-  }
+  // for (const CustId& cust_id : cdel) {
+  //   auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
+  //           return a.owner() == cust_id && a.type() == StopType::CustOrig; });
+  //   if (g == new_sch.end()) {
+  //     DEBUG(3, { print
+  //       << "sync(9) bad del(owner=" << cust_id << ")"
+  //       << std::endl;
+  //     });
+  //     return CDEL_SYNC_FAIL;
+  //   }
+  // }
 
   /* Return remaining portion of new route and last-visited node */
   out_rte.push_back(cur_rte.at(idx_lvn));

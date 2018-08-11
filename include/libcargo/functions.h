@@ -59,7 +59,7 @@ CustId randcust(const std::vector<Stop> &);
 // Remove a customer from a vehicle's schedule
 // (only performs removal if both customer stops are in the schedule. otherwise
 // returns false)
-bool remove_cust(std::vector<Stop> &, const CustId &);
+void remove_cust(std::vector<Stop> &, const CustId &);
 
 // Given a schedule and a customer, return the cost of the best-insertion
 // schedule, and output the schedule and the route. The two bools are for
@@ -82,6 +82,12 @@ DistInt sop_insert(const Vehicle &, const Customer &,
  * MutableVehicle pointers. */
 DistInt sop_insert(const std::shared_ptr<MutableVehicle> &, const Customer &,
                    std::vector<Stop> &, std::vector<Wayp> &);
+
+
+/* Replace customer (param2) with a new customer (param3)
+ * (remove the old customer, then sop_insert the new customer) */
+DistInt sop_replace(const std::shared_ptr<MutableVehicle> &, const CustId &,
+                    const Customer &, std::vector<Stop> &, std::vector<Wayp> &);
 
 }  // namespace cargo
 

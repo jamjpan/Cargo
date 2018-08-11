@@ -768,7 +768,7 @@ void Cargo::initialize(const Options& opt) {
       sqlite3_bind_int(insert_stop_stmt, 3, (int)stop_type);
       sqlite3_bind_int(insert_stop_stmt, 4, trip.early());
       sqlite3_bind_int(insert_stop_stmt, 5, trip.late());
-      sqlite3_bind_int(insert_stop_stmt, 6, trip.early());
+      sqlite3_bind_int(insert_stop_stmt, 6, -1);
       if (sqlite3_step(insert_stop_stmt) != SQLITE_DONE) {
         print(MessageType::Error) << "Failure at stop " << trip.orig() << "\n";
         print(MessageType::Error) << "Failed (insert stop). Reason:\n";
@@ -783,7 +783,7 @@ void Cargo::initialize(const Options& opt) {
       sqlite3_bind_int(insert_stop_stmt, 3, (int)stop_type + 1);
       sqlite3_bind_int(insert_stop_stmt, 4, trip.early());
       sqlite3_bind_int(insert_stop_stmt, 5, trip.late());
-      sqlite3_bind_null(insert_stop_stmt, 6);
+      sqlite3_bind_int(insert_stop_stmt, 6, -1);
       if (sqlite3_step(insert_stop_stmt) != SQLITE_DONE) {
         print(MessageType::Error) << "Failure at stop " << trip.dest() << "\n";
         print(MessageType::Error) << "Failed (insert stop). Reason:\n";

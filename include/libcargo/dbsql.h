@@ -109,6 +109,9 @@ const SqliteQuery sss_stmt = "select schedule from vehicles where id = ?;";
 // Select waiting customers
 const SqliteQuery swc_stmt = "select * from customers where status = ? and ? >= early;";
 
+// Select stop visitedAt
+const SqliteQuery sva_stmt = "select visitedAt from stops where owner = ? and type = ?;";
+
 /* Update customers */
 // Update customer status
 const SqliteQuery ucs_stmt = "update customers set status = ? where id = ?;";

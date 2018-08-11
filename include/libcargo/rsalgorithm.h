@@ -107,6 +107,7 @@ class RSAlgorithm {
   sqlite3_stmt* sac_stmt;  // select all customers
   sqlite3_stmt* svs_stmt;  // select vehicle status
   sqlite3_stmt* sov_stmt;  // select one vehicle
+  sqlite3_stmt* sva_stmt;  // select stop visitedAt
 
   typedef enum {
     SUCCESS,

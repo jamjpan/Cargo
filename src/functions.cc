@@ -234,18 +234,16 @@ CustId randcust(const std::vector<Stop>& sch) {
   return -1;
 }
 
-bool remove_cust(std::vector<Stop>& sch, const CustId& cust_id) {
+void remove_cust(std::vector<Stop>& sch, const CustId& cust_id) {
   std::vector<Stop> new_sch {};
   for (const Stop& a : sch)
     if (a.owner() != cust_id)
       new_sch.push_back(a);
-  if (sch.size() - new_sch.size() == 2) { // should remove exactly two stops
-    sch = new_sch;
-    return true;
+  if (sch.size() - new_sch.size() != 2) {
+    std::cout << "remove_cust() unknown error" << std::endl;
+    throw;
   }
-  std::cout << "remove_cust() unknown error" << std::endl;
-  throw;
-  return false;
+  sch = new_sch;
 }
 
 DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
@@ -347,6 +345,16 @@ DistInt sop_insert(const std::shared_ptr<MutableVehicle>& mutvehl,
                        const Customer& cust, std::vector<Stop>& schout,
                        std::vector<Wayp>& rteout) {
   return sop_insert(*mutvehl, cust, schout, rteout);
+}
+
+DistInt sop_replace(const std::shared_ptr<MutableVehicle>& mutvehl,
+                    const CustId& rm, const Customer& cust,
+                    std::vector<Stop>& schout, std::vector<Wayp>& rteout) {
+  MutableVehicle mutcopy = *mutvehl;
+  std::vector<Stop> sch1 = mutcopy.schedule().data();
+  remove_cust(sch1, rm);
+  mutcopy.set_sch(sch1);
+  return sop_insert(mutcopy, cust, schout, rteout);
 }
 
 }  // namespace cargo
