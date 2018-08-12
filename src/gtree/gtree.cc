@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 
 #include "gtree/gtree.h"
 
@@ -13,6 +14,8 @@ std::vector<coor>   coordinate;
 Wide_KNN_           Wide_KNN;
 G_Tree              tree;
 Graph               G;
+
+std::mutex G_Tree::gtmx;
 
 G_Tree get() {
     return tree;
@@ -1537,6 +1540,7 @@ int G_Tree::find_LCA(int x, int y) {
 }
 
 int G_Tree::search(int S, int T) {
+    std::lock_guard<std::mutex> gtlock(gtmx);  // Lock acquired
     if (S == T)
         return 0;
 
@@ -1647,6 +1651,7 @@ int G_Tree::search_catch(int S, int T, int bound) {
 }
 
 int G_Tree::find_path(int S, int T, std::vector<int> &order) {
+    std::lock_guard<std::mutex> gtlock(gtmx);  // Lock acquired
     order.clear();
     if (S == T) {
         order.push_back(S);

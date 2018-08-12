@@ -44,7 +44,7 @@
 
 namespace cargo {
 
-const int LRU_CACHE_SIZE = 10000;
+const int LRU_CACHE_SIZE = 1000000;
 
 /* Initialize global vars */
 KVNodes Cargo::nodes_ = {};

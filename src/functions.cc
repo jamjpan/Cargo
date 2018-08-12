@@ -84,13 +84,13 @@ DistInt route_through(const std::vector<Stop> & sch,
       seg = Cargo::spget(from, to);
     } // Lock released
     if(!in_cache) {
-      std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
       try { gtree.find_path(from, to, seg); }
       catch (...) {
         std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
         print_sch(sch);
         std::cout << "index: " << i << std::endl;
       }
+      std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
       Cargo::spput(from, to, seg);
     } // Lock released
     for (size_t i = 1; i < seg.size(); ++i) {

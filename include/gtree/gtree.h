@@ -3,6 +3,7 @@
 #include <queue>
 #include <map>
 #include <metis.h>
+#include <mutex>
 #include <cmath>
 #include <vector>
 
@@ -172,6 +173,9 @@ struct G_Tree { // Here we go!
     int node_tot, node_size;
     //Node *node;
     std::vector<Node> node;
+
+    // In case multiple threads are using the same gtree
+    static std::mutex gtmx;
 
     void save();
     void load();
