@@ -22,10 +22,11 @@
 #ifndef CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
 #define CARGO_INCLUDE_LIBCARGO_DISTANCE_H_
 
-#include "cargo.h" /* static gtree() */
+#include "cargo.h"
 #include "types.h"
 
 #include <cmath>
+#include <mutex>
 
 namespace cargo {
 
@@ -48,11 +49,31 @@ inline DistDbl haversine(NodeId u, NodeId v) {
   return haversine(Cargo::node2pt(u), Cargo::node2pt(v));
 }
 
+// (Maybe combine with route_through (functions.h))
 inline DistInt shortest_path_dist( // use specific gtree
         const NodeId& u,
         const NodeId& v,
         GTree::G_Tree& gtree) {
-  return gtree.search(u, v);  // meters
+  std::vector<NodeId> seg = {};
+  bool in_cache = false;
+  { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+  in_cache = Cargo::spexist(u, v);
+  if (in_cache)
+    seg = Cargo::spget(u, v);
+  } // Lock released
+  if (!in_cache) {
+    try { gtree.find_path(u,v,seg); }
+    catch (...) {
+      std::cout << "gtree.find_path(" << u << "," << v << ") failed" << std::endl;
+      throw;
+    }
+    std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+    Cargo::spput(u,v,seg);
+  } // Lock released
+  DistInt cst = 0;
+  for (size_t i = 1; i < seg.size(); ++i)
+    cst += Cargo::edgew(seg.at(i-1), seg.at(i));
+  return cst;
 }
 
 inline DistInt shortest_path_dist( // use global gtree
