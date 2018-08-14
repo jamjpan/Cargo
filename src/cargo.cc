@@ -46,6 +46,12 @@ namespace cargo {
 
 const int LRU_CACHE_SIZE = 1000000;
 
+/* Set FULL to true to allow the simulation to continue until all vehicles have
+ * arrived, or all customers have been dropped off. Set to false to stop the
+ * simulation as soon as all customers have appeared (+ matching period)
+ * (the solution cost is the same; but use true for a complete visualization) */
+const bool FULL = false;
+
 /* Initialize global vars */
 KVNodes Cargo::nodes_ = {};
 KVEdges Cargo::edges_ = {};
@@ -111,6 +117,10 @@ const std::string & Cargo::name()         { return probset_.name(); }
 const std::string & Cargo::road_network() { return probset_.road_network(); }
 
 int Cargo::step(int& ndeact) {
+  /* "Stop" the simulation once all the customers have appeared
+   * (no matches can be made anymore) */
+  if (!FULL && t_ > tmin_) speed_ = 100000;
+
   int nrows = ndeact = 0;
 
   /* Prepare logger containers */
@@ -183,7 +193,7 @@ int Cargo::step(int& ndeact) {
         /* Ridesharing vehicle arrives at destination; OR
          * Permanent taxi arrives at destination and no more customers remain */
         if (stop.type() == StopType::VehlDest &&
-           (stop.late() != -1 || t_ >= tmin_)) {
+           (stop.late() != -1 || t_ > tmin_)) {
           sqlite3_bind_int(dav_stmt, 1, (int)VehlStatus::Arrived);
           sqlite3_bind_int(dav_stmt, 2, vid);
           if (sqlite3_step(dav_stmt) != SQLITE_DONE) {
@@ -282,6 +292,39 @@ int Cargo::step(int& ndeact) {
           sqlite3_clear_bindings(ucs_stmt);
           sqlite3_reset(drp_stmt);
           sqlite3_reset(ucs_stmt);
+
+          /* If vehicle is a taxi, this is its last destination, and there
+           * are no more customers, stop the taxi (nstops is already incremented) */
+          if (vlt == -1 && t_ > tmin_ && sch.at(1 + nstops).type() == StopType::VehlDest) {
+            sqlite3_bind_int(dav_stmt, 1, (int)VehlStatus::Arrived);
+            sqlite3_bind_int(dav_stmt, 2, vid);
+            if (sqlite3_step(dav_stmt) != SQLITE_DONE) {
+              print(MessageType::Error) << "Failed (deactivate taxi " << vid << "). Reason:\n";
+              throw std::runtime_error(sqlite3_errmsg(db_));
+            } else
+              DEBUG(1, { print(MessageType::Info) << "Taxi " << vid << " deactivated." << std::endl; });
+            sqlite3_clear_bindings(dav_stmt);
+            sqlite3_reset(dav_stmt);
+            active = false;  // <-- stops the while loops
+            ndeact++;
+            /* Log arrival */
+            log_a_.push_back(stop.owner());
+
+            /* Kill the rest of its route (for computing solution cost) */
+            std::vector<Wayp> new_rte(rte.begin(),rte.begin()+lvn);
+            sqlite3_bind_blob(uro_stmt, 1,
+              static_cast<void const*>(new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
+            sqlite3_bind_int(uro_stmt, 2, lvn);        // lvn
+            sqlite3_bind_int(uro_stmt, 3, 0);  // nnd
+            sqlite3_bind_int(uro_stmt, 4, stop.owner());
+            if (sqlite3_step(uro_stmt) != SQLITE_DONE) {
+              print(MessageType::Error) << "Failure at route " << stop.owner() << "\n";
+              print(MessageType::Error) << "Failed (insert route). Reason:\n";
+              throw std::runtime_error(sqlite3_errmsg(db_));
+            }
+            sqlite3_clear_bindings(uro_stmt);
+            sqlite3_reset(uro_stmt);
+          }
         }
 
         /* Update visitedAt (used for avg. delay statistics) */
@@ -331,7 +374,7 @@ int Cargo::step(int& ndeact) {
 
       /* Kill permanent taxis after all customers have appeared and
        * taxi has no more dropoffs to make */
-      if (vlt == -1 && new_sch.size() == 2 && t_ >= tmin_) {
+      if (vlt == -1 && new_sch.size() == 2 && t_ > tmin_) {
         sqlite3_bind_int(dav_stmt, 1, (int)VehlStatus::Arrived);
         sqlite3_bind_int(dav_stmt, 2, vid);
         if (sqlite3_step(dav_stmt) != SQLITE_DONE) {
