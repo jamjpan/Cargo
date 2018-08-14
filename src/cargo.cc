@@ -44,31 +44,51 @@
 
 namespace cargo {
 
+/* Set the size (number of elements) of the shortest-paths cache */
 const int LRU_CACHE_SIZE = 1000000;
 
-/* Set FULL to true to allow the simulation to continue until all vehicles have
+/* Set FULL to allow the simulation to continue until all vehicles have
  * arrived, or all customers have been dropped off. Set to false to stop the
  * simulation as soon as all customers have appeared (+ matching period)
- * (the solution cost is the same; but use true for a complete visualization) */
+ * (use true for a complete visualization) */
 const bool FULL = false;
 
 /* Initialize global vars */
+/* Containers for quick node/edge lookup */
 KVNodes Cargo::nodes_ = {};
 KVEdges Cargo::edges_ = {};
+
+/* Base trip costs (shortest-path dist from origin to dest) */
 std::unordered_map<TripId, DistInt> Cargo::trip_costs_ = {};
+
+/* Bounding box (needed by grid index) */
 BoundingBox Cargo::bbox_ = {{}, {}};
+
+/* Global GTree (needed by shortest-path finding functions) */
 GTree::G_Tree Cargo::gtree_ = GTree::get();
+
+/* Global database pointer */
 sqlite3* Cargo::db_ = nullptr;
+
+/* Global vehicle speed and simulation time (needed for some computations) */
 Speed Cargo::speed_ = 0;
 SimlTime Cargo::t_ = 0;
+
+/* Global mutexes */
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
-cache::lru_cache<std::string, std::vector<NodeId>> Cargo::spcache_(LRU_CACHE_SIZE);
 
+/* Shortest-paths cache: hash is stringified orig/dest pair */
+cache::lru_cache<std::string, std::vector<NodeId>>
+Cargo::spcache_(LRU_CACHE_SIZE);
+
+/* Cargo class constructor:
+ * Set options, initialize Message; prepare the db */
 Cargo::Cargo(const Options& opt) : print("cargo") {
-  print << "Initializing Cargo\n";
-  rng.seed(std::random_device()());
-  this->initialize(opt);  // <-- loads db
+  print << "Initializing Cargo" << std::endl;
+  rng.seed(std::random_device()());  // used for random_node
+  this->initialize(opt);  // loads data into the db
+  /* Statements are described in dbsql.h */
   if (sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(db_, sql::sar_stmt, -1, &sar_stmt, NULL) != SQLITE_OK ||
@@ -91,6 +111,8 @@ Cargo::Cargo(const Options& opt) : print("cargo") {
   print(MessageType::Success) << "Cargo initialized!" << std::endl;
 }
 
+/* Destructor:
+ * Need to finalize every stmt and close the db */
 Cargo::~Cargo() {
   sqlite3_finalize(tim_stmt);
   sqlite3_finalize(sac_stmt);
@@ -109,27 +131,36 @@ Cargo::~Cargo() {
   sqlite3_finalize(mov_stmt);
   sqlite3_finalize(usc_stmt);
   if (err != NULL) sqlite3_free(err);
-  sqlite3_close(db_);  // <-- calls std::terminate on failure
+  sqlite3_close(db_);
   print << "Database closed." << std::endl;
 }
 
+/* Get problem instance properties */
 const std::string & Cargo::name()         { return probset_.name(); }
 const std::string & Cargo::road_network() { return probset_.road_network(); }
 
+/* "Move" the vehicles by subtracting distance to next node according to
+ * route and speed. Handle accordingly if vehicle moves to next node and if
+ * next node is a stop of some type. */
 int Cargo::step(int& ndeact) {
   /* "Stop" the simulation once all the customers have appeared
    * (no matches can be made anymore) */
-  if (!FULL && t_ > tmin_) speed_ = 100000;
+  if (!FULL && t_ > tmin_) speed_ = 1000000;  // sufficiently big
 
-  int nrows = ndeact = 0;
+  /* Reset counters */
+  int nrows = 0;  // number of vehicles moved to new nodes
+  ndeact = 0;     // number of vehicles deactivated in this step
 
   /* Prepare logger containers */
-  log_v_.clear();
-  log_p_.clear();
-  log_d_.clear();
-  log_a_.clear();
+  log_v_.clear(); // vehicle positions
+  log_p_.clear(); // pickup events
+  log_d_.clear(); // dropoff events
+  log_a_.clear(); // vehicle arrived-at-destination events
 
-  std::lock_guard<std::mutex> dblock(dbmx);  // Lock acquired
+  /* Acquire lock:
+   * During this time, no other process (e.g. RSAlgorithm::assign) can
+   * access the database. */
+  std::lock_guard<std::mutex> dblock(dbmx);
 
   /* Bulk-update next-node distance (bulk-move the vehicles) */
   sqlite3_bind_int(mov_stmt, 1, speed_);
@@ -142,52 +173,54 @@ int Cargo::step(int& ndeact) {
   sqlite3_clear_bindings(mov_stmt);
   sqlite3_reset(mov_stmt);
 
+  /* Initiate a transaction */
   sqlite3_exec(db_, "BEGIN", NULL, NULL, &err);
 
   /* Update move events (pickup, dropoff, etc.)
-   * (select vehicles where bulk-move resulted in negative nnd) */
+   * (vehicles where bulk-move resulted in negative nnd) */
   sqlite3_bind_int(ssv_stmt, 1, t_);
   sqlite3_bind_int(ssv_stmt, 2, (int)VehlStatus::Arrived);
-  while ((rc = sqlite3_step(ssv_stmt)) == SQLITE_ROW) {
+  while ((rc = sqlite3_step(ssv_stmt)) == SQLITE_ROW) {  // O(|vehicles|)
     nrows++;
-
     /* Extract */
-    const VehlId vid = sqlite3_column_int(ssv_stmt,0);    // id
-    const SimlTime vet = sqlite3_column_int(ssv_stmt,3);  // early
-    const SimlTime vlt = sqlite3_column_int(ssv_stmt,4);  // late
+    const VehlId vid   = sqlite3_column_int(ssv_stmt,0); // id
+    const SimlTime vet = sqlite3_column_int(ssv_stmt,3); // early
+    const SimlTime vlt = sqlite3_column_int(ssv_stmt,4); // late
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt, 8));
     const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt,11));
     const std::vector<Wayp> rte(rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt, 8) / sizeof(Wayp));
     const std::vector<Stop> sch(schbuf,schbuf+sqlite3_column_bytes(ssv_stmt,11) / sizeof(Stop));
-    std::vector<Stop> new_sch = sch;                       // mutable copy
-    RteIdx  lvn = sqlite3_column_int(ssv_stmt,9);         // last-visited node
-    DistInt nnd = sqlite3_column_int(ssv_stmt,10);        // next-node dist
+    std::vector<Stop> new_sch = sch;                     // mutable copy
+    RteIdx  lvn = sqlite3_column_int(ssv_stmt,9);        // last-visited node
+    DistInt nnd = sqlite3_column_int(ssv_stmt,10);       // next-node dist
 
     DEBUG(2, {  // Print vehicle info
       print << "t=" << t_ << std::endl;
       print << "Vehicle " << vid << "\n"
             << " early: " << vet << "\n"
             << " late:  " << vlt << "\n"
-            << " nnd:   " << nnd << "\n"  // next-node dist
-            << " lvn:   " << lvn << "\n"  // last-visited node index
+            << " nnd:   " << nnd << "\n"
+            << " lvn:   " << lvn << "\n"
             << " sched: "; print_sch(sch);
       print << " route: "; print_rte(rte); });
-
 
     bool active = true;  // all vehicles selected by ssv_stmt are active
     int nstops = 0;
 
-    while (nnd <= 0 && active) {  // O(|schedule|)
-      lvn++;
+    /* Vehicle can visit more than one node in one stop, if its speed is large.
+     * Handle each visited node. */
+    while (nnd <= 0 && active) {  // O(|route|)
+      lvn++;  // for each visited node, increment last-visited-node index
+
       /* Log position */
       log_v_[vid] = rte.at(lvn).second;
 
       /* Did vehicle move to a stop?
        * (schedule[0] gives the node the vehicle is currently traveling to.
        * Vehicle has moved to it already because nnd <= 0; hence use
-       * schedule[1+nstops] to get the next node.) */
-      while (active && rte.at(lvn).second == sch.at(1 + nstops).loc()) {
-        const Stop& stop = sch.at(1 + nstops);
+       * schedule[1+nstops] to get the next node.) O(|schedule|) */
+      while (active && rte.at(lvn).second == sch.at(1+nstops).loc()) {
+        const Stop& stop = sch.at(1+nstops);
         nstops++;
 
         /* Ridesharing vehicle arrives at destination; OR
@@ -203,7 +236,7 @@ int Cargo::step(int& ndeact) {
             DEBUG(1, { print(MessageType::Info) << "Vehicle " << vid << " arrived." << std::endl; });
           sqlite3_clear_bindings(dav_stmt);
           sqlite3_reset(dav_stmt);
-          active = false;  // <-- stops the while loops
+          active = false;  // stops the while loops
           ndeact++;
           /* Log arrival */
           log_a_.push_back(stop.owner());
@@ -211,14 +244,11 @@ int Cargo::step(int& ndeact) {
         /* Permanent taxi arrived at "destination"
          * (essentially recreate the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
-          NodeId new_dest = random_node();
+          NodeId new_dest = random_node();  // random destination
           Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
           Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
           std::vector<Wayp> new_rte;
           route_through({a, b}, new_rte);
-
-          /* Don't subtract nnd here; the "extra" distance the taxi travels
-           * past its destination is lost. It doesn't have a next wp anyway. */
           int new_nnd = new_rte.at(1).first;
 
           /* Insert the new route */
@@ -295,7 +325,8 @@ int Cargo::step(int& ndeact) {
 
           /* If vehicle is a taxi, this is its last destination, and there
            * are no more customers, stop the taxi (nstops is already incremented) */
-          if (vlt == -1 && t_ > tmin_ && sch.at(1 + nstops).type() == StopType::VehlDest) {
+          if (vlt == -1 && t_ > tmin_ &&
+              sch.at(1+nstops).type() == StopType::VehlDest) {
             sqlite3_bind_int(dav_stmt, 1, (int)VehlStatus::Arrived);
             sqlite3_bind_int(dav_stmt, 2, vid);
             if (sqlite3_step(dav_stmt) != SQLITE_DONE) {
@@ -311,11 +342,11 @@ int Cargo::step(int& ndeact) {
             log_a_.push_back(stop.owner());
 
             /* Kill the rest of its route (for computing solution cost) */
-            std::vector<Wayp> new_rte(rte.begin(),rte.begin()+lvn);
+            std::vector<Wayp> new_rte(rte.begin(),rte.begin()+lvn);  // truncate
             sqlite3_bind_blob(uro_stmt, 1,
               static_cast<void const*>(new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
-            sqlite3_bind_int(uro_stmt, 2, lvn);        // lvn
-            sqlite3_bind_int(uro_stmt, 3, 0);  // nnd
+            sqlite3_bind_int(uro_stmt, 2, lvn); // lvn
+            sqlite3_bind_int(uro_stmt, 3, 0);   // nnd
             sqlite3_bind_int(uro_stmt, 4, stop.owner());
             if (sqlite3_step(uro_stmt) != SQLITE_DONE) {
               print(MessageType::Error) << "Failure at route " << stop.owner() << "\n";
@@ -338,7 +369,13 @@ int Cargo::step(int& ndeact) {
         sqlite3_clear_bindings(vis_stmt);
         sqlite3_reset(vis_stmt);
       }  // end inner while (vehicle at stop)
-      // DEBUG
+
+      /* DEBUG:
+       * During testing, the next line rte.at(lvn+1) would give out-of-range
+       * error, usually caused by a stop is never handled -> the schedule never
+       * gets reduced -> the vehicle never arrives at its destination and
+       * doesn't get deactivated; then it runs out of route, and the access
+       * fails. In case of this, catch and print the vehicle's info. */
       if (active && lvn+1 == rte.size()) {
         print << "t=" << t_ << std::endl;
         print << "Vehicle " << vid << "\n\tearly:\t" << vet << "\n\tlate:\t" << vlt << "\n\tnnd:\t" << nnd << "\n\tlvn:\t" << lvn << "\n";
@@ -346,18 +383,18 @@ int Cargo::step(int& ndeact) {
         print << "\troute:"; print_rte(rte);
         throw;
       }
+
       /* Update next-node distance to the new next-node */
       if (active) nnd += (rte.at(lvn+1).first - rte.at(lvn).first);
     }  // end outer while (moved)
 
     /* Adjust active vehicles */
     if (active) {
-      if (nstops > 0) {
-        /* Update schedule (remove the just-visited stops) */
-        new_sch.erase(new_sch.begin() + 1, new_sch.begin() + 1 + nstops);
-      }
-      /* Update schedule[0] (set to be the next node in the route) */
-      new_sch[0] = Stop(vid, rte.at(lvn + 1).second, StopType::VehlOrig, vet, vlt, t_);
+      /* Update schedule:
+       * Remove the just-visited stops, and set the first stop in the schedule
+       * to be the next node. */
+      if (nstops > 0) new_sch.erase(new_sch.begin()+1, new_sch.begin()+1+nstops);
+      new_sch[0] = Stop(vid, rte.at(lvn+1).second, StopType::VehlOrig, vet, vlt, t_);
 
       /* Commit the schedule, lvn, and nnd after motion */
       sqlite3_bind_blob(usc_stmt, 1,
@@ -388,7 +425,6 @@ int Cargo::step(int& ndeact) {
       }
     }  // end active
   } // end SQLITE_ROW
-
   if (rc != SQLITE_DONE) {
     print(MessageType::Error) << "Failure in select step vehicles. Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
@@ -396,6 +432,7 @@ int Cargo::step(int& ndeact) {
   sqlite3_clear_bindings(ssv_stmt);
   sqlite3_reset(ssv_stmt);
 
+  /* Commit the transaction */
   sqlite3_exec(db_, "END", NULL, NULL, &err);
 
   /* Record events */
@@ -411,6 +448,8 @@ int Cargo::step(int& ndeact) {
  * unassigned customer trip */
 DistInt Cargo::total_route_cost() {
   DistInt cst = 0;
+
+  /* Get all vehicle route costs */
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 0));
     const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
@@ -422,11 +461,13 @@ DistInt Cargo::total_route_cost() {
   }
   sqlite3_reset(sar_stmt);
 
+  /* Get cost of unassigned customers */
   while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
     const CustId cust_id = sqlite3_column_int(sac_stmt, 0);
     const VehlId assigned_to = sqlite3_column_int(sac_stmt, 7);
     if (assigned_to == 0) cst += trip_costs_.at(cust_id);
   }
+
   return cst;
 }
 
@@ -527,9 +568,10 @@ void Cargo::start() {
   start(_);
 }
 
+/* Begin the simulation */
 void Cargo::start(RSAlgorithm& rsalg) {
-  print << "Starting Cargo\n";
-  print << "Starting algorithm " << rsalg.name() << "\n";
+  print << "Starting Cargo" << std::endl;
+  print << "Starting algorithm " << rsalg.name() << std::endl;
 
   /* Algorithm thread */
   std::thread thread_rsalg([&rsalg]() { while (!rsalg.done()) {
@@ -595,7 +637,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   }  // end Cargo thread
 
   rsalg.kill();
-  rsalg.end();  // <-- user-defined
+  rsalg.end();
   thread_rsalg.join();
   print << "Finished algorithm " << rsalg.name() << std::endl;
 
@@ -603,8 +645,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   logger_thread.join();
   print << "Stopped logger" << std::endl;
 
-  /* Print solution
-   * (e.g. # matches, avg. delay statistics, other statistics) */
+  /* Write solution */
   std::ofstream f_sol_(solution_file_, std::ios::out);
   f_sol_ << name() << '\n'
          << road_network() << '\n'
@@ -619,42 +660,44 @@ void Cargo::start(RSAlgorithm& rsalg) {
   print << "Finished Cargo" << std::endl;
 }
 
+/* Load road network and problem instance */
 void Cargo::initialize(const Options& opt) {
   total_customers_ = total_vehicles_ = base_cost_ = 0;
 
-  print << "Starting initialization sequence\n";
-  print << "Reading nodes (" << opt.path_to_roadnet << ")... ";
+  print << "Starting initialization sequence" << std::endl;
+  print << "Reading nodes (" << opt.path_to_roadnet << ")... " << std::endl;
   const size_t nnodes = read_nodes(opt.path_to_roadnet, nodes_, bbox_);
   nodes_[-1] = {-1, -1}; // special "no destination" node
-  print << nnodes << "\n";
+  print << "\tRead " << nnodes << " nodes" << std::endl;
   print << "\tBounding box: "
         << "(" << bbox().lower_left.lng << "," << bbox().lower_left.lat  << "), "
-        << "(" << bbox().upper_right.lng << ","<< bbox().upper_right.lat << ")\n";
+        << "(" << bbox().upper_right.lng << ","<< bbox().upper_right.lat << ")";
+  print << std::endl;
 
-  print << "Reading edges (" << opt.path_to_edges << ")... ";
+  print << "Reading edges (" << opt.path_to_edges << ")... " << std::endl;
   const size_t nedges = read_edges(opt.path_to_edges, edges_);
-  print << nedges << "\n";
+  print << "\tRead " << nedges << " edges" << std::endl;
 
-  print << "Reading gtree (" << opt.path_to_gtree << ")... ";
+  print << "Reading gtree (" << opt.path_to_gtree << ")... " << std::endl;
   GTree::load(opt.path_to_gtree);
   gtree_ = GTree::get();
-  print << "Done\n";
+  print << "\tDone" << std::endl;
 
-  print << "Reading problem (" << opt.path_to_problem << ")... ";
+  print << "Reading problem (" << opt.path_to_problem << ")... " << std::endl;
   const size_t ntrips = read_problem(opt.path_to_problem, probset_);
   if (ntrips == 0) {
     print(MessageType::Error) << "Problem file has no trips!\n";
     throw std::runtime_error("bad");
   }
-  print << ntrips << "\n";
-  print << "\t" << name() << " on " << road_network() << "\n";
+  print << "\tRead " << ntrips << " trips" << std::endl;
+  print << "\t" << name() << " on " << road_network() << std::endl;
 
   tmin_ = tmax_ = 0;
   matp_ = opt.matching_period;
   sleep_interval_ = std::round((float)1000 / opt.time_multiplier);
   speed_ = opt.vehicle_speed;
 
-  print << "Creating in-memory database...\n";
+  print << "Creating in-memory database..." << std::endl;
   if (sqlite3_open(":memory:", &db_) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create db). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
@@ -671,15 +714,15 @@ void Cargo::initialize(const Options& opt) {
   sqlite3_exec(db_, "PRAGMA journal_mode = OFF", NULL, NULL, &err);
   sqlite3_exec(db_, "PRAGMA locking_mode = EXCLUSIVE", NULL, NULL, &err);
 
-  print << "\t Creating Cargo tables...";
+  print << "\tCreating Cargo tables..." << std::endl;
   if (sqlite3_exec(db_, sql::create_cargo_tables, NULL, NULL, &err) != SQLITE_OK) {
     print(MessageType::Error) << "Failed (create cargo tables). Reason: " << err << "\n";
     print << sql::create_cargo_tables << "\n";
     throw std::runtime_error("create cargo tables failed.");
   }
-  print << "Done\n";
+  print << "\t\tDone" << std::endl;
 
-  print << "\t Inserting nodes...";
+  print << "\tInserting nodes..." << std::endl;
   sqlite3_exec(db_, "BEGIN", NULL, NULL, &err);
   sqlite3_stmt* insert_node_stmt;
   if (sqlite3_prepare_v2(db_, "insert into nodes values(?, ?, ?);", -1, &insert_node_stmt, NULL) != SQLITE_OK) {
@@ -700,9 +743,9 @@ void Cargo::initialize(const Options& opt) {
   }
   sqlite3_finalize(insert_node_stmt);
   sqlite3_exec(db_, "END", NULL, NULL, &err);
-  print << "Done\n";
+  print << "\t\tDone" << std::endl;
 
-  print << "\t Inserting trips...";
+  print << "\tInserting trips..." << std::endl;
   sqlite3_stmt* insert_vehicle_stmt;
   sqlite3_stmt* insert_customer_stmt;
   sqlite3_stmt* insert_stop_stmt;
@@ -855,8 +898,8 @@ void Cargo::initialize(const Options& opt) {
   dataout_file_ = opt.path_to_dataout;
 
   t_ = 0;  // Ready to begin!
-  print << "Done\n";
-  print << "Finished initialization sequence\n";
+  print << "\t\tDone" << std::endl;
+  print << "Finished initialization sequence" << std::endl;
 }
 
 }  // namespace cargo

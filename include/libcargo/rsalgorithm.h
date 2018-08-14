@@ -34,55 +34,58 @@
 
 namespace cargo {
 
-// The abstract interface for ridesharing algorithms. Users can implement the
+// The class for ridesharing algorithms. Users can implement the
 // handle_customer(), handle_vehicle(), match(), end(), and listen() methods.
 //
 // Only listen() has a default behavior. The behavior is to select all active
 // vehicles into vehicles_ (retrievable with vehicles()), select all waiting
 // customers into waiting_customers_ (retrievable with waiting_customers()),
 // then sleep for batch_time_ (settable with batch_time()). The method is
-// called continuously inside Cargo::step().
+// called continuously inside Cargo::start().
 class RSAlgorithm {
  public:
-  // Pass along a name string to your RSAlgorithm
+  // Pass along a name string to RSAlgorithm
+  // Set fifo if want RSAlgorithm messages in a separate stream (not stdout)
   RSAlgorithm(const std::string& name = "noname", bool fifo = false);
   ~RSAlgorithm();
 
+  // Overrideables
   virtual void handle_customer(const Customer&);
   virtual void handle_vehicle(const Vehicle&);
   virtual void match();
   virtual void end();
   virtual void listen();
 
+  // Setters/getters
   const std::string & name() const;
   const bool        & done() const;
-        int         & batch_time();  // <-- set to 0 for streaming
-        void          kill();        // <-- sets done_ to true
+        int         & batch_time();  // set to 0 for streaming
+        void          kill();        // sets done_ to true
 
   // Call these to populate customers_ and vehicles_
   void select_matchable_vehicles();
   void select_waiting_customers();
 
   // Call these to retrieve customers_ and vehicles_
-  // Customers and vehicles are refreshed whenever listen() is called
+  // (refreshed whenever listen() is called)
   std::vector<Customer> & customers();
   std::vector<Vehicle>  & vehicles();
 
-  // Call these to return all customer/vehicle objects.
+  // Call these to return all customer/vehicle objects
   std::vector<Customer> get_all_customers();
   std::vector<Vehicle> get_all_vehicles();
 
-  /* Function assign(...) will try to add customers (param1) into vehicle (param3)
-   * using the route and schedule (params4,5). If the route cannot be synchronized,
+  /* Function assign(...) will try to add customers (param1) into vehicle (param5)
+   * using the route and schedule (params3,4). If the route cannot be synchronized,
    * then the function will attempt to compute a new route using the vehicle's
-   * current position going through the schedule (param5). If this new route
+   * current position going through the schedule (param4). If this new route
    * meets constraints, then the assignment is accepted. */
   bool assign(const std::vector<CustId>&, // custs to add
               const std::vector<CustId>&, // custs to del
               const std::vector<Wayp>  &, // new route
               const std::vector<Stop>  &, // new schedule
                     MutableVehicle&,      // vehicle to assign to
-                    bool strict = false);
+                    bool strict = false); // set if do not want re-routing
 
   Message print;
 

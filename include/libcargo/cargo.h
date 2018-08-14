@@ -71,7 +71,7 @@ class Cargo {
   void start(RSAlgorithm &);
 
   /* Returns number of stepped vehicles.
-   * Outputs number of deactivated vehicles. */
+   * Outputs number of deactivated vehicles (param1) */
   int step(int &);
 
   /* Accessors */
@@ -115,8 +115,8 @@ class Cargo {
   size_t total_vehicles_;
   size_t total_customers_;
   size_t active_vehicles_;
-  size_t base_cost_;          // total base cost
-  int sleep_interval_;        // 1 sec/time_multiplier
+  size_t base_cost_;      // total base cost
+  int sleep_interval_;    // 1 sec/time_multiplier
 
   /* Global vars */
   static KVNodes nodes_;  // nodes_[u] = Point
@@ -125,7 +125,7 @@ class Cargo {
   static GTree::G_Tree gtree_;
   static sqlite3* db_;
   static Speed speed_;
-  static SimlTime t_;         // current sim time
+  static SimlTime t_;     // current sim time
   static std::unordered_map<TripId, DistInt> trip_costs_; // indiv. base costs
   /* Shortest-paths cache
    * (the key is a linear combination of two node IDs for from and to) */
@@ -167,9 +167,9 @@ class Cargo {
 
   std::mt19937 rng;
   NodeId random_node();
-
 };
 
 }  // namespace cargo
 
 #endif  // CARGO_INCLUDE_LIBCARGO_CARGO_H_
+

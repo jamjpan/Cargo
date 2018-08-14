@@ -25,7 +25,7 @@
 #include <mutex>
 #include <thread>
 
-#include "libcargo/cargo.h" /* now(), gtree(), db() */
+#include "libcargo/cargo.h"
 #include "libcargo/classes.h"
 #include "libcargo/debug.h"
 #include "libcargo/dbsql.h"
@@ -35,11 +35,15 @@
 
 namespace cargo {
 
+/* RSAlgorithm class constructor:
+ * Set a name; set fifo to true if want messages to print to own stream
+ * (a *.feed file will be created in the runtime dir) */
 RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
     : print(name, fifo) {
   name_ = name;
   done_ = false;
   batch_time_ = 1;
+  /* Statements are described in dbsql.h */
   if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt, -1, &ssr_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt, -1, &sss_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK ||
@@ -58,6 +62,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   }
 }
 
+/* Destructor: finalize every stmt */
 RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(ssr_stmt);
   sqlite3_finalize(sss_stmt);
@@ -74,35 +79,36 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(sva_stmt);
 }
 
+/* Get/set algorithm properties */
 const std::string & RSAlgorithm::name() const { return name_; }
 const bool        & RSAlgorithm::done() const { return done_; }
       int         & RSAlgorithm::batch_time() { return batch_time_; }
       void          RSAlgorithm::kill()       { done_ = true; }
 
+/* Get retrieved customers/vehicles
+ * (populate using select_matchable_vehicles() and select_waiting_customers()) */
 std::vector<Customer> & RSAlgorithm::customers() { return customers_; }
 std::vector<Vehicle>  & RSAlgorithm::vehicles()  { return vehicles_; }
 
-/* Assignment comes in two flavors: assign and assign_strict.
- * Function assign will try to do a strict-assign. If the new route
- * cannot be synchronized to the vehicle due to match latency, then
- * assign will poll the vehicle's position and re-compute new route
- * using this position. If the recomputed route fails time window check,
- * the assign returns false. Otherwise it commits this recomputed route
- * to the database.
- *
- * Returns false if:
- *   custs_to_del contains a customer already picked up due to match latency
- *   match lat. cause recompute new_rte, and recomputed route fails time cons.
- *
- * */
+/* Assignment comes in two flavors: assign and strict-assign.  assign() will
+ * first try to do a strict-assign. If the new route cannot be synchronized to
+ * the vehicle due to match latency, then assign will poll the vehicle's
+ * position and re-compute new route using this position if strict=false. If
+ * the recomputed route fails time window check, the assign returns false.
+ * Otherwise it commits this recomputed route to the database. But if
+ * strict=true, assign will not do re-routing and just return false if sync
+ * fails. */
 bool RSAlgorithm::assign(
         const std::vector<CustId> & custs_to_add,
         const std::vector<CustId> & custs_to_del,
         const std::vector<Wayp>   & new_rte,
         const std::vector<Stop>   & new_sch,
               MutableVehicle      & vehl,
-              bool                strict) {
-  std::lock_guard<std::mutex> dblock(Cargo::dbmx);  // Lock acquired
+              bool                strict) {  // default strict=false
+  /* Acquire lock:
+   * During this time, no other process (e.g. Cargo::step) can
+   * access the database. */
+  std::lock_guard<std::mutex> dblock(Cargo::dbmx);
 
   /* Query current vehicle properties */
   sqlite3_clear_bindings(sov_stmt);
@@ -113,7 +119,8 @@ bool RSAlgorithm::assign(
     throw std::runtime_error("select one vehicle stmt returned no rows.");
   }
 
-  /* Return false if vehicle is already arrived */
+  /* Return false if vehicle is already arrived
+   * (an arrived vehicle cannot be assigned to) */
   if (static_cast<VehlStatus>(sqlite3_column_int(sov_stmt, 7)) == VehlStatus::Arrived)
     return false;
 
@@ -137,8 +144,8 @@ bool RSAlgorithm::assign(
   /* Attempt synchronization */
   std::vector<CustId> cdel = custs_to_del;
   std::vector<CustId> cadd = custs_to_add;
-  std::vector<Wayp> out_rte {};
-  std::vector<Stop> out_sch {};
+  std::vector<Wayp> out_rte {};  // container for synced route
+  std::vector<Stop> out_sch {};  // container for synced schedule
 
   SyncResult synced = sync(new_rte, cur_rte, cur_lvn, new_sch, cur_sch, cadd, cdel, out_rte, out_sch);
   if (synced == SUCCESS) DEBUG(3, { print(MessageType::Info) << "sync succeeded." << std::endl; });
@@ -156,18 +163,8 @@ bool RSAlgorithm::assign(
       return false;
     }
 
+    /* Re-route the vehicle considering its current location */
     DEBUG(3, { print(MessageType::Info) << "assign() recomputing..." << std::endl; });
-
-    /* Re-route is only possible if no customers marked for deletion are already
-     * passed (necessary in case of curloc/prefix mismatch). */
-    // for (const CustId& cust_id : cdel) {
-    //   auto x = std::find_if(cur_sch.begin(), cur_sch.end(), [&](const Stop& a) {
-    //           return a.owner() == cust_id && a.type() == StopType::CustOrig; });
-    //   if (x == cur_sch.end()) {
-    //     DEBUG(3, { print(MessageType::Error) << "assign() failed due to cdel-sync." << std::endl; });
-    //     return false;
-    //   }
-    // }
 
     /* The recomputed route must include the vehicle's current location
      * and the next node in the current route (the vehicle must arrive at
@@ -179,8 +176,7 @@ bool RSAlgorithm::assign(
     /* Add the original schedule, minus the first stop (old next node) */
     std::copy(new_sch.begin()+1, new_sch.end(), std::back_inserter(re_sch));
 
-    /* Synchronize existing stops
-     * (remove any picked-up stops) */
+    /* Synchronize existing stops (remove picked-up stops) */
     re_sch.erase(std::remove_if(re_sch.begin()+2, re_sch.end()-1, [&](const Stop& a) {
       /* If stop does not belong to cadd, remove the stop if its not found in cur_sch */
       if (std::find(cadd.begin(), cadd.end(), a.owner()) == cadd.end()) {
@@ -213,22 +209,13 @@ bool RSAlgorithm::assign(
     out_sch = re_sch;
   }
 
-  /* Sanity check the schedule */
-  if (out_sch.front().owner() != vehl.id()
-   || out_sch.back().owner() != vehl.id()) {
-    print(MessageType::Error) << "tried to assign non-valid schedule" << std::endl;
-    print_sch(out_sch);
-    print_sch(new_sch);
-    throw;
-  }
-
   /* Output synchronized vehicle */
   vehl.set_rte(out_rte);
   vehl.set_nnd(cur_nnd);
   vehl.set_sch(out_sch);
   vehl.reset_lvn();
 
-  // Commit the synchronized route
+  /* Commit the synchronized route */
   sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(out_rte.data()),
                     out_rte.size() * sizeof(Wayp), SQLITE_TRANSIENT);
   sqlite3_bind_int(uro_stmt, 2, 0);
@@ -241,7 +228,7 @@ bool RSAlgorithm::assign(
   sqlite3_clear_bindings(uro_stmt);
   sqlite3_reset(uro_stmt);
 
-  // Commit the synchronized schedule
+  /* Commit the synchronized schedule */
   sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(out_sch.data()),
                     out_sch.size() * sizeof(Stop), SQLITE_TRANSIENT);
   sqlite3_bind_int(sch_stmt, 2, vehl.id());
@@ -437,20 +424,6 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
     }
   }
 
-  /* Synchronize fails if any stops in the prefix belong to cdel
-   * (both stops must be in the remaining schedule) */
-  // for (const CustId& cust_id : cdel) {
-  //   auto g = std::find_if(k, new_sch.end(), [&](const Stop& a) {
-  //           return a.owner() == cust_id && a.type() == StopType::CustOrig; });
-  //   if (g == new_sch.end()) {
-  //     DEBUG(3, { print
-  //       << "sync(9) bad del(owner=" << cust_id << ")"
-  //       << std::endl;
-  //     });
-  //     return CDEL_SYNC_FAIL;
-  //   }
-  // }
-
   /* Return remaining portion of new route and last-visited node */
   out_rte.push_back(cur_rte.at(idx_lvn));
   std::copy(x + 1, new_rte.end(), std::back_inserter(out_rte));
@@ -486,14 +459,14 @@ void RSAlgorithm::select_matchable_vehicles() {
     Vehicle vehicle(
         sqlite3_column_int(smv_stmt, 0), // vehl id
         sqlite3_column_int(smv_stmt, 1), // orig id
-        vehl_dest,                        // dest id
+        vehl_dest,                       // dest id
         sqlite3_column_int(smv_stmt, 3), // early
-        vlt,                              // late
+        vlt,                             // late
         sqlite3_column_int(smv_stmt, 5), // load
         sqlite3_column_int(smv_stmt, 6), // queued
         sqlite3_column_int(smv_stmt, 10),// nnd
-        route,                            // route
-        schedule,                         // schedule
+        route,                           // route
+        schedule,                        // schedule
         sqlite3_column_int(smv_stmt, 9), // lvn
         static_cast<VehlStatus>(sqlite3_column_int(smv_stmt, 7))); // status
     vehicles_.push_back(vehicle);
@@ -557,8 +530,8 @@ std::vector<Vehicle> RSAlgorithm::get_all_vehicles() {
         sqlite3_column_int(sav_stmt, 5), // load
         sqlite3_column_int(sav_stmt, 6), // queued
         sqlite3_column_int(sav_stmt, 10),// nnd
-        route,                            // route
-        schedule,                         // schedule
+        route,                           // route
+        schedule,                        // schedule
         sqlite3_column_int(sav_stmt, 9), // lvn
         static_cast<VehlStatus>(sqlite3_column_int(sav_stmt, 7))); // status
     vehls.push_back(vehicle);
