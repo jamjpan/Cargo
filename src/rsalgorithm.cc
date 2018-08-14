@@ -214,6 +214,7 @@ bool RSAlgorithm::assign(
   vehl.set_nnd(cur_nnd);
   vehl.set_sch(out_sch);
   vehl.reset_lvn();
+  vehl.incr_queued();
 
   /* Commit the synchronized route */
   sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(out_rte.data()),
