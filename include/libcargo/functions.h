@@ -34,7 +34,6 @@ namespace cargo {
 void print_rte(const std::vector<Wayp> &);
 void print_sch(const std::vector<Stop> &);
 
-DistInt pickup_range(const Customer &, const SimlTime &, GTree::G_Tree &);
 DistInt pickup_range(const Customer &, const SimlTime &);
 
 // Given a schedule, return the route through the schedule and its cost. Cost is
