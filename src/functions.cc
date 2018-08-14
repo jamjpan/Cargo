@@ -51,15 +51,9 @@ void print_sch(const std::vector<Stop>& sch) {
 
 
 DistInt pickup_range(const Customer      & cust,
-                     const SimlTime      & now,
-                           GTree::G_Tree & gtree) {
-  DistInt dist = shortest_path_dist(cust.orig(), cust.dest(), gtree);
-  return (cust.late()-(dist/Cargo::vspeed())-now)*Cargo::vspeed();
-}
-
-DistInt pickup_range(const Customer      & cust,
                      const SimlTime      & now) {
-  return pickup_range(cust, now, Cargo::gtree());
+  DistInt dist = Cargo::basecost(cust.id());
+  return (cust.late()-(dist/Cargo::vspeed())-now)*Cargo::vspeed();
 }
 
 // Complexity: O(|schedule|*|route|)
