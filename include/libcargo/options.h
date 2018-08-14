@@ -37,10 +37,14 @@ struct Options {
     // A multiplier for the ratio between the SimTime and real time. A
     // multiplier of 2, for example, will set one SimTime to be equal to
     // approximately 1/2 real seconds.
-    float time_multiplier;
+    float time_multiplier = 1;
 
-    SimlTime matching_period; // Customers must be matched within this time (sec)
-    Speed vehicle_speed; // meters per second
+    SimlTime matching_period = 60; // Customers must be matched within this time (sec)
+    Speed vehicle_speed = 20; // meters per second
+
+    // Set to TRUE if want simulation to run until last vehicle arrives
+    // (or last customer is dropped off if vehicles are taxies)
+    bool full_sim = false;
 };
 
 } // namespace cargo
