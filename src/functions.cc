@@ -83,6 +83,7 @@ DistInt route_through(const std::vector<Stop> & sch,
         std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
         print_sch(sch);
         std::cout << "index: " << i << std::endl;
+        throw;
       }
       std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
       Cargo::spput(from, to, seg);
@@ -228,16 +229,26 @@ CustId randcust(const std::vector<Stop>& sch) {
   return -1;
 }
 
-void remove_cust(std::vector<Stop>& sch, const CustId& cust_id) {
+void opdel(std::vector<Stop>& sch, const CustId& cust_id) {
   std::vector<Stop> new_sch {};
   for (const Stop& a : sch)
     if (a.owner() != cust_id)
       new_sch.push_back(a);
   if (sch.size() - new_sch.size() != 2) {
-    std::cout << "remove_cust() unknown error" << std::endl;
+    std::cout << "opdel unknown error" << std::endl;
     throw;
   }
   sch = new_sch;
+}
+
+void opmove(std::vector<Stop>& src,
+            std::vector<Stop>& dest, const CustId& cust_id) {
+
+}
+
+void opswap(std::vector<Stop>& s1, const CustId& c1,
+            std::vector<Stop>& s2, const CustId& c2) {
+
 }
 
 DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
@@ -346,7 +357,7 @@ DistInt sop_replace(const std::shared_ptr<MutableVehicle>& mutvehl,
                     std::vector<Stop>& schout, std::vector<Wayp>& rteout) {
   MutableVehicle mutcopy = *mutvehl;
   std::vector<Stop> sch1 = mutcopy.schedule().data();
-  remove_cust(sch1, rm);
+  opdel(sch1, rm);
   mutcopy.set_sch(sch1);
   return sop_insert(mutcopy, cust, schout, rteout);
 }

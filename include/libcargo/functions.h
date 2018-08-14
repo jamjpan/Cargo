@@ -31,46 +31,59 @@
 
 namespace cargo {
 
+/* Conveniently print */
 void print_rte(const std::vector<Wayp> &);
 void print_sch(const std::vector<Stop> &);
 
+/* Given the current time (param2), return the maximum distance a vehicle can
+ * be in order to pickup customer (param1) within time window constraints */
 DistInt pickup_range(const Customer &, const SimlTime &);
 
-// Given a schedule, return the route through the schedule and its cost. Cost is
-// integer because G_Tree only returns int.
-// O(|schedule|*|nodes|)
+/* Given a schedule (param1), output the least-cost route (param2) through all
+ * stops; return the cost of this route; O(|schedule|+|nodes|)*/
 DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
 DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &);
 
-// Given a schedule, find if precedence is satisfied.
-// O(|schedule|^2)
+/* Given a schedule, return true if all origins precede corresponding dests
+ * O(|schedule|^2) */
 bool chkpc(const Schedule &);
 
-// Given a schedule, find if time windows are satisfied
-// O(|schedule|+|route|)
+/* Given a schedule (param1) and its corresponding route (param2), return true
+ * if time windows on each stop are satisfied; O(|schedule|+|route|) */
 bool chktw(const std::vector<Stop> &, const std::vector<Wayp> &);
 
-// Pick a random customer from a vehicle's schedule
-// (only customers with both stops in the schedule remaining can be selected;
-// returns -1 if no eligible customer)
+/* Return a random customer from a given schedule; the returned customer is
+ * guaranteed to have both stops in the schedule; return -1 if none eligible */
 CustId randcust(const std::vector<Stop> &);
 
-// Remove a customer from a vehicle's schedule
-// (only performs removal if both customer stops are in the schedule. otherwise
-// returns false)
-void remove_cust(std::vector<Stop> &, const CustId &);
+/* Remove a customer (param2) from a schedule (param1). The customer MUST have
+ * both stops present in the schedule, otherwise function will throw. */
+void opdel(std::vector<Stop> &, const CustId &);
 
-// Given a schedule and a customer, return the cost of the best-insertion
-// schedule, and output the schedule and the route. The two bools are for
-// fixing the end points. Set the first bool to true to fix the start, and
-// set the second bool to true to fix the end.
-// O(|schedule|^2*c_route_through)
+/* Move a customer (param3) from one schedule (param1) to another (param2). The
+ * customer MUST have both stops present in the source schedule, otherwise
+ * function will throw. Time windows are not checked in the target schedule
+ * after insertion. */
+void opmove(std::vector<Stop> &, std::vector<Stop> &, const CustId &);
+
+/* Swap a customer (param2) from one schedule (param1) with a customer (param4)
+ * from a different schedule (param3). The swapping customers MUST have both
+ * stops present in their respective schedules, otherwise function will throw.
+ * Time windows are not checked in either schedule after swap. */
+void opswap(std::vector<Stop> &, const CustId &, std::vector<Stop> &, const CustId &);
+
+/* Given a schedule (param1), insert an origin (param2) and dest (param3) while
+ * preserving the relative order of the other stops. Set param4 to true to fix
+ * the start stop (cannot insert before it), and set param5 to true to fix the
+ * end stop (cannot insert after it). Output the least-cost schedule (param6)
+ * and the new least-cost route (param7).
+ * O(|schedule|^2 * cost of route_through) */
 DistInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool,
                    std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
 DistInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool,
                    std::vector<Stop> &, std::vector<Wayp> &);
 
-/* This version corrects the distances in rteout (param4) by taking into
+/* This version corrects the distances in the route (param4) by taking into
  * account vehicle's (param1) traveled distance. */
 DistInt sop_insert(const Vehicle &, const Customer &,
                    std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
@@ -81,7 +94,6 @@ DistInt sop_insert(const Vehicle &, const Customer &,
  * MutableVehicle pointers. */
 DistInt sop_insert(const std::shared_ptr<MutableVehicle> &, const Customer &,
                    std::vector<Stop> &, std::vector<Wayp> &);
-
 
 /* Replace customer (param2) with a new customer (param3)
  * (remove the old customer, then sop_insert the new customer) */
