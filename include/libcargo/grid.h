@@ -48,6 +48,9 @@ class Grid {
   std::vector<std::shared_ptr<MutableVehicle>> &within_about(const DistDbl &,
                                                              const NodeId &);
 
+  /* Return all vehicles */
+  std::vector<std::shared_ptr<MutableVehicle>>& all();
+
   /* Commit changes to a vehicle back to the grid */
   void commit(std::shared_ptr<MutableVehicle> &, const std::vector<Wayp> &,
               const std::vector<Stop> &, const DistInt &);

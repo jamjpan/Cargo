@@ -72,6 +72,14 @@ std::vector<std::shared_ptr<MutableVehicle>>& Grid::within_about(
   return res_;
 }
 
+std::vector<std::shared_ptr<MutableVehicle>>& Grid::all() {
+  res_.clear();
+  for (auto& i : data_)
+    for (auto& j : i)
+      res_.push_back(j);
+  return res_;
+}
+
 void Grid::commit(
         std::shared_ptr<MutableVehicle> & mutvehl,
         const std::vector<Wayp>         & new_rte,
