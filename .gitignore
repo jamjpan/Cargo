@@ -27,4 +27,5 @@ example bilateral_arrangement/bilateral_arrangement
 example/trip_vehicle_grouping/trip_vehicle_grouping
 example/kinetic_trees/kinetic_trees
 example/no_algorithm/no_algorithm
+example/simulated_annealing/simulated_annealing
 
