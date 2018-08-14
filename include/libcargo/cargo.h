@@ -112,6 +112,8 @@ class Cargo {
   SimlTime tmax_;  // max vehicle.late
   SimlTime matp_;  // matching pd. (customer timeout)
 
+  bool full_sim_;
+
   size_t total_vehicles_;
   size_t total_customers_;
   size_t active_vehicles_;

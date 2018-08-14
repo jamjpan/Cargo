@@ -47,12 +47,6 @@ namespace cargo {
 /* Set the size (number of elements) of the shortest-paths cache */
 const int LRU_CACHE_SIZE = 1000000;
 
-/* Set FULL to allow the simulation to continue until all vehicles have
- * arrived, or all customers have been dropped off. Set to false to stop the
- * simulation as soon as all customers have appeared (+ matching period)
- * (use true for a complete visualization) */
-const bool FULL = false;
-
 /* Initialize global vars */
 /* Containers for quick node/edge lookup */
 KVNodes Cargo::nodes_ = {};
@@ -145,7 +139,7 @@ const std::string & Cargo::road_network() { return probset_.road_network(); }
 int Cargo::step(int& ndeact) {
   /* "Stop" the simulation once all the customers have appeared
    * (no matches can be made anymore) */
-  if (!FULL && t_ > tmin_) speed_ = 1000000;  // sufficiently big
+  if (!full_sim_ && t_ > tmin_) speed_ = 1000000;  // sufficiently big
 
   /* Reset counters */
   int nrows = 0;  // number of vehicles moved to new nodes
@@ -696,6 +690,7 @@ void Cargo::initialize(const Options& opt) {
   matp_ = opt.matching_period;
   sleep_interval_ = std::round((float)1000 / opt.time_multiplier);
   speed_ = opt.vehicle_speed;
+  full_sim_ = opt.full_sim;
 
   print << "Creating in-memory database..." << std::endl;
   if (sqlite3_open(":memory:", &db_) != SQLITE_OK) {
