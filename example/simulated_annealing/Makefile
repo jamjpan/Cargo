@@ -11,8 +11,8 @@ OBJS = simulated_annealing.o
 all: $(OBJS)
 	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o simulated_annealing
 
-simuated_annealing.o: ../../lib/libcargo.a simuated_annealing.h simuated_annealing.cpp
-	$(CXX) $(CFLAGS) simuated_annealing.cpp
+simulated_annealing.o: ../../lib/libcargo.a simulated_annealing.h simulated_annealing.cpp
+	$(CXX) $(CFLAGS) simulated_annealing.cpp
 
 clean:
-	rm *.o simuated_annealing
+	rm *.o simulated_annealing

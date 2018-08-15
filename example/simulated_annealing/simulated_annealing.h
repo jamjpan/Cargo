@@ -18,28 +18,51 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <unordered_map>
+#include <random>
 
 #include "libcargo.h"
 
 using namespace cargo;
 
-// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
-// For each request, the algorithm looks for the "greedy" vehicle based on the
-// heuristic, and assigns the request to this vehicle if it exists.
-class GreedyInsertion : public RSAlgorithm {
+/* Annealing a metal is the process of repeatedly heating/cooling it
+ * in order to get rid of impurities. For Simulated Annealing, we first
+ * generate a solution out of the unmatched customers and vehicles; then
+ * perturb the solution; depending on the "temperature", we accept perturbed
+ * solutions of higher or lower cost than the original solution.
+ *
+ * Here we use "random reassign" as our perturbation. We generate an
+ * initial solution by looping through all customers and greedily assigning
+ * them; we generate a "perturbed" solution by shuffling the customers, then
+ * again greedily assign. */
+class SimulatedAnnealing : public RSAlgorithm {
  public:
-  GreedyInsertion();
+  SimulatedAnnealing();
 
   /* My Overrides */
-  virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
+  virtual void match();
   virtual void end();
   virtual void listen();
 
  private:
   /* My Custom Variables */
   int nmat_;
+  int nrej_;
   Grid grid_;
+
+  int T_;
+  std::mt19937 gen;
+  std::uniform_real_distribution<> d;
+
+  typedef std::tuple<std::shared_ptr<MutableVehicle>, std::vector<Stop>, std::vector<Wayp>> Assignment;
+  typedef std::unordered_map<CustId, Assignment> Sol;
+  std::vector<CustId> unassigned;
+
+  /* Probability of accepting "hill-climbing" solution */
+  bool hillclimb(int &);
+
+  /* Compute solution cost to evaluate which sol is better */
+  int cost(const Sol &);
 
   /* If a customer doesn't get matched right away, try again after 5 seconds. */
   std::unordered_map<CustId, SimlTime> delay_;

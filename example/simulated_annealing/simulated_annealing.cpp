@@ -17,7 +17,10 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <algorithm> /* std::shuffle */
+#include <cmath> /* std::exp */
 #include <iostream> /* std::endl */
+#include <random>
 #include <unordered_map>
 #include <vector>
 
@@ -26,126 +29,146 @@
 
 using namespace cargo;
 
-/* GreedyInsertion extends RSAlgorithm by implementing matching functionality.
- * The base RSAlgorithm is initialized with name (param1) and bool (param2).
- * Setting bool=true causes this algorithm's messages to be output to a named
- * pipe on the filesystem, while Cargo simulator messages are output to
- * standard out. Setting bool=false causes all messages to be output to
- * standard out. */
-GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion"),
-      grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
+const int ITER = 5;  // how many iterations per batch?
+const int PERT = 2;  // how many perturbed solutions to generate?
+const int RETRY = 15;
+
+SimulatedAnnealing::SimulatedAnnealing() : RSAlgorithm("simulated_annealing"),
+    grid_(100), d(0,1) {
   batch_time() = 1;  // Set batch to 1 second
   nmat_ = 0;         // Initialize my private counter
   delay_ = {};
+
+  std::random_device rd;
+  gen.seed(rd());
 }
 
-void GreedyInsertion::handle_customer(const Customer& cust) {
+void SimulatedAnnealing::handle_vehicle(const Vehicle& vehl) {
+  grid_.insert(vehl);
+}
 
-  /* Don't consider customers that are assigned but not yet picked up */
-  if (cust.assigned()) return;
-
-  /* Don't consider customers already looked at within the last 10 seconds */
-  if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - 10) return;
-
+void SimulatedAnnealing::match() {
   /* Containers for storing outputs */
   DistInt cst, best_cst = InfInt;
   std::vector<Stop> sch, best_sch;
   std::vector<Wayp> rte, best_rte;
+  Sol sol, best_sol;
 
-  /* The grid stores MutableVehicles. During one simulation step, a vehicle
-   * may be matched, altering its schedule and route, then become a candidate
-   * for another customer in the same step. During a match, the database
-   * copy of the vehicle is updated. The local copy in the grid also needs to
-   * be updated. Hence the grid returns pointers to vehicles to give access to
-   * the local vehicles. */
-  std::shared_ptr<MutableVehicle> best_vehl;
-  bool matched = false;
+  T_ = 0;  // reset "temperature"
+  while (T_++ < ITER) {
+    auto lcl_custs = customers(); // make a local copy for shuffling
 
-  /* Get candidates from the local grid index */
-  DistInt rng = pickup_range(cust, Cargo::now());
-  auto candidates = grid_.within_about(rng, cust.orig());
+    /* Construct solutions via greedy */
+    for (int i = 0; i < PERT; ++i) {
+        std::shuffle(lcl_custs.begin(), lcl_custs.end(), gen);
+    for (const Customer& cust : lcl_custs) {
+      /* Skip customers already assigned (but not yet picked up) */
+      if (cust.assigned())
+        continue;
 
-  /* Loop through candidates and check which is the greedy match */
-  for (const auto& cand : candidates) {
-    if (cand->queued() == cand->capacity())
-      continue;  // don't consider vehs already queued to capacity
+      /* Skip customers looked at within the last RETRY seconds */
+      if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
+        continue;
 
-    cst = sop_insert(cand, cust, sch, rte);  // (functions.h)
-    bool within_time = chktw(sch, rte);      // (functions.h)
-    if ((cst < best_cst) && within_time) {
-      best_cst = cst;
-      best_sch = sch;
-      best_rte = rte;
-      best_vehl = cand;  // copy the pointer
-      matched = true;
-    }
+      std::shared_ptr<MutableVehicle> best_vehl = nullptr;
+      bool matched = false;
+
+      /* Get candidates from the local grid index */
+      DistInt rng = /* pickup_range(cust, Cargo::now()); */ 2000;
+      auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
+
+      /* Loop through candidates and check which is the greedy match */
+      for (const auto& cand : candidates) {
+        if (cand->queued() == cand->capacity())
+          continue;
+
+        cst = sop_insert(cand, cust, sch, rte);  // (functions.h)
+        bool within_time = chktw(sch, rte);      // (functions.h)
+        if ((cst < best_cst) && within_time) {
+          best_cst = cst;
+          best_sch = sch;
+          best_rte = rte;
+          best_vehl = cand;  // copy the pointer
+          matched = true;
+        }
+      }  // end for cand : candidates
+
+      /* Add match to solution */
+      if (matched)
+        sol[cust.id()] = {best_vehl, best_sch, best_rte};
+      else
+        unassigned.push_back(cust.id());
+    } // end for cust : customers
+    if (best_sol.size() == 0)
+      best_sol = sol;
+    else if (hillclimb(T_))
+      best_sol = sol;
+    else if (cost(sol) < cost(best_sol))
+      best_sol = sol;
+    } // end for i
+  } // end while T_ < ITER
+
+  /* Commit the best solution */
+  for (const auto& kv : best_sol) {
+    auto cust_id = kv.first;
+    auto best_vehl = std::get<0>(kv.second);
+    auto& best_sch = std::get<1>(kv.second);
+    auto& best_rte = std::get<2>(kv.second);
+    if (assign({cust_id}, {}, best_rte, best_sch, *best_vehl)) {
+      print(MessageType::Success)
+        << "Match " << "(cust" << cust_id << ", veh" << best_vehl->id() << ")"
+        << std::endl;
+      nmat_++;  // increment matched counter
+      /* Remove customer from delay storage */
+      if (delay_.count(cust_id)) delay_.erase(cust_id);
+    } else
+      nrej_++;  // increment rejected counter
   }
-
-  /* Commit match to the db. */
-  if (matched) {
-    auto old_rte = best_vehl->route().data();
-    auto old_sch = best_vehl->schedule().data();
-    best_vehl->set_rte(best_rte);
-    best_vehl->set_sch(best_sch);
-    /* Function assign(3) will synchronize the vehicle (param3) before
-     * committing it the database. Synchronize is necessary due to "match
-     * latency". The vehicle may have moved since the match began computing,
-     * hence the version of the vehicle used in the match computation is stale.
-     * Synchronization trims the traveled part of the vehicle's route and the
-     * visited stops that occurred during the latency, and will also re-route
-     * the vehicle if it's missed an intersection that the match instructs it
-     * to make. */
-    if (assign({cust.id()}, {}, *best_vehl)) {
-      print(MessageType::Success) << "Match "
-          << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
-          << std::endl;
-      nmat_++;
-    } else {
-      best_vehl->set_rte(old_rte);
-      best_vehl->set_sch(old_sch);
-    }
-    if (delay_.count(cust.id())) delay_.erase(cust.id());
-  } else {
-    delay_[cust.id()] = Cargo::now();
+  for (const CustId& cust_id : unassigned) {
+    /* Add customer to delay storage */
+    delay_[cust_id] = Cargo::now();
   }
 }
 
-void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
-  /* Insert each vehicle into the grid */
-  grid_.insert(vehl);
-}
-
-void GreedyInsertion::end() {
-  /* Print the total matches */
+void SimulatedAnnealing::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
 }
 
-void GreedyInsertion::listen() {
-  /* Clear the index, then call listen() */
+void SimulatedAnnealing::listen() {
   grid_.clear();
   RSAlgorithm::listen();
+}
+
+bool SimulatedAnnealing::hillclimb(int& T) {
+  return d(gen) <= std::exp((-1)*T) ? true : false;
+}
+
+int SimulatedAnnealing::cost(const Sol& sol) {
+  int cost = 0;
+  /* Get unassigned penalty */
+  for (const CustId& cust_id : unassigned)
+    cost += Cargo::basecost(cust_id);
+  /* Get assignment costs */
+  for (const auto& kv : sol)
+    cost += std::get<2>(kv.second).back().first;
+  return cost;
 }
 
 int main() {
   /* Set the options */
   Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  // op.path_to_problem  = "../../data/benchmark/rs-mny-small.instance";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-5.instance";
-  op.path_to_solution = "a.sol";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_solution = "simulated_annealing.sol";
+  op.path_to_dataout  = "simulated_annealing.dat";
   op.time_multiplier  = 1;
-  op.vehicle_speed    = 10;
+  op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
   Cargo cargo(op);
-
-  /* Initialize a new greedy */
-  GreedyInsertion gr;
-
-  /* Start Cargo */
-  cargo.start(gr);
+  SimulatedAnnealing sa;
+  cargo.start(sa);
 }
 
