@@ -233,7 +233,7 @@ int Cargo::step(int& ndeact) {
           active = false;  // stops the while loops
           ndeact++;
           /* Log arrival */
-          log_a_.push_back(stop.owner());
+          log_a_.push_back(vid);
 
         /* Permanent taxi arrived at "destination"
          * (essentially recreate the taxi) */
@@ -333,7 +333,7 @@ int Cargo::step(int& ndeact) {
             active = false;  // <-- stops the while loops
             ndeact++;
             /* Log arrival */
-            log_a_.push_back(stop.owner());
+            log_a_.push_back(vid);
 
             /* Kill the rest of its route (for computing solution cost) */
             std::vector<Wayp> new_rte(rte.begin(),rte.begin()+lvn);  // truncate
