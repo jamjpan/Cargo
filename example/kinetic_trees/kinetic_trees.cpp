@@ -1,4 +1,7 @@
-// Copyright (c) 2018 the Cargo authors
+// Portions Copyright (c) 2018 the Cargo authors
+// Portions Copyright (c) uakfdotb
+//
+// The following applies only to portions copyright the Cargo authors:
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* std::find_if */
+#include <ctime>
 #include <exception>
 #include <iostream> /* std::endl */
 #include <thread>
@@ -26,20 +30,46 @@
 #include "libcargo.h"
 
 #include "kinetic_trees.h"
-#include "treeTaxiPath.h"
+#include "treeTaxiPath.h"  // (uakfdotb/tsharesim)
 
 using namespace cargo;
 
-KineticTrees::KineticTrees()
-    : RSAlgorithm("kinetic_trees"),
-      grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
-  batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;      // Initialize my private counter
+const int RETRY   = 15; // retry unmatched cust after RETRY sec
+const int TIMEOUT = 30; // timeout customers take > TIMEOUT sec
+
+bool KineticTrees::timeout(clock_t& start) {
+  clock_t end = std::clock();
+  return (double(start-end)/CLOCKS_PER_SEC >= TIMEOUT)
+      || this->done();  // (rsalgorithm.h)
+}
+
+KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees"),
+      grid_(100) {   // (grid.h)
+  batch_time() = 1;  // (rsalgorithm.h)
+
+  /* Private vars */
+  nmat_  = 0;  // match counter
+  nrej_  = 0;  // number rejected due to out-of-sync
+  delay_ = {}; // delay container
+}
+
+KineticTrees::~KineticTrees() {
+  for (auto kv : kt_) {
+    print << "delete kt" << kv.first << std::endl;
+    delete kv.second;  // cleanup
+  }
 }
 
 void KineticTrees::handle_customer(const Customer& cust) {
-  /* Don't consider customers that are assigned but not yet picked up */
-  if (cust.assigned()) return;
+  clock_t start = std::clock();
+
+  /* Skip customers already assigned (but not yet picked up) */
+  if (cust.assigned())
+    return;
+
+  /* Skip customers looked at within the last RETRY seconds */
+  if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
+    return;
 
   /* Containers for storing outputs */
   DistInt cst, best_cst = InfInt;
@@ -50,36 +80,47 @@ void KineticTrees::handle_customer(const Customer& cust) {
   std::shared_ptr<MutableVehicle> best_vehl = nullptr;
   bool matched = false;
 
-  /* Get candidates from the local grid index
-   * (the grid is refreshed during listen()) */
-  DistInt rng = pickup_range(cust, Cargo::now());
-  auto candidates = grid_.within_about(rng, cust.orig());
+  /* Get candidates from the local grid index */
+  DistInt rng = pickup_range(cust, Cargo::now()); /* 2000; */
+  auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
-  /* Create the customer stops to insert into best vehicle */
+  /* Create the customer stops to insert into best vehicle. These will
+   * be used in the kt.value() method to do tree insertion. */
   Stop cust_orig = Stop(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_dest = Stop(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
 
   /* Loop through candidates and check which is the greedy match */
   for (const auto& cand : candidates) {
+    /* Skip vehicles queued to capacity (queued = number of customer assigned
+     * but may or may not be picked up yet) */
     if (cand->queued() == cand->capacity())
-      continue;  // don't consider vehs already queued to capacity
+      continue;
 
-    /* Use vehicle's next waypoint to construct augmented schedule */
-    Stop vehl_curr = cand->schedule().data().front();
+    // print << "handle_customer(" << cust.id() << ") to vehl" << cand->id() << std::endl;
+    // print << "\tins. into kt: "; print_kt(kt_.at(cand->id())); print.flush();
 
     /* Define the maximum travel bound based on customer's time window */
     DistInt max_travel = (cust.late()-cust.early())*Cargo::vspeed();
 
     /* Find the least-cost schedule using kinetic tree */
-    cst = kt_.at(cand->id())->value(vehl_curr.loc(), cust.orig(), cust.dest(), rng, max_travel);
-    if (cst == -1) continue; // <-- vehicle is infeasible for this cust
-    std::vector<std::pair<NodeId, bool>> schseq;
+    cst = kt_.at(cand->id())->value(  // (treeTaxiPath.h)
+            cust.orig(), cust.dest(), rng, max_travel);
+
+    /* Skip if vehicle is infeasible */
+    if (cst == -1)
+      continue;
+
+    // print << "\taug. kt: "; print_kt(kt_.at(cand->id()), true);
+    // print.flush();
+
+    /* Retrieve the new schedule */
+    std::vector<std::pair<NodeId, bool>> schseq;  // container
     kt_.at(cand->id())->printTempStopSequence(schseq);
 
     /* Convert the sequence of nodes returned from the tree into a vector of
-     * stops for commiting into the db */
+     * stops for committing into the db */
     sch.clear();
-    sch.push_back(vehl_curr);
+    sch.push_back(cand->schedule().data().front());
     for (auto i = schseq.begin()+1; i != schseq.end(); ++i) {
       auto j = std::find_if(cand->schedule().data().begin()+1, cand->schedule().data().end(),
         [&](const Stop& a) {
@@ -99,6 +140,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
         if (i->first == cust_dest.loc()) sch.push_back(cust_dest);
       }
     }
+    // print << "\taug.sch: "; print_sch(sch);
+    // print.flush();
 
     /* Route through the least-cost schedule */
     // The distances to the nodes in the routes found by route_through need to
@@ -125,32 +168,49 @@ void KineticTrees::handle_customer(const Customer& cust) {
       matched = true;
     } else
       kt_.at(cand->id())->cancel();
+    if (timeout(start))
+      break;
   }
 
-  /* Commit match to the db. Also refresh our local grid index, so data is
-   * fresh for other handle_customers that occur before the next listen(). */
+  /* Commit match to the db */
+  bool add_to_delay = true;
   if (matched) {
     if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       /* Accept the new kinetic tree, and sync it up to sync_sch */
       kt_.at(best_vehl->id())->push();
-      int visited_stops = compute_steps(best_sch, best_vehl->schedule().data());
-      for (int i = 0; i < visited_stops; ++i)
-        kt_.at(best_vehl->id())->step();
-
-      /* Print and increment counter */
-      print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
+      // print << "handle_customer(" << cust.id() << ") accepted vehl" << best_vehl->id() << std::endl;
+      // print << "\tsync sch: "; print_sch(best_vehl->schedule().data());
+      // print.flush();
+      // print << "\tnew kt: "; print_kt(kt_.at(best_vehl->id()));
+      // print.flush();
+      sync_kt(kt_.at(best_vehl->id()), best_vehl->schedule().data());
+      // print << "\tmod kt: "; print_kt(kt_.at(best_vehl->id()));
+      // print.flush();
+      print(MessageType::Success)
+        << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")" << std::endl;
       nmat_++;
-    }
+      /* Remove customer from delay storage */
+      if (delay_.count(cust.id())) delay_.erase(cust.id());
+      add_to_delay = false;
+    } else
+      nrej_++;
+  }
+  if (add_to_delay) {
+    /* Add customer to delay storage */
+    delay_[cust.id()] = Cargo::now();
   }
 }
 
 void KineticTrees::handle_vehicle(const Vehicle& vehl) {
+  // print << "handle_vehicle(" << vehl.id() << ")... " << std::endl;
   /* Insert into grid */
   grid_.insert(vehl);
 
-  /* Create kinetic tree */
-  if (kt_.count(vehl.id()) == 0)
-    kt_[vehl.id()] = new TreeTaxiPath(vehl.orig(), vehl.dest());
+  /* Create kinetic tree (treeTaxiPath.h) */
+  if (kt_.count(vehl.id()) == 0) {
+    kt_[vehl.id()] = new TreeTaxiPath(vehl.schedule().data().at(0).loc(), vehl.dest());
+    // print(MessageType::Info) << "handle_vehicle(" << vehl.id() << ") created kt" << std::endl;
+  }
 
   /* Add to last-modified */
   if (last_modified_.count(vehl.id()) == 0)
@@ -160,6 +220,7 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
   if (vehl.dest() != kt_.at(vehl.id())->get_dest()) {
     delete kt_.at(vehl.id());
     kt_[vehl.id()] = new TreeTaxiPath(vehl.orig(), vehl.dest());
+    // print(MessageType::Info) << "handle_vehicle(" << vehl.id() << ") re-created kt" << std::endl;
   }
   else {
     /* Step the kinetic tree */
@@ -168,9 +229,19 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
        * We check its current schedule against our memory of its schedule and
        * adjust the kinetic tree to match. */
       if (sched_.at(vehl.id()).at(0).loc() != vehl.dest()) {
-        int visited_stops = compute_steps(sched_.at(vehl.id()), vehl.schedule().data());
-        for (int i = 0; i < visited_stops; ++i)
-          kt_.at(vehl.id())->step();
+        // print << "\tcur sched: ";
+        // print_sch(vehl.schedule().data());
+        // print.flush();
+        // print << "\tcached sched: ";
+        // print_sch(sched_.at(vehl.id()));
+        // print.flush();
+        // print << "\tcached kt: "; print_kt(kt_.at(vehl.id()));
+        // for (int i = 0; i < visited_stops; ++i)
+        //   kt_.at(vehl.id())->step();  // (treeTaxiPath.h)
+        sync_kt(kt_.at(vehl.id()), vehl.schedule().data());
+        // print << "\tmod. kt: ";
+        // print_kt(kt_.at(vehl.id()));
+        // print.flush();
       }
     }
   }
@@ -180,38 +251,62 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
 
   /* Update kinetic tree node times */
   int dur = Cargo::now() - last_modified_.at(vehl.id());
-  if (dur > 0) kt_.at(vehl.id())->moved(dur * Cargo::vspeed());
+  if (dur > 0) kt_.at(vehl.id())->moved(dur * Cargo::vspeed());  // (treeTaxiPath.h)
 
   /* Update last modified */
   last_modified_[vehl.id()] = Cargo::now();
+
+  /* DEBUG */
+  // print << "handle_vehicle(" << vehl.id() << ") final cached sched: ";
+  // print << "(" << vehl.last_visited_node() << ")";
+  // print_sch(sched_.at(vehl.id()));
+  // print.flush();
+  // print << "handle_vehicle(" << vehl.id() << ") final kt: ";
+  // print_kt(kt_.at(vehl.id()));
 }
 
 void KineticTrees::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
-  for (auto kv : kt_) delete kv.second; // <-- cleanup
+  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
 }
 
 void KineticTrees::listen() {
-  grid_.clear();          // Clear the index...
-  RSAlgorithm::listen();  // ...then call listen()
+  /* Clear the index, then call base listen */
+  grid_.clear();
+  RSAlgorithm::listen();
 }
 
-int KineticTrees::compute_steps(const std::vector<Stop>& cur_sch,
-                                const std::vector<Stop>& new_sch) {
-    int visited_stops = 0;
-    for (auto j = cur_sch.begin()+1; j != cur_sch.end(); ++j) {
-      auto i = std::find_if(new_sch.begin(), new_sch.end(), [&](const Stop& a) {
-        return a == *j; });
-      if (i == new_sch.end()) // <-- no longer in vehl's sch
-        visited_stops++;
-      else
-        break;
-    }
-    return visited_stops;
+/* The main challenge is keeping the local kinetic trees (kt_) in sync with
+ * the ground-truth state of the vehicles (in Cargo::db()). Method sync_kt
+ * performs synchronization between a local kt and a ground-truth vehicle
+ * schedule. Let the root of the kt always be the vehicle's next node. */
+void KineticTrees::sync_kt(TreeTaxiPath* kt, const std::vector<Stop>& cur_sch) {
+  std::vector<std::pair<NodeId, bool>> seq;
+  kt->printStopSequence(seq);
+  NodeId i = (seq.begin()+1)->first;
+  NodeId j = (cur_sch.begin()+1)->loc();
+  while (i != j && i != -1) {
+    // print << "sync_kt: " << i << " != " << j << std::endl;
+    kt->step();
+    // print << "sync_kt: step to "; print_kt(kt);
+    i = kt->next();
+  }
+  // print << "sync_kt: " << i << " == " << j << std::endl;
+  kt->move(cur_sch.begin()->loc());
+  // print << "sync_kt: move to "; print_kt(kt);
+}
+
+void KineticTrees::print_kt(TreeTaxiPath* kt, bool temp) {
+  std::vector<std::pair<NodeId, bool>> seq;
+  if (!temp) kt->printStopSequence(seq);
+  else       kt->printTempStopSequence(seq);
+  for (const auto& pair : seq)
+    print << pair.first << " ";
+  print << std::endl;
 }
 
 int main() {
-  /* Set the options */
+  /* Set options */
   Options op;
   op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
@@ -223,12 +318,15 @@ int main() {
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
+  /* Construct Cargo */
   Cargo cargo(op);
 
-  /* Initialize a new kt */
+  /* Initialize algorithm */
   KineticTrees kt;
 
-  /* Start Cargo */
-  cargo.start(kt);
+  /* Start the simulation */
+   cargo.start(kt);
+
+  return 0;
 }
 

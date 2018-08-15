@@ -1,4 +1,7 @@
-// Copyright (c) 2018 the Cargo authors
+// Portions Copyright (c) 2018 the Cargo authors
+// Portions Copyright (c) uakfdotb
+//
+// The following applies only to portions copyright the Cargo authors:
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,23 +20,22 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <ctime>
 #include <unordered_map>
 
 #include "libcargo.h"
-
-#include "treeTaxiPath.h"
+#include "treeTaxiPath.h"  // (uakfdotb/tsharesim)
 
 using namespace cargo;
 
-// Implements greedy assignment via kinetic trees
 // Citation:
 //   Y. Huang et al. "Large Scale Real-time Ridesharing with Service Guarantee
 //   on Road Networks". VLDB 2014.
-// Adapted from the author code:
-// https://github.com/uakfdotb/tsharesim
+// Author code: https://github.com/uakfdotb/tsharesim
 class KineticTrees : public RSAlgorithm {
  public:
   KineticTrees();
+  ~KineticTrees();
 
   /* My Overrides */
   virtual void handle_customer(const Customer &);
@@ -44,12 +46,25 @@ class KineticTrees : public RSAlgorithm {
  private:
   /* My Custom Variables */
   int nmat_;
+  int nrej_;
   cargo::Grid grid_;
 
+  /* Local containers to keep track of vehicle state */
   std::unordered_map<VehlId, TreeTaxiPath*>     kt_;
   std::unordered_map<VehlId, std::vector<Stop>> sched_;
   std::unordered_map<VehlId, SimlTime>          last_modified_;
 
-  int compute_steps(const std::vector<Stop> &, const std::vector<Stop> &);
+  /* Timeout long-running executions */
+  bool timeout(clock_t &);
+
+  /* If a customer doesn't get matched right away,
+   * try again after RETRY seconds. */
+  std::unordered_map<CustId, SimlTime> delay_;
+
+  /* The root of the kinetic tree is always the vehicle's next node */
+  void sync_kt(TreeTaxiPath *, const std::vector<Stop> &);
+
+  /* Handy print */
+  void print_kt(TreeTaxiPath *, bool temp = false);
 };
 

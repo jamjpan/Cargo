@@ -1,15 +1,10 @@
 // Copyright the original authors
 // See https://github.com/uakfdotb/tsharesim
 //
-// (The original code is unlicensed. The implication is that the code falls
-// under default copyright law, preventing us (Cargo) from freely using it.
-// So... use of the code here is illegal, until permission can be obtained
-// from the author...)
+// (The original code is unlicensed. The the code falls under default
+// copyright law. We... have not obtained permission from the author.)
 //
 // Portions copyright 2018 the Cargo authors
-//
-// #ifndef TREETAXIPATH_H
-// #define TREETAXIPATH_H
 #ifndef KINETICTREES_INCLUDE_TREETAXIPATH_H_
 #define KINETICTREES_INCLUDE_TREETAXIPATH_H_
 #include <queue>
@@ -158,12 +153,19 @@ class TreeTaxiPath {
   //virtual void moved(double distance);
   void moved(double distance);
 
+  /* Cargo: use move() to move the root to a new node */
+  void move(const NodeId &);
+
+  /* Return the node id of root */
+  NodeId head();
+  NodeId next();
+
   // tests pushing (source, dest)
   //virtual double value(vertex *curr, vertex *source, vertex *dest);
   /* Cargo: value() uses a global pickup/service constraint for source and
    * dest nodes. Cargo models each customer has its own constraints, based on
    * his time window. We modify value to accept specific constraints. */
-  double value(NodeId curr, NodeId source, NodeId dest,
+  double value(NodeId source, NodeId dest,
                DistInt pickup_rng, DistInt max_travel);
 
   // cancels the value() call
@@ -184,7 +186,7 @@ class TreeTaxiPath {
 
   // returns next vertex that the taxi should goto after curr() is passed; -1 if no next
   //virtual queue<vertex *> next(); 
-  std::queue<NodeId> next();
+  // std::queue<NodeId> next();
 
   // returns the vertex that the taxi is currently at or heading towards
   //virtual queue<vertex *> curr(vertex *curr);

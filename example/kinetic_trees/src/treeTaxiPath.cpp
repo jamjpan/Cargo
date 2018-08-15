@@ -462,17 +462,32 @@ TreeTaxiPath ::~TreeTaxiPath() { delete root; }
 
 void TreeTaxiPath ::moved(double distance) { root->step(distance, -1); }
 
+void TreeTaxiPath::move(const NodeId& curloc) {
+  root->loc = curloc;
+}
+
+NodeId TreeTaxiPath::head() {
+  return root->loc;
+}
+
+NodeId TreeTaxiPath::next() {
+  if (root->children.size() > 0)
+    return root->children.at(root->bestChild)->loc;
+  else
+    return -1;
+}
+
 // ************************ //
 // 1) Call value() to "test" insert a customer into a kinetic tree
 // 2) Call cancel() to cancel the "test", and call push to accept it
 //
 //double TreeTaxiPath ::value(vertex *curr, vertex *source, vertex *dest) {
-double TreeTaxiPath ::value(NodeId loc, NodeId source, NodeId dest,
+double TreeTaxiPath ::value(NodeId source, NodeId dest,
                             DistInt pickup_rng, DistInt max_travel) {
   //std::cout << "value(" << loc << "," << source << "," << dest << ")" << std::endl;
   flag = true;
 
-  root->loc = loc;
+  // root->loc = loc;
 
   //TreeNode *pick = new TreeNode(NULL, source, true, nextPair++,
   //                              pickupConstraint, false, 0, shortestPathC);
@@ -565,10 +580,10 @@ void TreeTaxiPath::set_dest(NodeId nid) {
   root->dest = nid;
 }
 
-std::queue<NodeId> TreeTaxiPath ::next() {
-    std::queue<NodeId> ret;
-  return ret; // todo
-}
+// std::queue<NodeId> TreeTaxiPath ::next() {
+//     std::queue<NodeId> ret;
+//   return ret; // todo
+// }
 
 //std::queue<NodeId> TreeTaxiPath ::curr(NodeId loc) {
 //  root->loc = loc;
