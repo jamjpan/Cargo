@@ -54,10 +54,8 @@ KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees"),
 }
 
 KineticTrees::~KineticTrees() {
-  for (auto kv : kt_) {
-    print << "delete kt" << kv.first << std::endl;
+  for (auto kv : kt_)
     delete kv.second;  // cleanup
-  }
 }
 
 void KineticTrees::handle_customer(const Customer& cust) {
