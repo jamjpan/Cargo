@@ -18,9 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* std::random_shuffle, std::remove_if, std::find_if */
-#include <exception>
 #include <iostream> /* std::endl */
+#include <queue>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "bilateral_arrangement.h"
@@ -28,94 +29,115 @@
 
 using namespace cargo;
 
-BilateralArrangement::BilateralArrangement()
-    : RSAlgorithm("ba"),
-      grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
-  batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;         // Initialize my private counter
-  nswapped_ = 0;
-  delay_ = {};
+const int RETRY = 15; // seconds
+
+/* Define ordering of rank_cands */
+auto cmp = [](rank_cand left, rank_cand right) {
+  return std::get<0>(left) > std::get<0>(right); };
+
+BilateralArrangement::BilateralArrangement() : RSAlgorithm("bilateral_arrangement"),
+      grid_(100) {   // (grid.h)
+  batch_time() = 1;  // (rsalgorithm.h)
+
+  /* Private vars */
+  nmat_     = 0;  // match counter
+  nswapped_ = 0;  // number swapped and accepted
+  nrej_     = 0;  // number rejected due to out-of-sync
+  delay_    = {}; // delay container
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
-  grid_.insert(vehl);  // Insert into my grid
+  /* Insert each vehicle into the grid */
+  grid_.insert(vehl);
 }
 
 void BilateralArrangement::match() {
-  std::vector<Customer> custs = customers(); // <-- get a local copy
-
   /* BilateralArrangement is a random algorithm due to this shuffle. */
-  std::random_shuffle(custs.begin(), custs.end());
+  std::random_shuffle(customers().begin(), customers().end());
 
   /* Extract riders one at a time */
-  while (!custs.empty()) {
-    Customer cust = custs.back();
-    custs.pop_back();
-    if (cust.assigned()) continue; // <-- skip already assigned
+  while (!customers().empty()) {
+    Customer cust = customers().back();
+    customers().pop_back();
 
-    /* Don't consider customers already looked at within the last 10 seconds */
-    if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - 10)
+    /* Skip customers already assigned (but not yet picked up) */
+    if (cust.assigned())
+      continue;
+
+    /* Skip customers looked at within the last RETRY seconds */
+    if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
       continue;
 
     /* Containers for storing outputs */
-    cargo::DistInt cst, best_cst = cargo::InfInt;
+    cargo::DistInt cst = cargo::InfInt;
     std::vector<cargo::Stop> sch, best_sch;
     std::vector<cargo::Wayp> rte, best_rte;
     CustId removed_cust = -1;
 
     /* best_vehl will point to an underlying MutableVehicle in our grid */
-    std::shared_ptr<cargo::MutableVehicle> best_vehl = nullptr;
+    std::shared_ptr<MutableVehicle> best_vehl = nullptr;
     bool matched = false;
 
-    /* Get candidates from the grid */
-    DistInt rng = pickup_range(cust, Cargo::now());
-    auto candidates = grid_.within_about(rng, cust.orig());
+    /* Get candidates from the local grid index */
+    DistInt rng = /* pickup_range(cust, Cargo::now()); */ 2000;
+    auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
-    while (!candidates.empty()) {
-      /* Loop through and get the greedy match */;
-      for (const auto& cand : candidates) {
-        cst = sop_insert(*cand, cust, sch, rte); // <-- doesn't check time/cap constraints
-        if (cst < best_cst) {
-          best_cst = cst;
-          best_sch = sch;
-          best_rte = rte;
-          best_vehl = cand;  // copy the pointer
-        }
-      }
-      /* Remove the best candidate. If match is valid, accept it. */
-      candidates.erase(std::find(candidates.begin(), candidates.end(), best_vehl));
+    /* Container to rank candidates by least cost */
+    std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)> q(cmp);
+
+    /* Loop through and rank each candidate */;
+    for (const auto& cand : candidates) {
+      cst = sop_insert(*cand, cust, sch, rte); // doesn't check time/cap constraints
+      q.push({cst, cand, sch, rte});
+    }
+
+    /* Process each candidate, starting from least-cost, to see if can accept
+     * the customer within constraints. If cannot, try to replace an existing
+     * customer in the candidate's schedule with this customer, and try again. */
+    while (!q.empty() && !matched) {
+      /* Get and unpack the best candidate */
+      auto cand = q.top(); q.pop();
+      best_vehl = std::get<1>(cand);
+      best_sch  = std::get<2>(cand);
+      best_rte  = std::get<3>(cand);
+
+      /* If best vehicle is within constraints... */
       bool within_time = chktw(best_sch, best_rte);
       bool within_cap = (best_vehl->queued() < best_vehl->capacity());
       if (within_time && within_cap) {
+        /* ... accept the match */
         matched = true;
-        break;
       } else {
-        /* Remove some random not-picked-up customer from cand and try the
-         * insertion again. If it meets constraints, then accept. */
+        /* ... otherwise, remove some random not-picked-up customer from cand
+         * and try the insertion again. If it meets constraints, then accept. */
         CustId remove_me = randcust(best_vehl->schedule().data());
         if (remove_me != -1) {
           std::vector<Stop> old_sch = best_vehl->schedule().data(); // make a backup
-          std::vector<Stop> new_sch = old_sch;                      // make a copy
-          remove_cust(new_sch, remove_me);
-          best_vehl->set_sch(new_sch);
-          std::vector<Stop> new_best_sch;
-          std::vector<Wayp> new_best_rte;
-          sop_insert(best_vehl, cust, new_best_sch, new_best_rte);
-          if (chktw(new_best_sch, new_best_rte)) {
-            print(MessageType::Info) << "feasible after remove " << std::endl;
-            nswapped_++;
-            best_sch = new_best_sch;
-            best_rte = new_best_rte;
+          std::vector<Stop> new_sch;
+          std::vector<Wayp> new_rte;
+          /* Replace remove_me with cust to produce new_sch, new_rte */
+          sop_replace(best_vehl, remove_me, cust, new_sch, new_rte);
+          /* If replacement is within constraints... */
+          if (chktw(new_sch, new_rte)) {
+            /* ... accept the match */
+            print(MessageType::Info)
+              << "Vehicle " << best_vehl->id()
+              << " feasible after remove " << remove_me << std::endl;
+            nswapped_++;  // increment counter
+            best_sch = new_sch;
+            best_rte = new_rte;
             matched = true;
             removed_cust = remove_me;
-            break;
-          } else
-            best_vehl->set_sch(old_sch); // restore the backup
+          } else {
+            /* ... restore the backup */
+            best_vehl->set_sch(old_sch);  // restore the backup
+          }
         }
       }
-    } // end while !candidates.empty()
+    } // end while !q.empty()
 
-    /* Commit */
+    /* Commit to db */
+    bool add_to_delay = true;
     if (matched) {
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
@@ -124,27 +146,37 @@ void BilateralArrangement::match() {
        * account for match latency */
       if (assign({cust.id()}, cust_to_del, best_rte, best_sch, *best_vehl)) {
         print(MessageType::Success)
-          << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
-        nmat_++;
-      }
-      if (delay_.count(cust.id())) delay_.erase(cust.id());
-    } else
+          << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")"
+          << std::endl;
+        nmat_++;  // increment matched counter
+        /* Remove customer from delay storage */
+        if (delay_.count(cust.id())) delay_.erase(cust.id());
+        add_to_delay = false;
+      } else
+        nrej_++;  // increment rejected counter
+    }
+    if (add_to_delay) {
+      /* Add customer to delay storage */
       delay_[cust.id()] = Cargo::now();
-  } // end while !custs.empty()
+    }
+  } // end while !customers().empty()
 }
 
 void BilateralArrangement::end() {
+  /* Print the statistics */
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Swapped: " << nswapped_ << std::endl;
+  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
 }
 
 void BilateralArrangement::listen() {
-  grid_.clear();          // Clear the index...
-  RSAlgorithm::listen();  // ...then call listen()
+  /* Clear the index, then call base listen */
+  grid_.clear();
+  RSAlgorithm::listen();
 }
 
 int main() {
-  /* Set the options */
+  /* Set options */
   cargo::Options op;
   op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
@@ -155,12 +187,15 @@ int main() {
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
+  /* Construct Cargo */
   cargo::Cargo cargo(op);
 
-  /* Initialize a new bilateral-arrangement alg */
+  /* Initialize algorithm */
   BilateralArrangement ba;
 
-  /* Start Cargo */
+  /* Start the simulation */
   cargo.start(ba);
+
+  return 0;
 }
 

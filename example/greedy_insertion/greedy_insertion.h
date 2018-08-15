@@ -23,9 +23,6 @@
 
 using namespace cargo;
 
-// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
-// For each request, the algorithm looks for the "greedy" vehicle based on the
-// heuristic, and assigns the request to this vehicle if it exists.
 class GreedyInsertion : public RSAlgorithm {
  public:
   GreedyInsertion();
@@ -41,7 +38,12 @@ class GreedyInsertion : public RSAlgorithm {
   int nmat_;
   Grid grid_;
 
-  /* If a customer doesn't get matched right away, try again after 10 seconds. */
+  int ncand_;
+  int ncust_;
+  int nrej_;
+
+  /* If a customer doesn't get matched right away,
+   * try again after RETRY seconds. */
   std::unordered_map<CustId, SimlTime> delay_;
 };
 

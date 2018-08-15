@@ -26,26 +26,26 @@
 
 using namespace cargo;
 
-/* GreedyInsertion extends RSAlgorithm by implementing matching functionality.
- * The base RSAlgorithm is initialized with name (param1) and bool (param2).
- * Setting bool=true causes this algorithm's messages to be output to a named
- * pipe on the filesystem, while Cargo simulator messages are output to
- * standard out. Setting bool=false causes all messages to be output to
- * standard out. */
-GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion"),
-      grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
-  batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;         // Initialize my private counter
-  delay_ = {};
+const int RETRY = 15; // seconds
+
+GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
+      grid_(100) {   // (grid.h)
+  batch_time() = 1;  // (rsalgorithm.h) set batch to 1 second ("streaming")
+
+  /* Private vars */
+  nmat_  = 0;  // match counter
+  nrej_  = 0;  // number rejected due to out-of-sync
+  delay_ = {}; // delay container
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
-  /* Don't consider customers that are assigned but not yet picked up */
-  if (cust.assigned()) return;
+  /* Skip customers already assigned (but not yet picked up) */
+  if (cust.assigned())
+    return;
 
-  /* Don't consider customers already looked at within the last 10 seconds */
-  if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - 10) return;
+  /* Skip customers looked at within the last RETRY seconds */
+  if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
+    return;
 
   /* Containers for storing outputs */
   DistInt cst, best_cst = InfInt;
@@ -58,17 +58,25 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
    * copy of the vehicle is updated. The local copy in the grid also needs to
    * be updated. Hence the grid returns pointers to vehicles to give access to
    * the local vehicles. */
-  std::shared_ptr<MutableVehicle> best_vehl;
+  std::shared_ptr<MutableVehicle> best_vehl = nullptr;
   bool matched = false;
 
   /* Get candidates from the local grid index */
-  DistInt rng = pickup_range(cust, Cargo::now());
-  auto candidates = grid_.within_about(rng, cust.orig());
+  DistInt rng = /* pickup_range(cust, Cargo::now()); */ 2000;
+  auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
+
+  /* Increment number-of-custs counter */
+  ncust_++;
 
   /* Loop through candidates and check which is the greedy match */
   for (const auto& cand : candidates) {
+    /* Skip vehicles queued to capacity (queued = number of customer assigned
+     * but may or may not be picked up yet) */
     if (cand->queued() == cand->capacity())
-      continue;  // don't consider vehs already queued to capacity
+      continue;
+
+    /* Increment number-of-candidates counter */
+    ncand_++;
 
     cst = sop_insert(cand, cust, sch, rte);  // (functions.h)
     bool within_time = chktw(sch, rte);      // (functions.h)
@@ -79,9 +87,10 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
       best_vehl = cand;  // copy the pointer
       matched = true;
     }
-  }
+  }  // end for cand : candidates
 
-  /* Commit match to the db. */
+  /* Commit match to the db */
+  bool add_to_delay = true;
   if (matched) {
     /* Function assign(3) will synchronize the vehicle (param3) before
      * committing it the database. Synchronize is necessary due to "match
@@ -92,13 +101,18 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
      * the vehicle if it's missed an intersection that the match instructs it
      * to make. */
     if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
-      print(MessageType::Success) << "Match "
-          << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
-          << std::endl;
-      nmat_++;
-    }
-    if (delay_.count(cust.id())) delay_.erase(cust.id());
-  } else {
+      print(MessageType::Success)
+        << "Match " << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
+        << std::endl;
+      nmat_++;  // increment matched counter
+      /* Remove customer from delay storage */
+      if (delay_.count(cust.id())) delay_.erase(cust.id());
+      add_to_delay = false;
+    } else
+      nrej_++;  // increment rejected counter
+  }
+  if (add_to_delay) {
+    /* Add customer to delay storage */
     delay_[cust.id()] = Cargo::now();
   }
 }
@@ -109,35 +123,47 @@ void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
 }
 
 void GreedyInsertion::end() {
-  /* Print the total matches */
+  /* Print the statistics */
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
+  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
 }
 
 void GreedyInsertion::listen() {
-  /* Clear the index, then call listen() */
+  /* Clear counters */
+  ncand_ = 0;  // candidates counter
+  ncust_ = 0;  // customers counter
+
+  /* Clear the index, then call base listen */
   grid_.clear();
   RSAlgorithm::listen();
+
+  /* Report number of candidates per customer */
+  print(MessageType::Info)
+    << "Cand per cust: " << (float)ncand_/ncust_ << std::endl;
 }
 
 int main() {
-  /* Set the options */
+  /* Set options */
   Options op;
   op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-1.instance";
   op.path_to_solution = "greedy_insertion.sol";
   op.path_to_dataout  = "greedy_insertion.dat";
-  op.time_multiplier  = 1;
+  op.time_multiplier  = 10;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
+  /* Construct Cargo */
   Cargo cargo(op);
 
-  /* Initialize a new greedy */
+  /* Initialize algorithm */
   GreedyInsertion gr;
 
-  /* Start Cargo */
+  /* Start the simulation */
   cargo.start(gr);
+
+  return 0;
 }
 

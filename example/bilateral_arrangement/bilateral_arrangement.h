@@ -19,15 +19,18 @@
 // SOFTWARE.
 #include "libcargo.h"
 
-// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
-// For each request, the algorithm looks for the "greedy" vehicle based on the
-// heuristic, and assigns the request to this vehicle if it exists.
-class BilateralArrangement : public cargo::RSAlgorithm {
+using namespace cargo;
+
+/* Define a "rank_cand" type to hold each candidate plus its cost */
+typedef std::tuple<DistInt, std::shared_ptr<MutableVehicle>,
+  std::vector<Stop>, std::vector<Wayp>> rank_cand;
+
+class BilateralArrangement : public RSAlgorithm {
  public:
   BilateralArrangement();
 
   /* My Overrides */
-  virtual void handle_vehicle(const cargo::Vehicle &);
+  virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
   virtual void listen();
@@ -36,9 +39,11 @@ class BilateralArrangement : public cargo::RSAlgorithm {
   /* My Custom Variables */
   int nmat_;
   int nswapped_;
+  int nrej_;
   cargo::Grid grid_;
 
-  /* If a customer doesn't get matched right away, try again after 10 seconds. */
-  std::unordered_map<cargo::CustId, cargo::SimlTime> delay_;
+  /* If a customer doesn't get matched right away,
+   * try again after RETRY seconds. */
+  std::unordered_map<CustId, SimlTime> delay_;
 };
 

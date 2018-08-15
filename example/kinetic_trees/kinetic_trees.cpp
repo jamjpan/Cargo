@@ -35,7 +35,7 @@
 using namespace cargo;
 
 const int RETRY   = 15; // retry unmatched cust after RETRY sec
-const int TIMEOUT = 30; // timeout customers take > TIMEOUT sec
+const int TIMEOUT =  1; // timeout customers take > TIMEOUT sec
 
 bool KineticTrees::timeout(clock_t& start) {
   clock_t end = std::clock();
@@ -114,6 +114,9 @@ void KineticTrees::handle_customer(const Customer& cust) {
     /* Retrieve the new schedule */
     std::vector<std::pair<NodeId, bool>> schseq;  // container
     kt_.at(cand->id())->printTempStopSequence(schseq);
+
+    if (timeout(start))
+      break;
 
     /* Convert the sequence of nodes returned from the tree into a vector of
      * stops for committing into the db */
