@@ -198,6 +198,7 @@ void MutableVehicle::set_nnd(const DistInt& sync_nnd) {
 }
 void MutableVehicle::reset_lvn()    { this->idx_last_visited_node_ = 0; }
 void MutableVehicle::incr_queued()  { this->queued_++; }
+void MutableVehicle::decr_queued()  { this->queued_--; }
 
 ProblemSet::ProblemSet() {}
 std::string & ProblemSet::name()            { return name_; }

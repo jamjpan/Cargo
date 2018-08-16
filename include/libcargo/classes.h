@@ -214,6 +214,7 @@ class MutableVehicle : public Vehicle {
   void set_nnd(const DistInt&);
   void reset_lvn();
   void incr_queued();
+  void decr_queued();
 };
 
 // A problem is the set of trips keyed by their early time. When the
