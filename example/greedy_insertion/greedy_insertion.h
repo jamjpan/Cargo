@@ -27,20 +27,17 @@ class GreedyInsertion : public RSAlgorithm {
  public:
   GreedyInsertion();
 
-  /* My Overrides */
+  /* My overrides */
   virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
   virtual void end();
   virtual void listen();
 
  private:
-  /* My Custom Variables */
-  int nmat_;
+  /* My variables */
   Grid grid_;
-
   int ncand_;
   int ncust_;
-  int nrej_;
 
   /* If a customer doesn't get matched right away,
    * try again after RETRY seconds. */

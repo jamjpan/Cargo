@@ -81,6 +81,8 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
       print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
     }
+    else
+      nrej_++;
   }
 }
 
@@ -90,6 +92,7 @@ void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {
 
 void NearestNeighbor::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
+  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
 }
 
 void NearestNeighbor::listen() {

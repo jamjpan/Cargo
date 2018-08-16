@@ -30,11 +30,14 @@
 
 using namespace cargo;
 
+const int TOP_CUST = 5;  // keep this many customers per vehicle for rv-graph
+const int RTV_TIMEOUT = 100;  // stop building rtv-graph after this millisecs
+const int TRIP_MAX = 15000;   // maximum number of trips per batch
+
 TripVehicleGrouping::TripVehicleGrouping()
     : RSAlgorithm("tvg"),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 30;  // Set batch to 30 real seconds
-  nmat_ = 0;          // Initialize my private counter
   stid_ = 0;          // Initialize internal SharedTripId
 
   /* Initialize gtrees for parallel sp */
@@ -59,12 +62,13 @@ void TripVehicleGrouping::match() {
   dict<Vehicle, dict<Customer, std::vector<Stop>>> rv_sch;
   dict<Vehicle, dict<Customer, std::vector<Wayp>>> rv_rte;
   dict<Vehicle, dict<Customer, DistInt>>           rv_cst;
+  std::vector<CustId> matchable_custs {};
 
   print(MessageType::Info) << "generating rv-graph..." << std::endl;
   { /* Generate rv-graph */
   std::vector<Customer> lcl_cust = customers();
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
-          rv_cst, rv_sch, rv_rte)
+          rv_cst, rv_sch, rv_rte, matchable_custs)
   { /* Each thread gets a local gtree and a local grid to perform
      * sp-computations in parallel */
   GTree::G_Tree& lcl_gtre = gtre_.at(omp_get_thread_num());
@@ -72,6 +76,10 @@ void TripVehicleGrouping::match() {
   #pragma omp for
   for (auto ptcust = lcl_cust.begin(); ptcust < lcl_cust.end(); ++ptcust) {
     if (ptcust->assigned()) continue;  // <-- skip assigned not yet picked up
+    else {
+      #pragma omp critical
+      { matchable_custs.push_back(ptcust->id()); }
+    }
 
     /* 1) Build rr edges
      * -----------------
@@ -94,7 +102,7 @@ void TripVehicleGrouping::match() {
     /* 2) Build rv edges
      * -----------------
      * ...then compare against all vehicles */
-    DistInt rng = pickup_range(cust_a, Cargo::now(), lcl_gtre);
+    DistInt rng = pickup_range(cust_a, Cargo::now());
     auto cands = lcl_grid.within_about(rng, cust_a.orig());
     for (const auto& cand : cands) {
       if (cand->queued() == cand->capacity())
@@ -114,7 +122,7 @@ void TripVehicleGrouping::match() {
   }  // end generate rv-graph
 
   { /* Heuristic: keep only the lowest k customers per vehicle */
-    size_t topk = 30;
+    size_t topk = TOP_CUST;
     for (const auto& kv : rv_cst) {
       const Vehicle& vehl = kv.first;
       if (kv.second.size() > topk) {
@@ -143,7 +151,7 @@ void TripVehicleGrouping::match() {
   int nvted = 0; // number of vehicle-trip edges
   { /* Generate rtv-graph */
   std::vector<Vehicle> lcl_vehl = vehicles();
-  int timeout = 200;  // <-- Heuristic: stop after this time (ms)
+  int timeout = RTV_TIMEOUT;  // <-- Heuristic: stop after this time (ms)
   #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
           vted_, rvgrph_rr_, rvgrph_rv_, timeout)
   { /* Each thread adds edges to a local vtedges; these are combined when
@@ -179,7 +187,7 @@ void TripVehicleGrouping::match() {
         lcl_trip[stid] = {cust};
         tripk[1].push_back(stid);
 
-        /* Heuristic: try for only 200 ms per vehicle */
+        /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
         if (std::round(std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - t0).count()) > timeout) {
           timed_out = true;
@@ -189,7 +197,7 @@ void TripVehicleGrouping::match() {
     } else
       continue;  // <-- if no rv-pairs, skip to the next vehl
 
-    /* Heuristic: try for only 200 ms per vehicle */
+    /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
     if (timed_out) continue;  // <-- continue to the next vehicle
 
     /* Trips of size 2
@@ -216,7 +224,7 @@ void TripVehicleGrouping::match() {
           lcl_trip[stid] = shtrip;
           tripk[2].push_back(stid);
         }
-        /* Heuristic: try for only 200 ms per vehicle */
+        /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
         if (std::round(std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - t0).count()) > timeout) {
           timed_out = true;
@@ -225,7 +233,7 @@ void TripVehicleGrouping::match() {
       }
       if (timed_out) break;
     }
-    /* Heuristic: try for only 200 ms per vehicle */
+    /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
     if (timed_out) continue;  // <-- continue to the next vehicle
 
     /* 2) Check if any rr pairs can be served by this vehicle */
@@ -246,7 +254,7 @@ void TripVehicleGrouping::match() {
           lcl_trip[stid] = shtrip;
           tripk[2].push_back(stid);
         }
-        /* Heuristic: try for only 200 ms per vehicle */
+        /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
         if (std::round(std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - t0).count()) > timeout) {
           timed_out = true;
@@ -255,7 +263,7 @@ void TripVehicleGrouping::match() {
       }
       if (timed_out) break;
     }
-    /* Heuristic: try for only 200 ms per vehicle */
+    /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
     if (timed_out) continue;  // <-- continue to the next vehicle
 
     /* Trips of size >= 3
@@ -308,7 +316,7 @@ void TripVehicleGrouping::match() {
               }
             }
           }  // end if shtrip.size() == k
-          /* Heuristic: try for only 200 ms per vehicle */
+          /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
           if (std::round(std::chrono::duration<double, std::milli>(
               std::chrono::high_resolution_clock::now() - t0).count()) > timeout) {
             timed_out = true;
@@ -318,7 +326,7 @@ void TripVehicleGrouping::match() {
         if (timed_out) break;
       } // end outer for
       k++;
-      /* Heuristic: try for only 200 ms per vehicle */
+      /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
       if (timed_out) continue;  // <-- continue to the next vehicle
     } // end while
     } // end if vehls with capacity
@@ -326,21 +334,27 @@ void TripVehicleGrouping::match() {
 
   /* Combine lcl_vted */
   #pragma omp critical
-  { for (const auto& kv : lcl_vted) {
+  {
+    for (const auto& kv : lcl_vted) {
     if (vted_.count(kv.first) == 0) {
       vted_[kv.first] = kv.second;
       nvted += kv.second.size();
+      /* Heuristic: keep up to TRIP_MAX trips */
+      if (nvted > TRIP_MAX) break;
     } else {
       for (const auto& kv2 : kv.second) {
         vted_[kv.first][kv2.first] = kv2.second;
         nvted++;
+        if (nvted > TRIP_MAX) break;
        }
     }
+    if (nvted > TRIP_MAX) break;
     }  // end for
   }    // end pragma omp critical
 
   }  // end pragma omp parallel
-  print(MessageType::Info) << "ntrips=" << trip_.size() << std::endl;
+  print(MessageType::Info)
+    << "ntrips=" << trip_.size() << "(trunc " << nvted_ << ")" << std::endl;
   }  // end generate rtv-graph
 
   print(MessageType::Info) << "generating the mip..." << std::endl;
@@ -358,10 +372,10 @@ void TripVehicleGrouping::match() {
    * Properties:
    *     - Total terms in the objective == number of columns
    *       == all VehicleId, SharedTripId pairs in vted_, plus |customers| */
-  int ncol = nvted + customers().size();
+  int ncol = nvted + matchable_custs.size();
   glp_add_cols(mip, ncol);
   /*     - Total rows == # of vehicles (size of vted_), plus |customers| */
-  int nrow = vted_.size() + customers().size();
+  int nrow = vted_.size() + matchable_custs.size();
   glp_add_rows(mip, nrow);
 
   /* Map col_idx to the vehicle/trip edge */
@@ -381,14 +395,14 @@ void TripVehicleGrouping::match() {
           ("x_" + std::to_string(vehl_id) + "_" + std::to_string(shtrip_id)).c_str());
     }
   }
-  for (const auto& cust : customers()) {
+  for (const auto& cust_id : matchable_custs) {
     col_idx++;
-    colmap[col_idx] = {cust.id(), -1};
-    int penalty = (unassign_penalty > 0 ? unassign_penalty : Cargo::basecost(cust.id()));
+    colmap[col_idx] = {cust_id, -1};
+    int penalty = (unassign_penalty > 0 ? unassign_penalty : Cargo::basecost(cust_id));
     glp_set_obj_coef(mip, col_idx, penalty);
     glp_set_col_kind(mip, col_idx, GLP_BV);
     glp_set_col_name(mip, col_idx,
-                     ("y_" + std::to_string(cust.id())).c_str());
+                     ("y_" + std::to_string(cust_id)).c_str());
   }
   }  // end populate coefficients
 
@@ -420,19 +434,19 @@ void TripVehicleGrouping::match() {
    *     ar[cel_idx] = 1 if the j of col contains the cust of row_idx,
    *                   1 if the i of col equals cust.id(),
    *                   0 otherwise */
-  for (const auto& cust : customers()) {
+  for (const auto& cust_id : matchable_custs) {
     row_idx++;
     glp_set_row_bnds(mip, row_idx, GLP_FX, 1.0, 1.0);
-    glp_set_row_name(mip, row_idx, ("c" + std::to_string(cust.id())).c_str());
+    glp_set_row_name(mip, row_idx, ("c" + std::to_string(cust_id)).c_str());
     for (const auto& kv2 : colmap) {
       cel_idx++;
       ia[cel_idx] = row_idx;
       ja[cel_idx] = kv2.first;
-      if (kv2.second.first == cust.id()) ar[cel_idx] = 1;
+      if (kv2.second.first == cust_id) ar[cel_idx] = 1;
       else if (kv2.second.second == -1)  ar[cel_idx] = 0;
       else {                             ar[cel_idx] = 0;
         for (const auto& cust2 : trip_.at(kv2.second.second))
-          if (cust2.id() == cust.id()) { ar[cel_idx] = 1;
+          if (cust2.id() == cust_id) { ar[cel_idx] = 1;
             break;
           }
       }
@@ -497,6 +511,7 @@ void TripVehicleGrouping::match() {
         nmat_++;
       } else {
         print(MessageType::Warning) << "Sync failed vehl" << colmap[i].first << "\n";
+        nrej_++;
       }
     }
   }
@@ -514,6 +529,7 @@ void TripVehicleGrouping::match() {
 
 void TripVehicleGrouping::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
+  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
 }
 
 void TripVehicleGrouping::listen() {
@@ -568,10 +584,10 @@ SharedTripId TripVehicleGrouping::add_trip(const SharedTrip& trip) {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-9.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;

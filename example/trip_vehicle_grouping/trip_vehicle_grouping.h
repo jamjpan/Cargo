@@ -92,14 +92,13 @@ class TripVehicleGrouping : public cargo::RSAlgorithm {
    * taxi. Set unassign_penalty to a high number > 0 to override the default. */
   int unassign_penalty = -1; // meters
 
-  /* My Overrides */
+  /* My overrides */
   virtual void handle_vehicle(const cargo::Vehicle &);
   virtual void match();
   virtual void end();
   virtual void listen();
 
  private:
-  int nmat_;  // number of matches
   cargo::Grid grid_;
 
   /* Vector of GTrees for parallel sp

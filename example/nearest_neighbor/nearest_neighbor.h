@@ -26,15 +26,14 @@ class NearestNeighbor : public cargo::RSAlgorithm {
  public:
   NearestNeighbor();
 
-  /* My Overrides */
+  /* My overrides */
   virtual void handle_customer(const cargo::Customer &);
   virtual void handle_vehicle(const cargo::Vehicle &);
   virtual void end();
   virtual void listen();
 
  private:
-  /* My Custom Variables */
-  int nmat_;
+  /* My variables */
   cargo::Grid grid_;
 };
 

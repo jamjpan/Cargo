@@ -29,17 +29,15 @@ class BilateralArrangement : public RSAlgorithm {
  public:
   BilateralArrangement();
 
-  /* My Overrides */
+  /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
   virtual void listen();
 
  private:
-  /* My Custom Variables */
-  int nmat_;
+  /* My variables */
   int nswapped_;
-  int nrej_;
   cargo::Grid grid_;
 
   /* If a customer doesn't get matched right away,

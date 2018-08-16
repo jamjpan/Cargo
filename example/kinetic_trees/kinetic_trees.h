@@ -37,16 +37,14 @@ class KineticTrees : public RSAlgorithm {
   KineticTrees();
   ~KineticTrees();
 
-  /* My Overrides */
+  /* My overrides */
   virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
   virtual void end();
   virtual void listen();
 
  private:
-  /* My Custom Variables */
-  int nmat_;
-  int nrej_;
+  /* My variables */
   cargo::Grid grid_;
 
   /* Local containers to keep track of vehicle state */

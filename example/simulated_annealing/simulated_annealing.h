@@ -38,16 +38,14 @@ class SimulatedAnnealing : public RSAlgorithm {
  public:
   SimulatedAnnealing();
 
-  /* My Overrides */
+  /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
   virtual void listen();
 
  private:
-  /* My Custom Variables */
-  int nmat_;
-  int nrej_;
+  /* My variables */
   Grid grid_;
 
   int T_;

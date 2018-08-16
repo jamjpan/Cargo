@@ -132,6 +132,7 @@ void SimulatedAnnealing::match() {
 
 void SimulatedAnnealing::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
+  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
 }
 
 void SimulatedAnnealing::listen() {
