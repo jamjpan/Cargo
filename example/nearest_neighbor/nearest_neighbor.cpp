@@ -26,6 +26,7 @@
 using namespace cargo;
 
 const int BATCH = 1;  // seconds
+const int RANGE = 1500; // meters
 const int K_NN  = 10; // how many nearest candidates to evaluate before give up
 
 NearestNeighbor::NearestNeighbor()
@@ -49,7 +50,7 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
 
   /* Get candidates from the local grid index
    * (the grid is refreshed during listen()) */
-  DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ 1200;
+  DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ RANGE;
   auto candidates = grid_.within_about(rng, cust.orig());
 
   /* Find K_NN nearest candidates

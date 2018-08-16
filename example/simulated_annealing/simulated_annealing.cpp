@@ -30,7 +30,8 @@
 using namespace cargo;
 
 const int BATCH = 1;  // seconds
-const int PERT  = 10; // how many solutions to generate per iter?
+const int RANGE = 1500; // meters
+const int PERT  = 16; // how many solutions to generate per iter?
 const int K_NN  = 10; // how many candidates per customer?
 const int RETRY = 15;
 
@@ -62,7 +63,7 @@ void SimulatedAnnealing::match() {
     std::shared_ptr<MutableVehicle> best_vehl = nullptr;
 
     /* Get candidates from the local grid index */
-    DistInt rng = /* pickup_range(cust, Cargo::now()); */ 1200;
+    DistInt rng = /* pickup_range(cust, Cargo::now()); */ RANGE;
     auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
     /* Find K_NN nearest candidates

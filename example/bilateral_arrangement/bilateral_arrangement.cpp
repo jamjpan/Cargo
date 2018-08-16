@@ -30,6 +30,7 @@
 using namespace cargo;
 
 const int BATCH     = 1;  // seconds
+const int RANGE     = 1500; // meters
 const int RETRY     = 15; // seconds
 const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
@@ -89,7 +90,7 @@ void BilateralArrangement::match() {
     bool matched = false;
 
     /* Get candidates from the local grid index */
-    DistInt rng = /* pickup_range(cust, Cargo::now()); */ 1200;
+    DistInt rng = /* pickup_range(cust, Cargo::now()); */ RANGE;
     auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
     /* Container to rank candidates by least cost */

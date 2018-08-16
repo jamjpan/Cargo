@@ -32,6 +32,7 @@
 using namespace cargo;
 
 const int BATCH         = 1;
+const int RANGE         = 1500; // meters
 const int TOP_CUST      = 8;  // customers per vehicle for rv-graph
 const int RV_TIMEOUT    = std::ceil(float(BATCH/2.0));
 const int RTV_TIMEOUT   = std::ceil(float(BATCH/2.0));
@@ -124,7 +125,7 @@ void TripVehicleGrouping::match() {
     /* 2) Build rv edges
      * -----------------
      * ...then compare against all vehicles */
-    DistInt rng = /* pickup_range(cust_a, Cargo::now()); */ 1200;
+    DistInt rng = /* pickup_range(cust_a, Cargo::now()); */ RANGE;
     auto cands = lcl_grid.within_about(rng, cust_a.orig());
     for (const auto& cand : cands) {
       if (cand->queued() == cand->capacity())
