@@ -29,18 +29,27 @@
 
 using namespace cargo;
 
-const int RETRY = 15; // seconds
+const int BATCH     = 1;  // seconds
+const int RETRY     = 15; // seconds
+const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
 /* Define ordering of rank_cands */
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right); };
 
+bool BilateralArrangement::timeout(clock_t& start) {
+  clock_t end = std::clock();
+  double elapsed = double(end-start)/CLOCKS_PER_SEC;
+  if ((elapsed >= TIMEOUT) || this->done()) {
+    print << "timeout() triggered." << std::endl;
+    return true;
+  }
+  return false;
+}
+
 BilateralArrangement::BilateralArrangement() : RSAlgorithm("bilateral_arrangement"),
       grid_(100) {   // (grid.h)
-  batch_time() = 1;  // (rsalgorithm.h)
-
-  /* Private vars */
-  nmat_     = 0;  // match counter
+  batch_time() = BATCH;  // (rsalgorithm.h)
   nswapped_ = 0;  // number swapped and accepted
   nrej_     = 0;  // number rejected due to out-of-sync
   delay_    = {}; // delay container
@@ -57,6 +66,7 @@ void BilateralArrangement::match() {
 
   /* Extract riders one at a time */
   while (!customers().empty()) {
+    clock_t start = std::clock();
     Customer cust = customers().back();
     customers().pop_back();
 
@@ -79,7 +89,7 @@ void BilateralArrangement::match() {
     bool matched = false;
 
     /* Get candidates from the local grid index */
-    DistInt rng = /* pickup_range(cust, Cargo::now()); */ 2000;
+    DistInt rng = /* pickup_range(cust, Cargo::now()); */ 1200;
     auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
     /* Container to rank candidates by least cost */
@@ -128,12 +138,15 @@ void BilateralArrangement::match() {
             best_rte = new_rte;
             matched = true;
             removed_cust = remove_me;
+            matched_[remove_me] = false;
           } else {
             /* ... restore the backup */
             best_vehl->set_sch(old_sch);  // restore the backup
           }
         }
       }
+      if (timeout(start))
+        break;
     } // end while !q.empty()
 
     /* Commit to db */
@@ -148,7 +161,7 @@ void BilateralArrangement::match() {
         print(MessageType::Success)
           << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")"
           << std::endl;
-        nmat_++;  // increment matched counter
+        matched_[cust.id()] = true;
         /* Remove customer from delay storage */
         if (delay_.count(cust.id())) delay_.erase(cust.id());
         add_to_delay = false;
@@ -164,6 +177,9 @@ void BilateralArrangement::match() {
 
 void BilateralArrangement::end() {
   /* Print the statistics */
+  nmat_ = 0;  // (rsalgorithm.h)
+  for (const auto& kv : matched_)
+    if (kv.second == true) nmat_++;
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Swapped: " << nswapped_ << std::endl;
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
@@ -182,7 +198,7 @@ int main() {
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  op.path_to_solution = "a.sol";
+  op.path_to_solution = "bilateral_arrangement.sol";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;

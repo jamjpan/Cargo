@@ -17,6 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <ctime>
 #include <iostream> /* std::endl */
 #include <unordered_map>
 #include <vector>
@@ -26,19 +27,31 @@
 
 using namespace cargo;
 
-const int RETRY = 15; // seconds
+const int BATCH     = 1;  // seconds
+const int RETRY     = 15; // seconds
+const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
+
+bool GreedyInsertion::timeout(clock_t& start) {
+  clock_t end = std::clock();
+  double elapsed = double(end-start)/CLOCKS_PER_SEC;
+  if ((elapsed >= TIMEOUT) || this->done()) {
+    print << "timeout() triggered." << std::endl;
+    return true;
+  }
+  return false;
+}
 
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
-      grid_(100) {   // (grid.h)
-  batch_time() = 1;  // (rsalgorithm.h) set batch to 1 second ("streaming")
-
-  /* Private vars */
+      grid_(100) {       // (grid.h)
+  batch_time() = BATCH;  // (rsalgorithm.h) set batch to 1 second ("streaming")
   nmat_  = 0;  // match counter
   nrej_  = 0;  // number rejected due to out-of-sync
   delay_ = {}; // delay container
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
+  clock_t start = std::clock();
+
   /* Skip customers already assigned (but not yet picked up) */
   if (cust.assigned())
     return;
@@ -62,7 +75,7 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   bool matched = false;
 
   /* Get candidates from the local grid index */
-  DistInt rng = /* pickup_range(cust, Cargo::now()); */ 2000;
+  DistInt rng = /* pickup_range(cust, Cargo::now()); */ 1200;
   auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
   /* Increment number-of-custs counter */
@@ -87,6 +100,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
       best_vehl = cand;  // copy the pointer
       matched = true;
     }
+    if (timeout(start))
+      break;
   }  // end for cand : candidates
 
   /* Commit match to the db */

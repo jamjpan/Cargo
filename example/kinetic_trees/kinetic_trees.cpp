@@ -34,20 +34,23 @@
 
 using namespace cargo;
 
-const int RETRY   = 15; // retry unmatched cust after RETRY sec
-const int TIMEOUT =  1; // timeout customers take > TIMEOUT sec
+const int BATCH     = 1;  // seconds
+const int RETRY     = 15; // retry unmatched cust after RETRY sec
+const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
 bool KineticTrees::timeout(clock_t& start) {
   clock_t end = std::clock();
-  return (double(start-end)/CLOCKS_PER_SEC >= TIMEOUT)
-      || this->done();  // (rsalgorithm.h)
+  double elapsed = double(end-start)/CLOCKS_PER_SEC;
+  if ((elapsed >= TIMEOUT) || this->done()) {
+    print << "timeout() triggered." << std::endl;
+    return true;
+  }
+  return false;
 }
 
 KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees"),
       grid_(100) {   // (grid.h)
-  batch_time() = 1;  // (rsalgorithm.h)
-
-  /* Private vars */
+  batch_time() = BATCH;  // (rsalgorithm.h)
   nmat_  = 0;  // match counter
   nrej_  = 0;  // number rejected due to out-of-sync
   delay_ = {}; // delay container
@@ -79,7 +82,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
   bool matched = false;
 
   /* Get candidates from the local grid index */
-  DistInt rng = pickup_range(cust, Cargo::now()); /* 2000; */
+  DistInt rng = /* pickup_range(cust, Cargo::now()); */ 1200;
   auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
   /* Create the customer stops to insert into best vehicle. These will

@@ -25,11 +25,14 @@
 
 using namespace cargo;
 
+const int BATCH = 1;  // seconds
+const int K_NN  = 10; // how many nearest candidates to evaluate before give up
+
 NearestNeighbor::NearestNeighbor()
     : RSAlgorithm("nearest_neighbor"),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
-  batch_time() = 1;  // Set batch to 1 second
-  nmat_ = 0;      // Initialize my private counter
+  batch_time() = BATCH;
+  nmat_ = 0;
 }
 
 void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
@@ -37,7 +40,6 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
   if (cust.assigned()) return;
 
   /* Containers for storing outputs */
-  cargo::DistInt cst, best_cst = cargo::InfInt;
   std::vector<cargo::Stop> sch, best_sch;
   std::vector<cargo::Wayp> rte, best_rte;
 
@@ -47,25 +49,32 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
 
   /* Get candidates from the local grid index
    * (the grid is refreshed during listen()) */
-  cargo::DistInt rng = cargo::pickup_range(cust, cargo::Cargo::now());
+  DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ 1200;
   auto candidates = grid_.within_about(rng, cust.orig());
 
-  /* Rank the candidates by euclidean dist */
-  std::map<DistDbl, std::shared_ptr<MutableVehicle>> nn;
-  for (const auto& cand : candidates) {
-    DistDbl dist = haversine(cand->last_visited_node(), cust.orig()); // <-- libcargo/distance.h
-    nn[dist] = cand;
+  /* Find K_NN nearest candidates
+   * Complexity: O(K_NN*|vehicles|) */
+  std::vector<DistDbl> best_euc(K_NN, InfDbl);
+  std::vector<std::shared_ptr<MutableVehicle>> nnv(K_NN, nullptr);
+  for (int i = 0; i < K_NN; ++i) {  // O(K_NN)
+    for (const auto& cand : candidates) {  // O(|vehicles|)
+      DistDbl dist = haversine(cand->last_visited_node(), cust.orig()); // <-- libcargo/distance.h
+      bool min_dist = (dist < best_euc[i]);
+      if (i > 0) min_dist = (min_dist && (dist > best_euc[i-1]));
+      if (min_dist) {
+        best_euc[i] = dist;
+        nnv[i] = cand;
+      }
+    }
   }
 
   /* Loop through candidates in order of nearest first */
-  for (const auto&kv : nn) {
-    const auto cand = kv.second;
+  for (const auto& cand : nnv) {
+    if (cand == nullptr) break;  // no more candidates
     if (cand->queued() == cand->capacity())
       continue;  // don't consider vehs already queued to capacity
-    cst = cargo::sop_insert(cand, cust, sch, rte);  // <-- functions.h
-    bool within_time = cargo::chktw(sch, rte);
-    if ((cst < best_cst) && within_time) {
-      best_cst = cst;
+    cargo::sop_insert(cand, cust, sch, rte);  // <-- functions.h
+    if (cargo::chktw(sch, rte)) {
       best_sch = sch;
       best_rte = rte;
       best_vehl = cand;  // copy the pointer

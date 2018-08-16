@@ -30,10 +30,10 @@ using namespace cargo;
  * perturb the solution; depending on the "temperature", we accept perturbed
  * solutions of higher or lower cost than the original solution.
  *
- * Here we use "random reassign" as our perturbation. We generate an
- * initial solution by looping through all customers and greedily assigning
- * them; we generate a "perturbed" solution by shuffling the customers, then
- * again greedily assign. */
+ * Here we use "random reassign" as our perturbation. We generate an initial
+ * solution by looping through all customers and assigning to random nearest
+ * neighbor; we generate a "perturbed" solution by shuffling the customers,
+ * then again assign. */
 class SimulatedAnnealing : public RSAlgorithm {
  public:
   SimulatedAnnealing();
@@ -48,21 +48,18 @@ class SimulatedAnnealing : public RSAlgorithm {
   /* My variables */
   Grid grid_;
 
-  int T_;
+  int nclimbs_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
-  typedef std::tuple<std::shared_ptr<MutableVehicle>, std::vector<Stop>, std::vector<Wayp>> Assignment;
-  typedef std::unordered_map<CustId, Assignment> Sol;
+  typedef std::tuple<DistInt, std::shared_ptr<MutableVehicle>,
+          std::vector<Stop>, std::vector<Wayp>>     Assignment;
+
+  typedef std::unordered_map<CustId, Assignment>    Sol;
+
   std::vector<CustId> unassigned;
 
   /* Probability of accepting "hill-climbing" solution */
   bool hillclimb(int &);
-
-  /* Compute solution cost to evaluate which sol is better */
-  int cost(const Sol &);
-
-  /* If a customer doesn't get matched right away, try again after 5 seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
 };
 

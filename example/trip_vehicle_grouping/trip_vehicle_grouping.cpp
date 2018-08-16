@@ -31,10 +31,11 @@
 
 using namespace cargo;
 
-const int TOP_CUST = 8;  // keep this many customers per vehicle for rv-graph
-const int RV_TIMEOUT = 12;  // stop rv-graph after this secs
-const int RTV_TIMEOUT = 12;  // stop rtv-graph after this secs per vehl
-const int TRIP_MAX = 15000;   // maximum number of trips per batch
+const int BATCH         = 1;
+const int TOP_CUST      = 8;  // customers per vehicle for rv-graph
+const int RV_TIMEOUT    = std::ceil(float(BATCH/2.0));
+const int RTV_TIMEOUT   = std::ceil(float(BATCH/2.0));
+const int TRIP_MAX      = 15000;  // maximum number of trips per batch
 
 bool TripVehicleGrouping::timeout(clock_t& start, const int& TIMEOUT) {
   clock_t end = std::clock();
@@ -49,14 +50,13 @@ bool TripVehicleGrouping::timeout(clock_t& start, const int& TIMEOUT) {
 TripVehicleGrouping::TripVehicleGrouping()
     : RSAlgorithm("trip_vehicle_grouping"),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
-  batch_time() = 30;  // Set batch to 30 real seconds
-  stid_ = 0;          // Initialize internal SharedTripId
+  batch_time() = BATCH;
+  stid_ = 0;
   if (!omp_get_cancellation()) {
     print(MessageType::Error) << "OMP_CANCELLATION not set"
         << " (export OMP_CANCELLATION=true)" << std::endl;
     throw;
   }
-
   /* Initialize gtrees for parallel sp */
   for (int i = 0; i < omp_get_max_threads(); ++i) gtre_.push_back(GTree::get());
 }
