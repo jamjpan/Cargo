@@ -200,6 +200,7 @@ int main() {
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "bilateral_arrangement.sol";
+  op.path_to_dataout  = "bilateral_arrangement.dat";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
