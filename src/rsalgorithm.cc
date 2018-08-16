@@ -43,6 +43,8 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   name_ = name;
   done_ = false;
   batch_time_ = 1;
+  nmat_ = 0;
+  nrej_ = 0;
   /* Statements are described in dbsql.h */
   if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt, -1, &ssr_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt, -1, &sss_stmt, NULL) != SQLITE_OK ||
@@ -80,15 +82,17 @@ RSAlgorithm::~RSAlgorithm() {
 }
 
 /* Get/set algorithm properties */
-const std::string & RSAlgorithm::name() const { return name_; }
-const bool        & RSAlgorithm::done() const { return done_; }
-      int         & RSAlgorithm::batch_time() { return batch_time_; }
-      void          RSAlgorithm::kill()       { done_ = true; }
+const std::string & RSAlgorithm::name()       const { return name_; }
+const bool        & RSAlgorithm::done()       const { return done_; }
+const int         & RSAlgorithm::matches()    const { return nmat_; }
+const int         & RSAlgorithm::rejected()   const { return nrej_; }
+      int         & RSAlgorithm::batch_time()       { return batch_time_; }
+      void          RSAlgorithm::kill()             { done_ = true; }
 
 /* Get retrieved customers/vehicles
  * (populate using select_matchable_vehicles() and select_waiting_customers()) */
-std::vector<Customer> & RSAlgorithm::customers() { return customers_; }
-std::vector<Vehicle>  & RSAlgorithm::vehicles()  { return vehicles_; }
+std::vector<Customer> & RSAlgorithm::customers()    { return customers_; }
+std::vector<Vehicle>  & RSAlgorithm::vehicles()     { return vehicles_; }
 
 /* Assignment comes in two flavors: assign and strict-assign.  assign() will
  * first try to do a strict-assign. If the new route cannot be synchronized to

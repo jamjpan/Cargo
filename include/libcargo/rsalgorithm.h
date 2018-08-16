@@ -57,21 +57,22 @@ class RSAlgorithm {
   virtual void listen();
 
   // Setters/getters
-  const std::string & name() const;
-  const bool        & done() const;
-        int         & batch_time();  // set to 0 for streaming
-        void          kill();        // sets done_ to true
+  const std::string & name()        const;  // e.g. "greedy_insertion"
+  const bool        & done()        const;  // true if done
+  const int         & matches()     const;  // # matches
+  const int         & rejected()    const;  // # rejected due to out of sync
+        int         & batch_time();         // set to 1 for streaming
+        void          kill();               // sets done_ to true
 
-  // Call these to populate customers_ and vehicles_
+  // Populates customers_ and vehicles_
   void select_matchable_vehicles();
   void select_waiting_customers();
 
-  // Call these to retrieve customers_ and vehicles_
-  // (refreshed whenever listen() is called)
+  // Returns customers_ and vehicles_
   std::vector<Customer> & customers();
   std::vector<Vehicle>  & vehicles();
 
-  // Call these to return all customer/vehicle objects
+  // Return all customer/vehicle objects
   std::vector<Customer> get_all_customers();
   std::vector<Vehicle> get_all_vehicles();
 
@@ -80,14 +81,18 @@ class RSAlgorithm {
    * then the function will attempt to compute a new route using the vehicle's
    * current position going through the schedule (param4). If this new route
    * meets constraints, then the assignment is accepted. */
-  bool assign(const std::vector<CustId>&, // custs to add
-              const std::vector<CustId>&, // custs to del
-              const std::vector<Wayp>  &, // new route
-              const std::vector<Stop>  &, // new schedule
-                    MutableVehicle&,      // vehicle to assign to
-                    bool strict = false); // set if do not want re-routing
+  bool assign(const std::vector<CustId>&,  // custs to add
+              const std::vector<CustId>&,  // custs to del
+              const std::vector<Wayp>  &,  // new route
+              const std::vector<Stop>  &,  // new schedule
+                    MutableVehicle&,       // vehicle to assign to
+                    bool strict = false);  // set if do not want re-routing
 
   Message print;
+
+ protected:
+  int nmat_;
+  int nrej_;
 
  private:
   std::string name_;
