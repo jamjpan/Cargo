@@ -15,6 +15,7 @@
 *.mp4
 readme.sh
 temp.html
+private/
 build/
 lib/
 tool/gtreebuilder/gtreebuilder
