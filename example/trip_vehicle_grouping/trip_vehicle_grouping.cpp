@@ -30,8 +30,8 @@
 
 using namespace cargo;
 
-const int TOP_CUST = 5;  // keep this many customers per vehicle for rv-graph
-const int RTV_TIMEOUT = 100;  // stop building rtv-graph after this millisecs
+const int TOP_CUST = 10;  // keep this many customers per vehicle for rv-graph
+const int RTV_TIMEOUT = 100;  // stop rtv-graph after this millisecs per vehl
 const int TRIP_MAX = 15000;   // maximum number of trips per batch
 
 TripVehicleGrouping::TripVehicleGrouping()
@@ -65,7 +65,8 @@ void TripVehicleGrouping::match() {
   std::vector<CustId> matchable_custs {};
 
   print(MessageType::Info) << "generating rv-graph..." << std::endl;
-  { /* Generate rv-graph */
+  { /* Generate rv-graph
+       Complexity: O((n^2+n*m)*travel) */
   std::vector<Customer> lcl_cust = customers();
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
           rv_cst, rv_sch, rv_rte, matchable_custs)
@@ -90,6 +91,8 @@ void TripVehicleGrouping::match() {
     /* ...then compare against all other cust_b */
     for (const Customer& cust_b : customers()) {
       if (cust_a == cust_b) continue;
+      /* Euclidean filter */
+      if (haversine(cust_a.orig(), cust_b.orig()) > 2000) continue;
       DistInt cstout = 0;
       std::vector<Stop> schout;
       std::vector<Wayp> rteout;
@@ -102,7 +105,7 @@ void TripVehicleGrouping::match() {
     /* 2) Build rv edges
      * -----------------
      * ...then compare against all vehicles */
-    DistInt rng = pickup_range(cust_a, Cargo::now());
+    DistInt rng = /* pickup_range(cust_a, Cargo::now()); */ 2000;
     auto cands = lcl_grid.within_about(rng, cust_a.orig());
     for (const auto& cand : cands) {
       if (cand->queued() == cand->capacity())
@@ -146,6 +149,8 @@ void TripVehicleGrouping::match() {
   dict<VehlId, dict<SharedTripId, std::vector<Stop>>> vt_sch;
   dict<VehlId, dict<SharedTripId, std::vector<Wayp>>> vt_rte;
   dict<VehlId, Vehicle> vehmap;
+
+  if (this->done()) return;
 
   print(MessageType::Info) << "generating rtv-graph..." << std::endl;
   int nvted = 0; // number of vehicle-trip edges
@@ -261,7 +266,6 @@ void TripVehicleGrouping::match() {
           break;
         }
       }
-      if (timed_out) break;
     }
     /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
     if (timed_out) continue;  // <-- continue to the next vehicle
@@ -354,8 +358,10 @@ void TripVehicleGrouping::match() {
 
   }  // end pragma omp parallel
   print(MessageType::Info)
-    << "ntrips=" << trip_.size() << "(trunc " << nvted_ << ")" << std::endl;
+    << "ntrips=" << trip_.size() << "(trunc. edges " << nvted << ")" << std::endl;
   }  // end generate rtv-graph
+
+  if (this->done()) return;
 
   print(MessageType::Info) << "generating the mip..." << std::endl;
   /* Generating the mip */
@@ -490,6 +496,8 @@ void TripVehicleGrouping::match() {
   double z = glp_mip_obj_val(mip);
   print << z << std::endl;
 
+  if (this->done()) return;
+
   /* Extract assignments from the results and commit to database */
   for (int i = 1; i <= ncol; ++i) {
     /* On line 386 we set colmap[i].second to -1 for the binary vars
@@ -584,10 +592,10 @@ SharedTripId TripVehicleGrouping::add_trip(const SharedTrip& trip) {
 int main() {
   /* Set the options */
   cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-9.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-2.instance";
   op.path_to_solution = "a.sol";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
@@ -601,7 +609,7 @@ int main() {
   /* The default penalty for unassignment is a customer's base cost. But for
    * permanent taxis, the penalty needs to be much higher in order to divert the
    * taxi. Set unassign_penalty to a high number > 0 to override the default. */
-  tvg.unassign_penalty = 20000;
+  tvg.unassign_penalty = 1000000;
 
   /* Start Cargo */
   cargo.start(tvg);
