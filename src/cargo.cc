@@ -238,7 +238,8 @@ int Cargo::step(int& ndeact) {
         /* Permanent taxi arrived at "destination"
          * (essentially recreate the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
-          NodeId new_dest = random_node();  // random destination
+          NodeId new_dest = stop.loc();
+          while (new_dest == stop.loc()) new_dest = random_node();  // random destination
           Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
           Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
           std::vector<Wayp> new_rte;
@@ -769,7 +770,8 @@ void Cargo::initialize(const Options& opt) {
         }
 
         /* Compute initial route */
-        NodeId trip_dest = (trip.dest() == -1 ? random_node() : trip.dest());
+        NodeId trip_dest = trip.dest();
+        while (trip_dest == -1 || trip_dest == trip.orig()) trip_dest = random_node();
         Stop a(trip.id(), trip.orig(), StopType::VehlOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip_dest  , StopType::VehlDest, trip.early(), trip.late());
         std::vector<Wayp> rte;
