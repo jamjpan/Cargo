@@ -35,7 +35,7 @@ const int RTV_TIMEOUT = 100;  // stop rtv-graph after this millisecs per vehl
 const int TRIP_MAX = 15000;   // maximum number of trips per batch
 
 TripVehicleGrouping::TripVehicleGrouping()
-    : RSAlgorithm("tvg"),
+    : RSAlgorithm("trip_vehicle_grouping"),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = 30;  // Set batch to 30 real seconds
   stid_ = 0;          // Initialize internal SharedTripId
@@ -596,7 +596,7 @@ int main() {
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   op.path_to_problem  = "../../data/benchmark/rs-md-2.instance";
-  op.path_to_solution = "a.sol";
+  op.path_to_solution = "trip_vehicle_grouping.sol";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
