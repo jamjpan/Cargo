@@ -24,7 +24,7 @@ TEST_CASE("functions", "[functions]") {
 
   SECTION("remove_cust") {
     std::vector<Stop> sch {a1, b1, b2, a2};
-    REQUIRE(remove_cust(sch, 2) == true);
+    remove_cust(sch, 2);
     std::vector<Stop> new_sch {a1, a2};
     REQUIRE(sch == new_sch);
   }
