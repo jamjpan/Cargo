@@ -127,6 +127,9 @@ class TripVehicleGrouping : public cargo::RSAlgorithm {
               std::vector<Wayp> &,            // resultant route
               GTree::G_Tree &);               // gtree to use for sp
 
+  /* Timeout long-running executions */
+  bool timeout(clock_t &, const int &);
+
   /* Function add_trip
    * Add SharedTrip into trip_. If SharedTrip already exists in trip_, return
    * its id. Also add to ctedges */
