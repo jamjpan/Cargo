@@ -21,6 +21,7 @@
 // SOFTWARE.
 #include <algorithm> /* std::find, std::find_if */
 #include <chrono>
+#include <cmath>
 #include <iterator> /* std::back_inserter */
 #include <mutex>
 #include <thread>
@@ -45,6 +46,10 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   batch_time_ = 1;
   nmat_ = 0;
   nrej_ = 0;
+  avg_cust_ht_ = 0;
+  delay_ = {};
+  retry_ = 15;
+  timeout_ = 1;
   /* Statements are described in dbsql.h */
   if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt, -1, &ssr_stmt, NULL) != SQLITE_OK ||
       sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt, -1, &sss_stmt, NULL) != SQLITE_OK ||
@@ -82,12 +87,13 @@ RSAlgorithm::~RSAlgorithm() {
 }
 
 /* Get/set algorithm properties */
-const std::string & RSAlgorithm::name()       const { return name_; }
-const bool        & RSAlgorithm::done()       const { return done_; }
-const int         & RSAlgorithm::matches()    const { return nmat_; }
-const int         & RSAlgorithm::rejected()   const { return nrej_; }
-      int         & RSAlgorithm::batch_time()       { return batch_time_; }
-      void          RSAlgorithm::kill()             { done_ = true; }
+const std::string & RSAlgorithm::name()        const { return name_; }
+const bool        & RSAlgorithm::done()        const { return done_; }
+const int         & RSAlgorithm::matches()     const { return nmat_; }
+const int         & RSAlgorithm::rejected()    const { return nrej_; }
+const float       & RSAlgorithm::avg_cust_ht() const { return avg_cust_ht_; }
+      int         & RSAlgorithm::batch_time()        { return batch_time_; }
+      void          RSAlgorithm::kill()              { done_ = true; }
 
 /* Get retrieved customers/vehicles
  * (populate using select_matchable_vehicles() and select_waiting_customers()) */
@@ -283,6 +289,26 @@ bool RSAlgorithm::assign(
   Logger::put_m_message(custs_to_add, custs_to_del, vehl.id());
 
   return true;
+}
+
+bool RSAlgorithm::delay(const CustId& cust_id) {
+  return (delay_.count(cust_id) && delay_.at(cust_id) >= Cargo::now() - retry_)
+    ? true : false;
+}
+
+void RSAlgorithm::beg_delay(const CustId& cust_id) {
+  delay_[cust_id] = Cargo::now();
+}
+
+void RSAlgorithm::end_delay(const CustId& cust_id) {
+  if (delay_.count(cust_id)) delay_.erase(cust_id);
+}
+
+bool RSAlgorithm::timeout(
+        std::chrono::time_point<std::chrono::high_resolution_clock> & start) {
+  auto end = std::chrono::high_resolution_clock::now();
+  int dur = std::round(dur_milli(end-start).count());
+  return (dur >= timeout_ || this->done()) ? true : false;
 }
 
 RSAlgorithm::SyncResult
@@ -574,6 +600,7 @@ void RSAlgorithm::listen() {
   for (const auto& vehicle : vehicles_) handle_vehicle(vehicle);
 
   select_waiting_customers();
+  int ncusts = customers_.size();
   for (const auto& customer : customers_) handle_customer(customer);
 
   match();
@@ -586,7 +613,7 @@ void RSAlgorithm::listen() {
     print(MessageType::Warning)
         << "listen() ("           << dur                << " ms) "
         << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
-        << vehicles_.size() << " vehls and " << customers_.size() << " custs"
+        << vehicles_.size() << " vehls and " << ncusts << " custs"
         << std::endl;
   else {
     print

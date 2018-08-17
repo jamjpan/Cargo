@@ -34,6 +34,9 @@
 
 namespace cargo {
 
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
+
 // The class for ridesharing algorithms. Users can implement the
 // handle_customer(), handle_vehicle(), match(), end(), and listen() methods.
 //
@@ -61,6 +64,7 @@ class RSAlgorithm {
   const bool        & done()        const;  // true if done
   const int         & matches()     const;  // # matches
   const int         & rejected()    const;  // # rejected due to out of sync
+  const float       & avg_cust_ht() const;  // avg. cust handling time
         int         & batch_time();         // set to 1 for streaming
         void          kill();               // sets done_ to true
 
@@ -88,11 +92,26 @@ class RSAlgorithm {
                     MutableVehicle&,       // vehicle to assign to
                     bool strict = false);  // set if do not want re-routing
 
+  /* Return true if customer delay is less than RETRY_ */
+  bool delay(const CustId &);
+
+  /* Begin/end delaying a customer */
+  void beg_delay(const CustId &);
+  void end_delay(const CustId &);
+
+  /* Timeout long-running executions (pass a start clock) */
+  bool timeout(std::chrono::time_point<std::chrono::high_resolution_clock> &);
+
   Message print;
 
  protected:
-  int nmat_;
-  int nrej_;
+  int nmat_;  // number matched
+  int nrej_;  // number rejectd
+  float avg_cust_ht_;  // avg cust handling time
+  /* If a customer doesn't get matched right away, put it here */
+  std::unordered_map<CustId, SimlTime> delay_;
+  int retry_;  // try again after RETRY secs
+  int timeout_; // timeout long-running executions (millisecs)
 
  private:
   std::string name_;
