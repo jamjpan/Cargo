@@ -57,8 +57,6 @@ class SimulatedAnnealing : public RSAlgorithm {
 
   typedef std::unordered_map<CustId, Assignment>    Sol;
 
-  std::vector<CustId> unassigned;
-
   /* Probability of accepting "hill-climbing" solution */
   bool hillclimb(int &);
 };
