@@ -55,10 +55,6 @@ class KineticTrees : public RSAlgorithm {
   /* Timeout long-running executions */
   bool timeout(clock_t &);
 
-  /* If a customer doesn't get matched right away,
-   * try again after RETRY seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
-
   /* The root of the kinetic tree is always the vehicle's next node */
   void sync_kt(TreeTaxiPath *, const std::vector<Stop> &);
 

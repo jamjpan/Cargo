@@ -45,9 +45,5 @@ class GreedyInsertion : public RSAlgorithm {
 
   /* Timeout long-running executions */
   bool timeout(clock_t &);
-
-  /* If a customer doesn't get matched right away,
-   * try again after RETRY seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
 };
 

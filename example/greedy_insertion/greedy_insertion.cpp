@@ -30,7 +30,6 @@ using namespace cargo;
 
 const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
-const int RETRY     = 15; // seconds
 const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
 std::vector<int> avg_dur {};
@@ -57,7 +56,6 @@ GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
   batch_time() = BATCH;  // (rsalgorithm.h) set batch to 1 second ("streaming")
   nmat_  = 0;  // match counter
   nrej_  = 0;  // number rejected due to out-of-sync
-  delay_ = {}; // delay container
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
@@ -69,10 +67,6 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
 
   /* Skip customers already assigned (but not yet picked up) */
   if (cust.assigned())
-    return;
-
-  /* Skip customers looked at within the last RETRY seconds */
-  if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
     return;
 
   int ncust = 1;
@@ -129,7 +123,6 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   }
 
   /* Commit match to the db */
-  bool add_to_delay = true;
   if (matched) {
     /* Function assign(3) will synchronize the vehicle (param3) before
      * committing it the database. Synchronize is necessary due to "match
@@ -144,15 +137,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
         << "Match " << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
         << std::endl;
       nmat_++;  // increment matched counter
-      /* Remove customer from delay storage */
-      if (delay_.count(cust.id())) delay_.erase(cust.id());
-      add_to_delay = false;
     } else
       nrej_++;  // increment rejected counter
-  }
-  if (add_to_delay) {
-    /* Add customer to delay storage */
-    delay_[cust.id()] = Cargo::now();
   }
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------

@@ -31,7 +31,7 @@
 
 using namespace cargo;
 
-const int BATCH         = 1;
+const int BATCH         = 30;
 const int RANGE         = 1500; // meters
 const int TOP_CUST      = 8;  // customers per vehicle for rv-graph
 const int RV_TIMEOUT    = std::ceil(float(BATCH/2.0));

@@ -36,7 +36,6 @@ using namespace cargo;
 
 const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
-const int RETRY     = 15; // retry unmatched cust after RETRY sec
 const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
 bool KineticTrees::timeout(clock_t& start) {
@@ -54,7 +53,6 @@ KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees"),
   batch_time() = BATCH;  // (rsalgorithm.h)
   nmat_  = 0;  // match counter
   nrej_  = 0;  // number rejected due to out-of-sync
-  delay_ = {}; // delay container
 }
 
 KineticTrees::~KineticTrees() {
@@ -67,10 +65,6 @@ void KineticTrees::handle_customer(const Customer& cust) {
 
   /* Skip customers already assigned (but not yet picked up) */
   if (cust.assigned())
-    return;
-
-  /* Skip customers looked at within the last RETRY seconds */
-  if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
     return;
 
   /* Containers for storing outputs */
@@ -178,7 +172,6 @@ void KineticTrees::handle_customer(const Customer& cust) {
   }
 
   /* Commit match to the db */
-  bool add_to_delay = true;
   if (matched) {
     if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       /* Accept the new kinetic tree, and sync it up to sync_sch */
@@ -194,15 +187,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
       print(MessageType::Success)
         << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")" << std::endl;
       nmat_++;
-      /* Remove customer from delay storage */
-      if (delay_.count(cust.id())) delay_.erase(cust.id());
-      add_to_delay = false;
     } else
       nrej_++;
-  }
-  if (add_to_delay) {
-    /* Add customer to delay storage */
-    delay_[cust.id()] = Cargo::now();
   }
 }
 

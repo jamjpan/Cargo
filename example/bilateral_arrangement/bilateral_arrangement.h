@@ -43,10 +43,6 @@ class BilateralArrangement : public RSAlgorithm {
   /* Timeout long-running executions */
   bool timeout(clock_t &);
 
-  /* If a customer doesn't get matched right away,
-   * try again after RETRY seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
-
   /* A customer might get matched 'twice' because it gets swapped out..
    * .. so remember which customers get matched */
   std::unordered_map<CustId, bool> matched_;

@@ -31,7 +31,6 @@ using namespace cargo;
 
 const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
-const int RETRY     = 15; // seconds
 const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
 /* Define ordering of rank_cands */
@@ -53,7 +52,6 @@ BilateralArrangement::BilateralArrangement() : RSAlgorithm("bilateral_arrangemen
   batch_time() = BATCH;  // (rsalgorithm.h)
   nswapped_ = 0;  // number swapped and accepted
   nrej_     = 0;  // number rejected due to out-of-sync
-  delay_    = {}; // delay container
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -73,10 +71,6 @@ void BilateralArrangement::match() {
 
     /* Skip customers already assigned (but not yet picked up) */
     if (cust.assigned())
-      continue;
-
-    /* Skip customers looked at within the last RETRY seconds */
-    if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
       continue;
 
     /* Containers for storing outputs */
@@ -151,7 +145,6 @@ void BilateralArrangement::match() {
     } // end while !q.empty()
 
     /* Commit to db */
-    bool add_to_delay = true;
     if (matched) {
       std::vector<CustId> cust_to_del {};
       if (removed_cust != -1) cust_to_del.push_back(removed_cust);
@@ -163,15 +156,8 @@ void BilateralArrangement::match() {
           << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")"
           << std::endl;
         matched_[cust.id()] = true;
-        /* Remove customer from delay storage */
-        if (delay_.count(cust.id())) delay_.erase(cust.id());
-        add_to_delay = false;
       } else
         nrej_++;  // increment rejected counter
-    }
-    if (add_to_delay) {
-      /* Add customer to delay storage */
-      delay_[cust.id()] = Cargo::now();
     }
   } // end while !customers().empty()
 }
