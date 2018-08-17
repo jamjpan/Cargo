@@ -650,6 +650,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
          << "solution cost " << total_route_cost() << '\n'
          << "matches " << rsalg.matches() << '\n'
          << "out-of-sync rejected " << rsalg.rejected() << '\n'
+         << "avg. cust. handling time" << rsalg.avg_cust_ht() << '\n'
          << "avg. pickup delay " << avg_pickup_delay() << '\n'
          << "avg. trip delay " << avg_trip_delay() << '\n';
   f_sol_.close();
