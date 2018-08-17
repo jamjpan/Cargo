@@ -23,6 +23,10 @@
 
 using namespace cargo;
 
+/* Define a "rank_cand" type to hold each candidate plus its cost */
+typedef std::tuple<DistInt, std::shared_ptr<MutableVehicle>,
+  std::vector<Stop>, std::vector<Wayp>> rank_cand;
+
 class GreedyInsertion : public RSAlgorithm {
  public:
   GreedyInsertion();

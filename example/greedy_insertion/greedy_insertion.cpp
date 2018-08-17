@@ -17,6 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <chrono>
 #include <ctime>
 #include <iostream> /* std::endl */
 #include <unordered_map>
@@ -31,6 +32,15 @@ const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
 const int RETRY     = 15; // seconds
 const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
+
+std::vector<int> avg_dur {};
+
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
+
+/* Define ordering of rank_cands */
+auto cmp = [](rank_cand left, rank_cand right) {
+  return std::get<0>(left) > std::get<0>(right); };
 
 bool GreedyInsertion::timeout(clock_t& start) {
   clock_t end = std::clock();
@@ -51,6 +61,10 @@ GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+
+  // Start timing -------------------------------
+  t0 = std::chrono::high_resolution_clock::now();
   clock_t start = std::clock();
 
   /* Skip customers already assigned (but not yet picked up) */
@@ -61,8 +75,10 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   if (delay_.count(cust.id()) && delay_.at(cust.id()) >= Cargo::now() - RETRY)
     return;
 
+  int ncust = 1;
+
   /* Containers for storing outputs */
-  DistInt cst, best_cst = InfInt;
+  DistInt cst = InfInt;
   std::vector<Stop> sch, best_sch;
   std::vector<Wayp> rte, best_rte;
 
@@ -75,35 +91,42 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   std::shared_ptr<MutableVehicle> best_vehl = nullptr;
   bool matched = false;
 
+  /* Increment number-of-custs counter */
+  ncust_++;
+
   /* Get candidates from the local grid index */
   DistInt rng = /* pickup_range(cust, Cargo::now()); */ RANGE;
   auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
 
-  /* Increment number-of-custs counter */
-  ncust_++;
+  /* Container to rank candidates by least cost */
+  std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)> q(cmp);
 
-  /* Loop through candidates and check which is the greedy match */
+  /* Loop through and rank each candidate */
   for (const auto& cand : candidates) {
-    /* Skip vehicles queued to capacity (queued = number of customer assigned
-     * but may or may not be picked up yet) */
-    if (cand->queued() == cand->capacity())
-      continue;
-
     /* Increment number-of-candidates counter */
     ncand_++;
+    cst = sop_insert(*cand, cust, sch, rte); // doesn't check time/cap constraints
+    q.push({cst, cand, sch, rte});
+  }
 
-    cst = sop_insert(cand, cust, sch, rte);  // (functions.h)
-    bool within_time = chktw(sch, rte);      // (functions.h)
-    if ((cst < best_cst) && within_time) {
-      best_cst = cst;
-      best_sch = sch;
-      best_rte = rte;
-      best_vehl = cand;  // copy the pointer
+  /* Loop through candidates and check which is the greedy match */
+  while (!q.empty() && !matched) {
+    /* Get and unpack the best candidate */
+    auto cand = q.top(); q.pop();
+    best_vehl = std::get<1>(cand);
+    best_sch  = std::get<2>(cand);
+    best_rte  = std::get<3>(cand);
+
+    /* If best vehicle is within constraints... */
+    bool within_time = chktw(best_sch, best_rte);
+    bool within_cap = (best_vehl->queued() < best_vehl->capacity());
+    if (within_time && within_cap) {
+      /* ... accept the match */
       matched = true;
     }
     if (timeout(start))
       break;
-  }  // end for cand : candidates
+  }
 
   /* Commit match to the db */
   bool add_to_delay = true;
@@ -131,6 +154,9 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     /* Add customer to delay storage */
     delay_[cust.id()] = Cargo::now();
   }
+  t1 = std::chrono::high_resolution_clock::now();
+  // Stop timing --------------------------------
+  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
@@ -142,6 +168,8 @@ void GreedyInsertion::end() {
   /* Print the statistics */
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
+  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
+  print(MessageType::Success) << "Avg-cust-handle: " << (float)sum_avg/avg_dur.size() << "ms" << std::endl;
 }
 
 void GreedyInsertion::listen() {
