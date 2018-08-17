@@ -52,9 +52,6 @@ class KineticTrees : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Stop>> sched_;
   std::unordered_map<VehlId, SimlTime>          last_modified_;
 
-  /* Timeout long-running executions */
-  bool timeout(clock_t &);
-
   /* The root of the kinetic tree is always the vehicle's next node */
   void sync_kt(TreeTaxiPath *, const std::vector<Stop> &);
 

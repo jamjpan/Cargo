@@ -1,6 +1,6 @@
 CXX = g++
 CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -I../../include -Iinclude -o $@
-LFLAGS = -Wall
+LFLAGS = -Wall -fopenmp
 PTHREAD = -pthread -lrt
 LDL = -ldl
 GLPK = -l:libglpk.a

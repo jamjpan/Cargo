@@ -17,6 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <chrono>
 #include <iostream> /* std::endl */
 #include <vector>
 
@@ -29,6 +30,11 @@ const int BATCH = 1;  // seconds
 const int RANGE = 1500; // meters
 const int K_NN  = 10; // how many nearest candidates to evaluate before give up
 
+std::vector<int> avg_dur {};
+
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
+
 NearestNeighbor::NearestNeighbor()
     : RSAlgorithm("nearest_neighbor"),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
@@ -37,8 +43,21 @@ NearestNeighbor::NearestNeighbor()
 }
 
 void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
-  /* Don't consider customers that are assigned but not yet picked up */
-  if (cust.assigned()) return;
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
+
+  // Start timing -------------------------------
+  t0 = std::chrono::high_resolution_clock::now();
+  auto start = t0;
+
+  /* Skip customers already assigned (but not yet picked up) */
+  if (cust.assigned())
+    return;
+  /* Skip customers under delay */
+  if (delay(cust.id()))
+    return;
+
+  int ncust = 1;
 
   /* Containers for storing outputs */
   std::vector<cargo::Stop> sch, best_sch;
@@ -54,7 +73,8 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
   auto candidates = grid_.within_about(rng, cust.orig());
 
   /* Find K_NN nearest candidates
-   * Complexity: O(K_NN*|vehicles|) */
+   * Complexity: O(K_NN*|vehicles|)
+   * (Timeout the K_NN loop) */
   std::vector<DistDbl> best_euc(K_NN, InfDbl);
   std::vector<std::shared_ptr<MutableVehicle>> nnv(K_NN, nullptr);
   for (int i = 0; i < K_NN; ++i) {  // O(K_NN)
@@ -67,9 +87,12 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
         nnv[i] = cand;
       }
     }
+    if (timeout(start))
+      break;
   }
 
-  /* Loop through candidates in order of nearest first */
+  /* Loop through candidates in order of nearest first
+   * (Timeout) */
   for (const auto& cand : nnv) {
     if (cand == nullptr) break;  // no more candidates
     if (cand->queued() == cand->capacity())
@@ -82,6 +105,8 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
       matched = true;
       break;
     }
+    if (timeout(start))
+      break;
   }
 
   /* Commit match to the db. Also refresh our local grid index, so data is
@@ -90,10 +115,15 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
     if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
       nmat_++;
+      end_delay(cust.id());  // (rsalgorithm.h)
     }
     else
       nrej_++;
-  }
+  } else
+    beg_delay(cust.id());
+  t1 = std::chrono::high_resolution_clock::now();
+  // Stop timing --------------------------------
+  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -103,6 +133,9 @@ void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {
 void NearestNeighbor::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
+  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
+  this->avg_cust_ht_ = sum_avg/avg_dur.size();
+  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
 }
 
 void NearestNeighbor::listen() {

@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* std::random_shuffle, std::remove_if, std::find_if */
+#include <chrono>
 #include <iostream> /* std::endl */
 #include <queue>
 #include <thread>
@@ -31,21 +32,15 @@ using namespace cargo;
 
 const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
-const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
+
+std::vector<int> avg_dur {};
+
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
 
 /* Define ordering of rank_cands */
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right); };
-
-bool BilateralArrangement::timeout(clock_t& start) {
-  clock_t end = std::clock();
-  double elapsed = double(end-start)/CLOCKS_PER_SEC;
-  if ((elapsed >= TIMEOUT) || this->done()) {
-    print << "timeout() triggered." << std::endl;
-    return true;
-  }
-  return false;
-}
 
 BilateralArrangement::BilateralArrangement() : RSAlgorithm("bilateral_arrangement"),
       grid_(100) {   // (grid.h)
@@ -60,18 +55,30 @@ void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void BilateralArrangement::match() {
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
+  int ncust = 0;
+
+  // Start timing -------------------------------
+  t0 = std::chrono::high_resolution_clock::now();
+
   /* BilateralArrangement is a random algorithm due to this shuffle. */
   std::random_shuffle(customers().begin(), customers().end());
 
   /* Extract riders one at a time */
   while (!customers().empty()) {
-    clock_t start = std::clock();
+    auto start = std::chrono::high_resolution_clock::now();
     Customer cust = customers().back();
     customers().pop_back();
 
     /* Skip customers already assigned (but not yet picked up) */
     if (cust.assigned())
       continue;
+    /* Skip customers under delay */
+    if (delay(cust.id()))
+      continue;
+
+    ncust++;
 
     /* Containers for storing outputs */
     cargo::DistInt cst = cargo::InfInt;
@@ -90,10 +97,13 @@ void BilateralArrangement::match() {
     /* Container to rank candidates by least cost */
     std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)> q(cmp);
 
-    /* Loop through and rank each candidate */;
+    /* Loop through and rank each candidate
+     * (Timeout) */
     for (const auto& cand : candidates) {
       cst = sop_insert(*cand, cust, sch, rte); // doesn't check time/cap constraints
       q.push({cst, cand, sch, rte});
+      if (timeout(start))
+        break;
     }
 
     /* Process each candidate, starting from least-cost, to see if can accept
@@ -140,8 +150,6 @@ void BilateralArrangement::match() {
           }
         }
       }
-      if (timeout(start))
-        break;
     } // end while !q.empty()
 
     /* Commit to db */
@@ -156,10 +164,16 @@ void BilateralArrangement::match() {
           << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")"
           << std::endl;
         matched_[cust.id()] = true;
+        end_delay(cust.id());  // (rsalgorithm.h)
       } else
         nrej_++;  // increment rejected counter
-    }
+    } else
+      beg_delay(cust.id());
   } // end while !customers().empty()
+
+  t1 = std::chrono::high_resolution_clock::now();
+  // Stop timing --------------------------------
+  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void BilateralArrangement::end() {
@@ -170,6 +184,9 @@ void BilateralArrangement::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Swapped: " << nswapped_ << std::endl;
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
+  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
+  this->avg_cust_ht_ = sum_avg/avg_dur.size();
+  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
 }
 
 void BilateralArrangement::listen() {

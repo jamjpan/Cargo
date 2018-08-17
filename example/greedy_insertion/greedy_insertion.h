@@ -42,8 +42,5 @@ class GreedyInsertion : public RSAlgorithm {
   Grid grid_;
   int ncand_;
   int ncust_;
-
-  /* Timeout long-running executions */
-  bool timeout(clock_t &);
 };
 

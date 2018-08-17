@@ -30,7 +30,6 @@ using namespace cargo;
 
 const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
-const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
 std::vector<int> avg_dur {};
 
@@ -41,16 +40,6 @@ typedef std::chrono::milliseconds milli;
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right); };
 
-bool GreedyInsertion::timeout(clock_t& start) {
-  clock_t end = std::clock();
-  double elapsed = double(end-start)/CLOCKS_PER_SEC;
-  if ((elapsed >= TIMEOUT) || this->done()) {
-    print << "timeout() triggered." << std::endl;
-    return true;
-  }
-  return false;
-}
-
 GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
       grid_(100) {       // (grid.h)
   batch_time() = BATCH;  // (rsalgorithm.h) set batch to 1 second ("streaming")
@@ -60,13 +49,17 @@ GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
   std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
 
   // Start timing -------------------------------
   t0 = std::chrono::high_resolution_clock::now();
-  clock_t start = std::clock();
+  auto start = t0;
 
   /* Skip customers already assigned (but not yet picked up) */
   if (cust.assigned())
+    return;
+  /* Skip customers under delay */
+  if (delay(cust.id()))
     return;
 
   int ncust = 1;
@@ -95,12 +88,15 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   /* Container to rank candidates by least cost */
   std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)> q(cmp);
 
-  /* Loop through and rank each candidate */
+  /* Loop through and rank each candidate
+   * (Timeout) */
   for (const auto& cand : candidates) {
     /* Increment number-of-candidates counter */
     ncand_++;
     cst = sop_insert(*cand, cust, sch, rte); // doesn't check time/cap constraints
     q.push({cst, cand, sch, rte});
+    if (timeout(start))
+      break;
   }
 
   /* Loop through candidates and check which is the greedy match */
@@ -118,8 +114,6 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
       /* ... accept the match */
       matched = true;
     }
-    if (timeout(start))
-      break;
   }
 
   /* Commit match to the db */
@@ -137,9 +131,11 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
         << "Match " << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
         << std::endl;
       nmat_++;  // increment matched counter
+      end_delay(cust.id());  // (rsalgorithm.h)
     } else
       nrej_++;  // increment rejected counter
-  }
+  } else
+    beg_delay(cust.id());
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------
   avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
@@ -155,7 +151,8 @@ void GreedyInsertion::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
   int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
-  print(MessageType::Success) << "Avg-cust-handle: " << (float)sum_avg/avg_dur.size() << "ms" << std::endl;
+  this->avg_cust_ht_ = sum_avg/avg_dur.size();
+  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
 }
 
 void GreedyInsertion::listen() {

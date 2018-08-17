@@ -19,6 +19,7 @@
 // SOFTWARE.
 #include <omp.h>
 #include <algorithm> /* std::find, std::nth_element */
+#include <chrono>
 #include <ctime>
 #include <exception>
 #include <iostream> /* std::endl */
@@ -34,25 +35,19 @@ using namespace cargo;
 const int BATCH         = 30;
 const int RANGE         = 1500; // meters
 const int TOP_CUST      = 8;  // customers per vehicle for rv-graph
-const int RV_TIMEOUT    = std::ceil(float(BATCH/2.0));
-const int RTV_TIMEOUT   = std::ceil(float(BATCH/2.0));
 const int TRIP_MAX      = 15000;  // maximum number of trips per batch
 
-bool TripVehicleGrouping::timeout(clock_t& start, const int& TIMEOUT) {
-  clock_t end = std::clock();
-  double elapsed = double(end-start)/omp_get_max_threads()/CLOCKS_PER_SEC;
-  if ((elapsed >= TIMEOUT) || this->done()) {
-    print << "timeout() triggered." << std::endl;
-    return true;
-  }
-  return false;
-}
+std::vector<int> avg_dur {};
+
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
 
 TripVehicleGrouping::TripVehicleGrouping()
     : RSAlgorithm("trip_vehicle_grouping"),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = BATCH;
   stid_ = 0;
+  timeout_ = std::ceil(float(BATCH/2.0)*1000.0);
   if (!omp_get_cancellation()) {
     print(MessageType::Error) << "OMP_CANCELLATION not set"
         << " (export OMP_CANCELLATION=true)" << std::endl;
@@ -67,7 +62,19 @@ void TripVehicleGrouping::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void TripVehicleGrouping::match() {
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  int ncust = 0;
+
+  // Start timing -------------------------------
+  t0 = std::chrono::high_resolution_clock::now();
   print(MessageType::Info) << "match called" << std::endl;
+
+  /* Initialize is_matched to false for all customers */
+  std::unordered_map<CustId, bool> is_matched {};
+  for (const Customer& cust : customers())
+    is_matched[cust.id()] = false;
+
+  ncust = customers().size();
 
   /* Initialize the GLPK mixed-integer program */
   glp_prob* mip;
@@ -83,7 +90,7 @@ void TripVehicleGrouping::match() {
   std::vector<CustId> matchable_custs {};
 
   print(MessageType::Info) << "generating rv-graph..." << std::endl;
-  clock_t start = std::clock();
+  auto start = std::chrono::high_resolution_clock::now();
   { /* Generate rv-graph
        Complexity: O((n^2+n*m)*travel) */
   std::vector<Customer> lcl_cust = customers();
@@ -140,7 +147,7 @@ void TripVehicleGrouping::match() {
           rv_rte[*cand][cust_a] = rteout; }
       }
     }
-    if (timeout(start, RV_TIMEOUT)) {
+    if (timeout(start)) {
       #pragma omp cancel for
     }
   }  // end pragma omp for
@@ -176,7 +183,7 @@ void TripVehicleGrouping::match() {
   if (this->done()) return;
 
   print(MessageType::Info) << "generating rtv-graph..." << std::endl;
-  start = std::clock();
+  start = std::chrono::high_resolution_clock::now();
   int nvted = 0; // number of vehicle-trip edges
   { /* Generate rtv-graph */
   std::vector<Vehicle> lcl_vehl = vehicles();
@@ -215,7 +222,7 @@ void TripVehicleGrouping::match() {
       }
     } else
       continue;  // <-- if no rv-pairs, skip to the next vehl
-    if (timeout(start, RTV_TIMEOUT)) {
+    if (timeout(start)) {
       #pragma omp cancel for
     }
 
@@ -247,7 +254,7 @@ void TripVehicleGrouping::match() {
         }
       }
     }
-    if (timeout(start, RTV_TIMEOUT)) {
+    if (timeout(start)) {
       #pragma omp cancel for
     }
 
@@ -273,7 +280,7 @@ void TripVehicleGrouping::match() {
         }
       }
     }
-    if (timeout(start, RTV_TIMEOUT)) {
+    if (timeout(start)) {
       #pragma omp cancel for
     }
 
@@ -341,7 +348,7 @@ void TripVehicleGrouping::match() {
     //   if (timed_out) continue;  // <-- continue to the next vehicle
     // } // end while
     } // end if vehls with capacity
-    if (timeout(start, RTV_TIMEOUT)) {
+    if (timeout(start)) {
       #pragma omp cancel for
     }
   } // end pragma omp for
@@ -524,15 +531,20 @@ void TripVehicleGrouping::match() {
       for (const Customer& cust : trip_.at(colmap[i].second))
         cadd.push_back(cust.id());
       if (assign(cadd, {}, new_rte, new_sch, sync_vehl)) {
-        for (const auto& cust : trip_.at(colmap[i].second))
+        for (const auto& cust : trip_.at(colmap[i].second)) {
           print(MessageType::Success) << "Match (cust" << cust.id() << ", vehl" << colmap[i].first << ")\n";
-        nmat_++;
+          nmat_++;
+          is_matched.at(cust.id()) = true;
+          end_delay(cust.id());  // (rsalgorithm.h)
+        }
       } else {
         print(MessageType::Warning) << "Sync failed vehl" << colmap[i].first << "\n";
         nrej_++;
       }
     }
   }
+  for (const auto& kv : is_matched)
+    if (!kv.second) beg_delay(kv.first);
 
   glp_delete_prob(mip);
   }  // end mip (if vted_.size() > 0)
@@ -543,11 +555,18 @@ void TripVehicleGrouping::match() {
   trip_.clear();
   vted_.clear();
   cted_.clear();
+
+  t1 = std::chrono::high_resolution_clock::now();
+  // Stop timing --------------------------------
+  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void TripVehicleGrouping::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
+  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
+  this->avg_cust_ht_ = sum_avg/avg_dur.size();
+  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
 }
 
 void TripVehicleGrouping::listen() {

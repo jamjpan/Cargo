@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* std::find_if */
+#include <chrono>
 #include <ctime>
 #include <exception>
 #include <iostream> /* std::endl */
@@ -36,17 +37,11 @@ using namespace cargo;
 
 const int BATCH     = 1;  // seconds
 const int RANGE     = 1500; // meters
-const int TIMEOUT   = 1;  // timeout customers take > TIMEOUT sec
 
-bool KineticTrees::timeout(clock_t& start) {
-  clock_t end = std::clock();
-  double elapsed = double(end-start)/CLOCKS_PER_SEC;
-  if ((elapsed >= TIMEOUT) || this->done()) {
-    print << "timeout() triggered." << std::endl;
-    return true;
-  }
-  return false;
-}
+std::vector<int> avg_dur {};
+
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
 
 KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees"),
       grid_(100) {   // (grid.h)
@@ -61,11 +56,21 @@ KineticTrees::~KineticTrees() {
 }
 
 void KineticTrees::handle_customer(const Customer& cust) {
-  clock_t start = std::clock();
+  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
+
+  // Start timing -------------------------------
+  t0 = std::chrono::high_resolution_clock::now();
+  auto start = t0;
 
   /* Skip customers already assigned (but not yet picked up) */
   if (cust.assigned())
     return;
+  /* Skip customers under delay */
+  if (delay(cust.id()))
+    return;
+
+  int ncust = 1;
 
   /* Containers for storing outputs */
   DistInt cst, best_cst = InfInt;
@@ -85,15 +90,13 @@ void KineticTrees::handle_customer(const Customer& cust) {
   Stop cust_orig = Stop(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_dest = Stop(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
 
-  /* Loop through candidates and check which is the greedy match */
+  /* Loop through candidates and check which is the greedy match
+   * (Timeout) */
   for (const auto& cand : candidates) {
     /* Skip vehicles queued to capacity (queued = number of customer assigned
      * but may or may not be picked up yet) */
     if (cand->queued() == cand->capacity())
       continue;
-
-    // print << "handle_customer(" << cust.id() << ") to vehl" << cand->id() << std::endl;
-    // print << "\tins. into kt: "; print_kt(kt_.at(cand->id())); print.flush();
 
     /* Define the maximum travel bound based on customer's time window */
     DistInt max_travel = (cust.late()-cust.early())*Cargo::vspeed();
@@ -106,15 +109,9 @@ void KineticTrees::handle_customer(const Customer& cust) {
     if (cst == -1)
       continue;
 
-    // print << "\taug. kt: "; print_kt(kt_.at(cand->id()), true);
-    // print.flush();
-
     /* Retrieve the new schedule */
     std::vector<std::pair<NodeId, bool>> schseq;  // container
     kt_.at(cand->id())->printTempStopSequence(schseq);
-
-    if (timeout(start))
-      break;
 
     /* Convert the sequence of nodes returned from the tree into a vector of
      * stops for committing into the db */
@@ -139,8 +136,6 @@ void KineticTrees::handle_customer(const Customer& cust) {
         if (i->first == cust_dest.loc()) sch.push_back(cust_dest);
       }
     }
-    // print << "\taug.sch: "; print_sch(sch);
-    // print.flush();
 
     /* Route through the least-cost schedule */
     // The distances to the nodes in the routes found by route_through need to
@@ -176,31 +171,27 @@ void KineticTrees::handle_customer(const Customer& cust) {
     if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       /* Accept the new kinetic tree, and sync it up to sync_sch */
       kt_.at(best_vehl->id())->push();
-      // print << "handle_customer(" << cust.id() << ") accepted vehl" << best_vehl->id() << std::endl;
-      // print << "\tsync sch: "; print_sch(best_vehl->schedule().data());
-      // print.flush();
-      // print << "\tnew kt: "; print_kt(kt_.at(best_vehl->id()));
-      // print.flush();
       sync_kt(kt_.at(best_vehl->id()), best_vehl->schedule().data());
-      // print << "\tmod kt: "; print_kt(kt_.at(best_vehl->id()));
-      // print.flush();
       print(MessageType::Success)
         << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")" << std::endl;
       nmat_++;
+      end_delay(cust.id());  // (rsalgorithm.h)
     } else
       nrej_++;
-  }
+  } else
+    beg_delay(cust.id());
+  t1 = std::chrono::high_resolution_clock::now();
+  // Stop timing --------------------------------
+  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void KineticTrees::handle_vehicle(const Vehicle& vehl) {
-  // print << "handle_vehicle(" << vehl.id() << ")... " << std::endl;
   /* Insert into grid */
   grid_.insert(vehl);
 
   /* Create kinetic tree (treeTaxiPath.h) */
   if (kt_.count(vehl.id()) == 0) {
     kt_[vehl.id()] = new TreeTaxiPath(vehl.schedule().data().at(0).loc(), vehl.dest());
-    // print(MessageType::Info) << "handle_vehicle(" << vehl.id() << ") created kt" << std::endl;
   }
 
   /* Add to last-modified */
@@ -220,19 +211,7 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
        * We check its current schedule against our memory of its schedule and
        * adjust the kinetic tree to match. */
       if (sched_.at(vehl.id()).at(0).loc() != vehl.dest()) {
-        // print << "\tcur sched: ";
-        // print_sch(vehl.schedule().data());
-        // print.flush();
-        // print << "\tcached sched: ";
-        // print_sch(sched_.at(vehl.id()));
-        // print.flush();
-        // print << "\tcached kt: "; print_kt(kt_.at(vehl.id()));
-        // for (int i = 0; i < visited_stops; ++i)
-        //   kt_.at(vehl.id())->step();  // (treeTaxiPath.h)
         sync_kt(kt_.at(vehl.id()), vehl.schedule().data());
-        // print << "\tmod. kt: ";
-        // print_kt(kt_.at(vehl.id()));
-        // print.flush();
       }
     }
   }
@@ -246,19 +225,14 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
 
   /* Update last modified */
   last_modified_[vehl.id()] = Cargo::now();
-
-  /* DEBUG */
-  // print << "handle_vehicle(" << vehl.id() << ") final cached sched: ";
-  // print << "(" << vehl.last_visited_node() << ")";
-  // print_sch(sched_.at(vehl.id()));
-  // print.flush();
-  // print << "handle_vehicle(" << vehl.id() << ") final kt: ";
-  // print_kt(kt_.at(vehl.id()));
 }
 
 void KineticTrees::end() {
   print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
   print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
+  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
+  this->avg_cust_ht_ = sum_avg/avg_dur.size();
+  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
 }
 
 void KineticTrees::listen() {
@@ -277,14 +251,10 @@ void KineticTrees::sync_kt(TreeTaxiPath* kt, const std::vector<Stop>& cur_sch) {
   NodeId i = (seq.begin()+1)->first;
   NodeId j = (cur_sch.begin()+1)->loc();
   while (i != j && i != -1) {
-    // print << "sync_kt: " << i << " != " << j << std::endl;
     kt->step();
-    // print << "sync_kt: step to "; print_kt(kt);
     i = kt->next();
   }
-  // print << "sync_kt: " << i << " == " << j << std::endl;
   kt->move(cur_sch.begin()->loc());
-  // print << "sync_kt: move to "; print_kt(kt);
 }
 
 void KineticTrees::print_kt(TreeTaxiPath* kt, bool temp) {

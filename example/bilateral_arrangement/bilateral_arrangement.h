@@ -40,9 +40,6 @@ class BilateralArrangement : public RSAlgorithm {
   int nswapped_;
   cargo::Grid grid_;
 
-  /* Timeout long-running executions */
-  bool timeout(clock_t &);
-
   /* A customer might get matched 'twice' because it gets swapped out..
    * .. so remember which customers get matched */
   std::unordered_map<CustId, bool> matched_;
