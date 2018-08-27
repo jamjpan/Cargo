@@ -445,13 +445,15 @@ int Cargo::step(int& ndeact) {
 
 /* Returns cost of all vehicle routes, plus the base cost for each
  * unassigned customer trip */
-DistInt Cargo::total_route_cost() {
-  DistInt cst = 0;
+long int Cargo::total_route_cost() {
+  long int cst = 0;
 
   /* Get all vehicle route costs */
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 0));
     const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
+    print << "Vehicle cost: " << route.back().first << std::endl;
+    print_rte(route);
     cst += route.back().first;
   }
   if (rc != SQLITE_DONE) {
@@ -465,6 +467,7 @@ DistInt Cargo::total_route_cost() {
     const CustId cust_id = sqlite3_column_int(sac_stmt, 0);
     const VehlId assigned_to = sqlite3_column_int(sac_stmt, 7);
     if (assigned_to == 0) {
+      print << "Cust " << cust_id << " cost: " << trip_costs_.at(cust_id) << std::endl;
       cst += trip_costs_.at(cust_id);
     }
   }

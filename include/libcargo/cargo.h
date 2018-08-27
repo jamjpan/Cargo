@@ -136,7 +136,7 @@ class Cargo {
   /* Solution file */
   Filepath solution_file_;
   Filepath dataout_file_;
-  DistInt total_route_cost();
+  long int total_route_cost();
   SimlDur avg_pickup_delay(); // (time-to-pickup) - cust.early()
   SimlDur avg_trip_delay();   // (dropoff - pickup) - base cost
 
