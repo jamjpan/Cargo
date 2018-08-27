@@ -20,6 +20,7 @@ build/
 lib/
 tool/gtreebuilder/gtreebuilder
 tool/rspgen/rspgen
+tool/rspgen/script.sh
 test/build/
 test/run_tests
 example/greedy_insertion/greedy_insertion
