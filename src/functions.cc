@@ -337,7 +337,7 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   // Add head to the new nodes in the route
   for (auto& wp : rteout) wp.first += head;
   rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
-  return mincst;
+  return mincst+head;
 }
 
 DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
