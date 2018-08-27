@@ -245,6 +245,10 @@ int Cargo::step(int& ndeact) {
           std::vector<Wayp> new_rte;
           route_through({a, b}, new_rte);
           int new_nnd = new_rte.at(1).first;
+          /* Add traveled distance to the waypoints in the new route */
+          for (auto& wp : new_rte)
+            wp.first += rte.back().first;
+          print << "Vehicle " << vid << " got new dest (" << new_dest << ", " << new_rte.front().first << ", " << new_rte.back().first << ")" << std::endl;
 
           /* Insert the new route */
           sqlite3_bind_blob(uro_stmt, 1,
@@ -460,7 +464,9 @@ DistInt Cargo::total_route_cost() {
   while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
     const CustId cust_id = sqlite3_column_int(sac_stmt, 0);
     const VehlId assigned_to = sqlite3_column_int(sac_stmt, 7);
-    if (assigned_to == 0) cst += trip_costs_.at(cust_id);
+    if (assigned_to == 0) {
+      cst += trip_costs_.at(cust_id);
+    }
   }
 
   return cst;
@@ -650,9 +656,9 @@ void Cargo::start(RSAlgorithm& rsalg) {
          << "solution cost " << total_route_cost() << '\n'
          << "matches " << rsalg.matches() << '\n'
          << "out-of-sync rejected " << rsalg.rejected() << '\n'
-         << "avg. cust. handling time" << rsalg.avg_cust_ht() << '\n'
-         << "avg. pickup delay " << avg_pickup_delay() << '\n'
-         << "avg. trip delay " << avg_trip_delay() << '\n';
+         << "avg. cust. handling time " << rsalg.avg_cust_ht() << "ms\n"
+         << "avg. pickup delay " << avg_pickup_delay() << " sec\n"
+         << "avg. trip delay " << avg_trip_delay() << " sec\n";
   f_sol_.close();
 
   print << "Finished Cargo" << std::endl;
