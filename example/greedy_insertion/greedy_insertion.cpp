@@ -28,8 +28,8 @@
 
 using namespace cargo;
 
-const int BATCH     = 1;  // seconds
-const int RANGE     = 1500; // meters
+const int BATCH     = 30;  // seconds
+const int RANGE     = 2000; // meters
 
 std::vector<int> avg_dur {};
 
@@ -93,7 +93,7 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   for (const auto& cand : candidates) {
     /* Increment number-of-candidates counter */
     ncand_++;
-    cst = sop_insert(*cand, cust, sch, rte); // doesn't check time/cap constraints
+    cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
     q.push({cst, cand, sch, rte});
     if (timeout(start))
       break;
@@ -138,7 +138,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     beg_delay(cust.id());
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------
-  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+  if (ncust > 0)
+    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
@@ -175,10 +176,10 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-lg-1.instance";
   op.path_to_solution = "greedy_insertion.sol";
   op.path_to_dataout  = "greedy_insertion.dat";
-  op.time_multiplier  = 1;
+  op.time_multiplier  = 100;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
 

@@ -33,8 +33,8 @@
 using namespace cargo;
 
 const int BATCH         = 30;
-const int RANGE         = 1500; // meters
-const int TOP_CUST      = 8;  // customers per vehicle for rv-graph
+const int RANGE         = 2000; // meters
+const int TOP_CUST      = 30;  // customers per vehicle for rv-graph
 const int TRIP_MAX      = 15000;  // maximum number of trips per batch
 
 std::vector<int> avg_dur {};
@@ -48,6 +48,7 @@ TripVehicleGrouping::TripVehicleGrouping()
   batch_time() = BATCH;
   stid_ = 0;
   timeout_ = std::ceil(float(BATCH/2.0)*1000.0);
+  retry_ = 15;
   if (!omp_get_cancellation()) {
     print(MessageType::Error) << "OMP_CANCELLATION not set"
         << " (export OMP_CANCELLATION=true)" << std::endl;
@@ -103,6 +104,7 @@ void TripVehicleGrouping::match() {
   #pragma omp for
   for (auto ptcust = lcl_cust.begin(); ptcust < lcl_cust.end(); ++ptcust) {
     if (ptcust->assigned()) continue;  // <-- skip assigned not yet picked up
+    else if (delay(ptcust->id())) continue; // <-- skip under delay
     else {
       #pragma omp critical
       { matchable_custs.push_back(ptcust->id()); }
@@ -558,7 +560,8 @@ void TripVehicleGrouping::match() {
 
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------
-  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+  if (ncust > 0)
+    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void TripVehicleGrouping::end() {
@@ -603,7 +606,7 @@ bool TripVehicleGrouping::travel(
     } else  // <-- a customer failed; trip cannot be served
       return false;
   }
-  cstout = cstsum - Cargo::basecost(vehl.id());
+  cstout = cstsum - mtvehl.route().cost();
   schout = schctr;
   rteout = rtectr;
   return true;

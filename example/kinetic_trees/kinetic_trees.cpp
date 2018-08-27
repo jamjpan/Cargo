@@ -109,6 +109,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
     if (cst == -1)
       continue;
 
+    cst = cst - cand->route().cost();
+
     /* Retrieve the new schedule */
     std::vector<std::pair<NodeId, bool>> schseq;  // container
     kt_.at(cand->id())->printTempStopSequence(schseq);
@@ -182,7 +184,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
     beg_delay(cust.id());
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------
-  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+  if (ncust > 0)
+    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void KineticTrees::handle_vehicle(const Vehicle& vehl) {

@@ -123,7 +123,8 @@ void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
     beg_delay(cust.id());
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------
-  avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+  if (ncust > 0)
+    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
 }
 
 void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {

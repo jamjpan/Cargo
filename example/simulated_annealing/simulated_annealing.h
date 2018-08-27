@@ -17,6 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <memory>
 #include <unordered_map>
 #include <random>
 
@@ -33,7 +34,8 @@ using namespace cargo;
  * Here we use "random reassign" as our perturbation. We generate an initial
  * solution by looping through all customers and assigning to random nearest
  * neighbor; we generate a "perturbed" solution by shuffling the customers,
- * then again assign. */
+ * then again assign; the "cost" of a solution is the sum of the Euclidean
+ * dists from the neighbor to the customer. */
 class SimulatedAnnealing : public RSAlgorithm {
  public:
   SimulatedAnnealing();
