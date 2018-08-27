@@ -19,7 +19,7 @@ private/
 build/
 lib/
 tool/gtreebuilder/gtreebuilder
-tool/rspgen/
+tool/rspgen/rspgen
 test/build/
 test/run_tests
 example/greedy_insertion/greedy_insertion
