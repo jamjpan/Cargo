@@ -74,6 +74,7 @@ const VehlId            & Route::owner()           const { return owner_; }
 const std::vector<Wayp> & Route::data()            const { return data_; }
 const NodeId            & Route::node_at(RteIdx i) const { return data_.at(i).second; }
 const DistInt           & Route::dist_at(RteIdx i) const { return data_.at(i).first; }
+const DistInt           & Route::cost()            const { return data_.back().first; }
 const Wayp              & Route::at(RteIdx i)      const { return data_.at(i); }
       size_t              Route::size()            const { return data_.size(); }
 
@@ -196,6 +197,7 @@ void MutableVehicle::set_sch(const Schedule& schedule) {
 void MutableVehicle::set_nnd(const DistInt& sync_nnd) {
   this->next_node_distance_ = sync_nnd;
 }
+void MutableVehicle::set_lvn(const RteIdx& lvn) { this->idx_last_visited_node_ = lvn; }
 void MutableVehicle::reset_lvn()    { this->idx_last_visited_node_ = 0; }
 void MutableVehicle::incr_queued()  { this->queued_++; }
 void MutableVehicle::decr_queued()  { this->queued_--; }

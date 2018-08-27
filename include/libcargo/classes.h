@@ -94,6 +94,7 @@ class Route {
   const std::vector<Wayp> & data()          const;
   const NodeId            & node_at(RteIdx) const;
   const DistInt           & dist_at(RteIdx) const;
+  const DistInt           & cost()          const;
   const Wayp              & at(RteIdx)      const;
         size_t              size()          const;
         void                print()         const;
@@ -212,6 +213,7 @@ class MutableVehicle : public Vehicle {
   void set_sch(const std::vector<Stop>&);
   void set_sch(const Schedule&);
   void set_nnd(const DistInt&);
+  void set_lvn(const RteIdx&);
   void reset_lvn();
   void incr_queued();
   void decr_queued();
