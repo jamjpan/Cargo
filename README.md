@@ -3,216 +3,336 @@ using this system, but we could use some help and expertise! If you would like
 to find out more or possibly collaborate, please reach out to me at
 jamesjpan@outlook.com)
 
-# Cargo - Ridesharing Simulator Library
+# Cargo
 **(under development)**
 
-Ridesharing is a type of vehicle routing problem (VRP).  Consider customers and
-vehicles appearing over time on a road network. The objective is to route the
-vehicles to service the customers while minimizing total travel distance.
+*A C++11 static library plus benchmarks for implementing ridesharing algorithms
+and evaluating them through simulation.*
 
-Cargo is a C++11 library that provides tools for developing and evaluating
-ridesharing algorithms through real-time simulation. Users can develop
-algorithms by extending the `RSAlgorithm` class and evaluate their algorithms
-on provided benchmarks. Each instance comprises a road network and a "problem"
-file consisting of vehicles and customers on the network.
+Ridesharing is a type of vehicle routing problem (VRP). The objective is to
+route vehicles to service customers as they continually appear on a road
+network, while minimizing travel distance.
 
-Users develop ridesharing algorithms by implementing five `RSAlgorithm`
-virtual methods: `handle_vehicle`, `handle_customer`, `listen`, `match`, and
-`end`.
+## What it does
+Cargo provides abstractions of key components for implementing and evaluating
+ridesharing algorithms and includes commonly used functions. Users build their
+algorithms using the abstractions, then evaluate their algorithms on the
+included benchmarks. The evaluation is through simulation on real-world road
+networks using historic real taxi customers data and in real time.
 
-See the docs (TODO) for more about the `RSAlgorithm` class.
+## How to install
 
-In this example, an algorithm `MyAlgorithm` stores new vehicles in a local
-index and matches customers as they arrive. The class extends `RSAlgorithm` and
-imports a custom spatial index:
+Dependencies: [METIS - Serial Graph Partitioning and
+Fill-reducing Matrix
+Ordering](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview); other
+dependencies (POSIX Threads (`pthread`), Dynamic Loader (`dl`), and
+Shared Memory Objects, Clock, and Timers (`rt`)) should be included in any
+base Linux installation.
+
+### Building the library
+
+Clone the repository (78.82 MB), then use `make`:
+```
+git clone https://github.com/jamjpan/Cargo.git && cd Cargo && make
+```
+The library will be located in `lib/libcargo.a`.
+
+### Compiling your code
+
+Place the contents of the `include/` directory somewhere your compiler can
+access.  Using `g++`, you can compiled your code with the `-I` flag to point
+the compiler to the location of these includes, if necessary. For example:
+```
+g++ -std=c++11 -g -c -Iinclude mycode.cc -o mycode.o
+```
+
+### Linking
+
+Place `libcargo.a` somewhere your compiler can access. Using `g++`, link your
+code using `-lcargo`. Also link the dependencies using `-pthread -lrt -lmetis
+-ldl`. Use the `-L` flag to locate the libraries, if necessary. For example:
+```
+g++ -Llib -lcargo -pthread -lrt -L/usr/local/lib -lmetis -ldl mycode.o -o mycode
+```
+
+## Usage
+
+### Classes
+
+#### cargo::Stop(TripId, NodeId, StopType, ErlyTime, LateTime, SimlTime=-1)
+
+Represents an origin or destination that a vehicle must visit.
+
+* TripId(param1): ID for owner of the stop
+* NodeId(param2): location of the stop in the road network
+* StopType(param3): its type, one of `CustOrig, CustDest, VehlOrig, VehlDest`
+* ErlyTime(param4): early bound on the time window of the stop
+* LateTime(param5): late bound on the time window of the stop
+* SimlTime(param6): time when stop is first visited
+
+#### cargo::Schedule(VehlId, std::vector\<Stop\>)
+
+Sequence of stops that a vehicle follows.
+
+* VehlId(param1): ID for owner of the schedule
+* std::vector\<Stop\>(param2): sequence of stops to follow, in order
+
+#### cargo::Route(VehlId, std::vector\<Wayp\>)
+
+Sequence of nodes that a vehicle follows.
+
+* VehlId(param1): ID for owner of the route
+* std::vector\<Wayp\>(param2): sequence of nodes (waypoints) to follow, in order
+
+#### cargo::Trip(TripId, OrigId, DestId, ErlyTime, LateTime, Load)
+
+Base class for representing vehicles and customers.
+
+* TripId(param1): ID of the trip (vehicle or customer)
+* OrigId(param2): location of the trip origin in the road network
+* DestId(param3): location of the trip destination in the road network
+* ErlyTime(param4): early bound on the time window of the trip
+* LateTime(param5): late bound on the time window of the trip
+* Load(param6): trip load (negative means this trip can accept load, i.e. a vehicle)
+
+#### cargo::Customer(TripId, OrigId, DestId, ErlyTime, LateTime, Load, CustStatus, VehlId=-1)
+
+Extends Trip; represents a customer.
+
+* (params1-6: same as Trip)
+* CustStatus(param7): one of `Waiting, Onboard, Arrived, Canceled`
+* VehlId(param8): Vehicle customer is assigned to
+
+#### cargo::Vehicle(TripId, OrigId, DestId, ErlyTime, LateTime, Load, GTree::G_Tree)
+
+Extends Trip; represents a vehicle.
+
+* (params1-6: same as Trip)
+* GTree::G\_Tree(param7): a specific G-tree to allow parallel construction,
+  used for constructing default route
+
+#### cargo::MutableVehicle(Vehicle)
+
+Extends Vehicle; mutable version
+
+* Vehicle(param1): the vehicle to make a mutable copy of
+
+#### cargo::ProblemSet()
+
+Holds details of the problem to evaluation (properties of the trips)
+
+#### cargo::Cargo(Options)
+
+Simulator. Manages the ground-truth state database; in-memory road network
+and problem set; G-tree and shortest-paths cache; Logger.
+
+* Options(param1): options for configuring Cargo
+
+#### cargo::RSAlgorithm(std::string, bool)
+
+Base class for representing ridesharing algorithms.
+
+* std::string(param1): algorithm name, e.g. "greedy"
+* bool(param2): set to true to print messages alongside standard out in a
+  separate stream
+
+Algorithms are implemented by overriding five virtual methods:
+
+* listen(): poll for vehicles and customers at an interval
+* handle\_vehicle(Vehicle): triggered for every polled vehicle
+* handle\_customer(Customer): triggered for every polled customer
+* match(): triggered at the end of `listen`
+* end(): triggered at the end of simulation
+
+#### cargo::Logger(Filepath)
+
+Writes state of the simulation to disk.
+
+* Filepath(param1): location to write to
+
+#### cargo::Grid(int)
+
+Two-dimensional spatial grid index.
+
+* int(param1): number of cells in one dimension
+
+### Full documentation
+
+See the docs (TODO).
+
+## Example
+
+Here is a complete example found in `example/simple`:
+
 ```cpp
+#include <iostream>
+#include <string>
+#include <vector>
 #include "libcargo.h"
-#include "myindex.h"
-class MyAlgorithm : public RSAlgorithm {
+class MyAlgorithm : public cargo::RSAlgorithm {
  public:
-  // ...
+  MyAlgorithm();
+  virtual void handle_customer(const cargo::Customer &);
+  virtual void end();
  private:
-  MyIndex myidx;  // a custom spatial index
+  int nmatches;
 };
-```
 
-The algorithm adds each active vehicle to the index.  The method
-`cargo::Vehicle::id()` returns the ID of a vehicle.
-```cpp
-MyAlgorithm::handle_vehicle(const cargo::Vehicle vehl) {
-    my_index.add(vehl);
+MyAlgorithm::MyAlgorithm() : cargo::RSAlgorithm("myalg") {
+  this->nmatches = 0;
 }
-```
 
-To keep the vehicles fresh, the algorithm clears the index each time new
-vehicles and customers are polled:
-```cpp
-MyAlgorithm::listen() {
-    my_index.clear();
-    RSAlgorithm::listen();  // call the base listen()
+void MyAlgorithm::handle_customer(const cargo::Customer &cust)
+{
+s00:  if (cust.assigned()) return;
+s01:  for (const cargo::Vehicle &vehl : this->vehicles())
+      {
+s02:    cargo::MutableVehicle matched_vehicle(vehl);
+s03:    std::vector<cargo::Stop> augmented_schedule;
+s04:    std::vector<cargo::Wayp> augmented_route;
+s05:    cargo::sop_insert(vehl, cust, augmented_schedule, augmented_route);
+s06:    if (chktw(augmented_schedule, augmented_route) == true)
+        {
+s07:      std::vector<cargo::CustId> to_assign {cust.id()};
+s08:      std::vector<cargo::CustId> to_remove {};
+s09:      if (this->assign(to_assign, to_remove,
+                augmented_route, augmented_schedule, matched_vehicle) == true)
+          {
+s10:        this->print(cargo::MessageType::Success) << "Matched!" << std::endl;
+s11:        this->nmatches++;
+s12:        break;
+          }
+        }
+      }
 }
-```
 
-The algorithm tries to match a customer to the nearest vehicle. Here, the index
-returns a `MutableVehicle` in order to modify the vehicle's schedule with the
-customer's stops. The method `cargo::Customer::orig()` returns a customer's
-origin node. Types `Stop` and `Wayp` represent physical stops and waypoints.  A
-sequence of waypoints represents a route through the road network. The function
-`sop_insert` performs Jaw's insertion heuristic to insert the customer's stops
-into the vehicle's schedule (`new_schedule` and `new_route` are the outputs).
-The function `chktw` checks if the new schedule and route meet time window
-constraints; finally `assign` attempts to commit the assignment to the
-database. The flag `true` indicates to perform a "strict assign".
-```
-MyAlgorithm::handle_customer(const cargo::Customer cust) {
-    MutableVehicle closest_vehl = my_index.find_nearest_to(cust.orig());
-    std::vector<Stop> new_schedule;
-    std::vector<Wayp> new_route;
-    sop_insert(closest_vehl, cust, new_schedule, new_route);
-    if (chktw(new_schedule, new_route) {
-        assign({cust.id()}, {}, *closest_vehl, true);
-    }
+void MyAlgorithm::end() {
+  this->print(cargo::MessageType::Info)
+    << "Matches: " << this->nmatches << std::endl;
 }
-```
 
-See the `examples` folder for complete examples. See the docs (TODO) for more
-about the classes and functions.
-
-
-## Building and usage
-
-### Building
-So far, Cargo has only been tested on Linux. Build using
-```
-make
-```
-This command will output the static library file into `lib/libcargo.a`.
-
-To use the library in your own project, copy `include/*` and `libcargo.a`
-into someplace where your compiler can find. For example:
-```
-myproject/
-  include/libcargo.a
-  include/*
-  myalgorithm.cc
-```
-Then, compile using `-Iinclude`  and link the library using `-Linclude -lcargo`.
-Cargo depends on gtree, which depends on [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview). Cargo also uses pthreads.
-
-Look at the Makefiles in the examples for guidance.
-
-### Usage
-Include the library, implement an algorithm using the base RSAlgorithm class,
-then call `cargo.start(alg)`. Here is what myalgorithm.cc might look like:
-```cpp
-#include "libcargo.h"
-#include "myalgorithm.h" // <-- MyAlgorithm should inherit from RSAlgorithm
-MyAlgorithm::handle_customer() { /* Custom code here */ }
-MyAlgorithm::handle_vehicle() { /*...*/ }
-MyAlgorithm::match() {}
-MyAlgorithm::listen() {}
-MyAlgorithm::end() {}
 int main()
 {
     cargo::Options opt;
-    opt.path_to_roadnet = "my.rnet";
-    opt.path_to_gtree   = "my.gtree";
-    opt.path_to_edges   = "my.edges";
-    opt.path_to_problem = "some.instance";
-    opt.time_multiplier = 1;  // 1=real-time, 2=double-time, etc.
-    opt.vehicle_speed   = 10; // meters per second
-    opt.matching_period = 60; // seconds
+    opt.path_to_roadnet = "../../data/roadnetwork/bj5.rnet";
+    opt.path_to_gtree   = "../../data/roadnetwork/bj5.gtree";
+    opt.path_to_edges   = "../../data/roadnetwork/bj5.edges";
+    opt.path_to_problem = "../../data/benchmark/rs-sm-1.instance";
+    opt.time_multiplier = 1;
+    opt.vehicle_speed   = 10;
+    opt.matching_period = 60;
 
+    cargo::Cargo cargo(opt);  // must be initialized before algorithm
     MyAlgorithm alg;
-    cargo::Cargo cargo(opt);
-    cargo.start(alg); // <-- cargo takes care of starting up threads,
-                      //     calling alg.listen(), etc.
+    cargo.start(alg);
 }
 ```
+Explanation:
 
-## Schema
-```
-                                 ┌──────────────────┐
-   ┌──────────────────┐          │ stops            │
-   │ nodes            │          ├──────────────────┤
-   ├──────────────────┤          │ *owner (int)     │
-┌─>│ *id (int)        │<─────────| *location (int)  │
-│  |  lng (real)      │          |  type (int)      │
-│  |  lat (real)      │          │  early (int)     │
-│  └──────────────────┘          │  late (int)      │
-│                                │  visitedAt (int) │
-│  ┌───────────────────────┐     └──────────────────┘
-│  │ vehicles              │
-│  ├───────────────────────┤
-│  │ *id (int)             │<─┐  ┌──────────────────┐
-└──│  origin_id (int)      │  │  │ schedules        │
-└──│  destination_id (int) │  │  ├──────────────────┤
-│  │  early (int)          │  ├──│ *owner (int)     │
-│  │  late (int)           │  │  |  data (text)     │
-│  │  load (int)           │  │  └──────────────────┘
-│  │  queued (int)         │  │
-│  │  status (int)         │  │
-│  └───────────────────────┘  │  ┌──────────────────────────────┐
-│                             │  │ routes                       │
-│  ┌───────────────────────┐  │  ├──────────────────────────────┤
-│  │ customers             │  ├──│ *owner (int)                 │
-│  ├───────────────────────┤  │  |  data (text)                 │
-│  │ *id (int)             │  │  |  idx_last_visited_node (int) │
-└──│  origin_id (int)      │  │  │  next_node_distance (int)    │
-└──│  destination_id (int) │  │  └──────────────────────────────┘
-   │  early (int)          │  │
-   │  late (int)           │  │
-   │  load (int)           │  │
-   │  status (int)         │  │
-   │  assignedTo (int)     │──┘
-   └───────────────────────┘
-```
+* s00: Do nothing to customers that are already assigned. The method
+  handle\_customer is triggered on all waiting customers, including those that
+  are assigned but not yet picked up.
+* s01: Loop through all active vehicles, returned by method vehicles().
+* s02: Make a MutableVehicle copy so its schedule and route can be updated by
+  assign() if the assignment succeeds.
+* s03, s04: Initialize containers for storing new schedule and route
+* s05: Insert the customer into the vehicle and output the new schedule and route
+* s06: Check if the new schedule and route meet time window constraints
+* s07, s08: Initialize the vectors to pass along to assign()
+* s09: Try the assignment. If it succeeds, assign() returns true, and
+  matched\_vehicle will be mutated with a synchronized schedule and route.
+  The synchronization is with the vehicle's current ground-truth state.
+* s10: Print a message.
+* s11: Increment counter.
+* s12: Break out of the vehicles loop; we're done.
 
-## Log file:
+See the `examples` folder for more examples.
 
-Log file is orgnized by several lines indicating events during runtime, which are in the formats shown below. `[var]` is a placeholder for a variable.
+## Outputs
+
+### Solution file (algorithm_name.sol)
 
 ```
-[T] R [VID] [NODEID] [NODEID] ...
-[T] V [VID] [NODEID] [VID] [NODEID] ...
-[T] P [CID] [CID] ...
-[T] D [CID] [CID] ...
-[T] T [CID] [CID] ...
-[T] A [VID] [VID] ...
-[T] M [VID] [CID] [CID] ...
+rs-md-8                       # name of the problem instance
+cd1                           # name of the road network
+VEHICLES 5000                 # number vehicles in the instance
+CUSTOMERS 11357               # number customers in the instance
+base cost 62939700            # sum cost of the customers and ridesharing vehicles (not taxis)
+solution cost 196928551       # sum total cost, plus penalty for unmatched customers
+matches 11345                 # number of matches
+out-of-sync rejected 0        # number rejected due to out-of-sync
+avg. cust. handling time 1ms  # customer handling time
+avg. pickup delay 46 sec      # pickup delay (time to customer origin)
+avg. trip delay 319 sec       # trip delay (extra time due to shared ride)
+```
+Explanation:
+
+* base cost: the sum of the shortest-path distances from each customer's
+  origin to its destination, plus the cost of the shortest-path distances for
+  each ridesharing vehicle. A ridesharing vehicle is one that has its own
+  destination, as opposed to shared taxis which do not.
+* solution cost: the sum of the total traveled distance of all the
+  vehicles, plust the base cost of each unmatched customer.
+* out-of-sync rejected: the number of customers rejected due to
+  synchronization failure. Synchronization failure happens when an assignment is
+  attempted but the assigned schedule or route is not valid for the vehicle, for
+  example the assignment removes a particular customer that the vehicle has already
+  picked up.
+
+### Data file (*.dat)
+
+The data file is not meant for human consumption, but is human readable. It
+comprises seven types of lines:
+
+```
+t [R, V, P, D, T, A, M] [data]
 ```
 
-[T] indicates the simulation time when the event happens.
+* t is the time step of the simulation
+* R, V, P, D, T, A, M are each event codes
+    * R indicates new route; data = [VehlId] [sequence of NodeIds]
+    * V indicates new location; data = [VelId1] [NodeId] [VehlId2] [NodeId] ...
+    * P indicates pickup; data = [CustId1] [CustId2] ...
+    * D indicates dropoff; data = [CustId1] [CustId2] ...
+    * T indicates timeout; data = [CustId1] [CustId2] ...
+    * A indicates arrival; data = [VehlId1] [VehlId2] ...
+    * M indicates match; data = [VehlId] [CustId1] [CustId2] ...
 
-[VID] indicates vehicle id.
+The data file can be fed into `tool/solplot/solplot.py` to generated an mp4
+visualization.
 
-[NODEID] indicates node id in the roadnetwork.
+## Tools
 
-[CID] indicates customer id.
+### gtreebuilder (tool/gtreebuilder)
 
-R means route update, followed by one vehicle id and several node ids, representing a new route from current position.
+Build a G-tree spatial index from an \*.edges file.
 
-V means vehicle position update, followed by pairs of vehicle id and node id.
+### probplot (tool/probplot)
 
-P means pick up customers, followed by customer ids which are picked up at [T] time.
+Plot a problem instance \*.instance file.
 
-D means drop off customers, followed by customer ids which are dropped off at [T] time.
+### rspoptsol (tool/rspoptsol)
 
-T means customers timeout, followed by customer ids whose waiting time exceeds the matching period.
+Includes GMPL model and data for optimally solving a ridesharing instance.
+Only the small instances (`rs-sm-*`) are included. Model is based on
+Cordeau's formulation for the Dial-a-Ride problem.
 
-A means vehicle arrive update, followed by vehicles ids which arrive at the destination.
+### solplot (tool/solplot)
 
-M means match update, followed by one vehicle id and several customer ids who are matched to this vehicle.
+Visualize a data file.
 
-## To do:
-* Simulation statistics (number of matches, avg. trip delay, etc.)
-* Plotting and animation
-* Better problem instances, with matching models for rspoptsol
-* Optimal solutions to the instances
-* More examples
+## Bugs and Contributing
 
 If you discover a bug, or have a suggestion, please
 [Submit an Issue](https://github.com/jamjpan/Cargo/issues/new)!
 
-Better yet, fix/implement it and submit a pull request.
+You can also submit a pull request, preferrably against your own branch or
+against the dev branch.
+
+## License
+
+Cargo is distributed under the MIT License. Our use of SQLite does not
+require a license. The lrucache is copyright 2014 lamerman and the license
+can be found in `include/lrucache`. For licensing issues please contact me
+jamesjpan@outlook.com.
 
