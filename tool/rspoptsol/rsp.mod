@@ -53,6 +53,7 @@ var DepartLoad {k in Vehicles, i in (N union {k,k+m})} >= 0;        # Q^k_i
 minimize cost: sum{k in Vehicles, i in (N union {k,k+m}), j in (N union {k,k+m}): i!=j} sp[i,j]*x[k,i,j];
 
 ### Constraints
+## TODO: SUBTOUR ELIMINATION
 # Service constraints:
 # - each customer should be served by at most 1 vehicle
 # - if served, each customer should be served by the same vehicle
