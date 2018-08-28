@@ -306,6 +306,8 @@ void RSAlgorithm::end_delay(const CustId& cust_id) {
 
 bool RSAlgorithm::timeout(
         std::chrono::time_point<std::chrono::high_resolution_clock> & start) {
+  if (Cargo::OFFLINE)
+    return false;
   auto end = std::chrono::high_resolution_clock::now();
   int dur = std::round(dur_milli(end-start).count());
   return (dur >= timeout_ || this->done()) ? true : false;
@@ -595,6 +597,8 @@ void RSAlgorithm::listen() {
 
   // Start timing -------------------------------
   t0 = std::chrono::high_resolution_clock::now();
+  if (Cargo::OFFLINE)
+    Cargo::ofmx.lock();
 
   select_matchable_vehicles();
   for (const auto& vehicle : vehicles_) handle_vehicle(vehicle);
@@ -609,6 +613,10 @@ void RSAlgorithm::listen() {
 
   // Don't sleep if time exceeds batch time
   int dur = std::round(dur_milli(t1-t0).count());
+  if (Cargo::OFFLINE) {
+    Cargo::ofmx.unlock();
+    dur = 0;
+  }
   if (dur > batch_time_ * 1000)
     print(MessageType::Warning)
         << "listen() ("           << dur                << " ms) "

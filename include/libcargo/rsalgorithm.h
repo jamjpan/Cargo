@@ -66,6 +66,7 @@ class RSAlgorithm {
   const int         & rejected()    const;  // # rejected due to out of sync
   const float       & avg_cust_ht() const;  // avg. cust handling time
         int         & batch_time();         // set to 1 for streaming
+      //   bool        & offline();
         void          kill();               // sets done_ to true
 
   // Populates customers_ and vehicles_
@@ -112,6 +113,7 @@ class RSAlgorithm {
   std::unordered_map<CustId, SimlTime> delay_;
   int retry_;  // try again after RETRY secs
   int timeout_; // timeout long-running executions (millisecs)
+//   bool offline_; // if in off line mode, timeout() always return false
 
  private:
   std::string name_;

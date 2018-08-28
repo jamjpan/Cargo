@@ -40,7 +40,7 @@ typedef std::chrono::milliseconds milli;
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right); };
 
-GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion"),
+GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion", true),
       grid_(100) {       // (grid.h)
   batch_time() = BATCH;  // (rsalgorithm.h) set batch to 1 second ("streaming")
   nmat_  = 0;  // match counter
@@ -94,7 +94,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     /* Increment number-of-candidates counter */
     ncand_++;
     cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-    q.push({cst, cand, sch, rte});
+    rank_cand rc {cst, cand, sch, rte};
+    q.push(rc);
     if (timeout(start))
       break;
   }
@@ -176,15 +177,16 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-lg-1.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "greedy_insertion.sol";
   op.path_to_dataout  = "greedy_insertion.dat";
-  op.time_multiplier  = 100;
+  op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
 
   /* Construct Cargo */
   Cargo cargo(op);
+  Cargo::OFFLINE = true;
 
   /* Initialize algorithm */
   GreedyInsertion gr;

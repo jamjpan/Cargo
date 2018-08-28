@@ -71,6 +71,8 @@ SimlTime Cargo::t_ = 0;
 /* Global mutexes */
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
+std::mutex Cargo::ofmx;
+bool Cargo::OFFLINE = false;
 
 /* Shortest-paths cache: hash is stringified orig/dest pair */
 cache::lru_cache<std::string, std::vector<NodeId>>
@@ -594,6 +596,8 @@ void Cargo::start(RSAlgorithm& rsalg) {
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
     t0 = std::chrono::high_resolution_clock::now();
+    if (OFFLINE)
+      ofmx.lock();
 
     /* Log timed-out customers */
     log_t_.clear();
@@ -635,6 +639,10 @@ void Cargo::start(RSAlgorithm& rsalg) {
         << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
     else
       std::this_thread::sleep_for(milli(sleep_interval_ - dur));
+    
+    if (OFFLINE) {
+      ofmx.unlock();
+    }
 
     /* Increment the time step */
     t_ += 1;
