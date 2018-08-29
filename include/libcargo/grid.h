@@ -39,9 +39,11 @@ namespace cargo {
 class Grid {
  public:
   Grid(int);  // int = number of cells; total grid size = int^2
+  Grid(const Grid &); // copy ctor
 
   void insert(const Vehicle &);
   void insert(const MutableVehicle &);
+  std::shared_ptr<MutableVehicle> select(const VehlId &);
 
   /* Return candidates within about DistDbl. It's "about", not "exact", because
    * returns all candidates in grid cells covered by DistDbl */
@@ -57,7 +59,7 @@ class Grid {
 
   void clear();
 
- private:
+ protected:
   double x_dim_;
   double y_dim_;
   int n_;
