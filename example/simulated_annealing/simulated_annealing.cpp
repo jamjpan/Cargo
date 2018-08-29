@@ -31,9 +31,9 @@
 using namespace cargo;
 
 const int BATCH = 30;  // seconds
-const int RANGE = 2000; // meters
-const int PERT  = 100000; // how many solutions to generate per iter?
-const int T_MAX = 10; // maximum "temperature"
+const int RANGE = 60000; // meters
+const int PERT  = 10; // how many solutions to generate per iter?
+const int T_MAX = 20; // maximum "temperature"
 
 std::vector<int> avg_dur {};
 
@@ -45,6 +45,7 @@ SimulatedAnnealing::SimulatedAnnealing() : RSAlgorithm("simulated_annealing"),
   batch_time() = BATCH;
   nmat_ = 0;
   nclimbs_ = 0;
+  ndrops_ = 0;
   timeout_ = std::ceil((float)BATCH/T_MAX*(1000.0));
   std::random_device rd;
   gen.seed(rd());
@@ -71,131 +72,167 @@ void SimulatedAnnealing::match() {
   /* Containers for storing outputs */
   std::vector<Stop> sch;
   std::vector<Wayp> rte;
-
-  /* Generate a solution:
-  * Assign each customer to a random one of its candidates */
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol = {};
-  DistInt best_solcst = InfInt;
-  /* Don't want to modify the properties of the grid vehicles, so store
-   * the queued count here */
-  std::unordered_map<VehlId, std::pair<int, int>> qcount, qcount_backup;
-  for (const Vehicle& vehl : vehicles()) {
-    qcount[vehl.id()] = {vehl.queued(), vehl.capacity()};
-  }
-  qcount_backup = qcount;
+  DistInt best_solcst = 0;
+
+  /* Generate an initial solution */
+  Grid lcl_grid(this->grid_); // make a local copy
+  for (const Customer& cust : customers()) {
+    /* Skip customers already assigned (but not yet picked up) */
+    if (cust.assigned())
+      continue;
+    /* Skip customers under delay */
+    if (delay(cust.id()))
+      continue;
+    /* Increment the customer counter */
+    ncust++;
+
+    /* Get candidates from the local grid index */
+    DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ RANGE;
+    auto candidates = lcl_grid.within_about(rng, cust.orig());
+    if (candidates.empty())
+      continue;
+
+    /* Try assign to a random candidate */
+    auto& cand = candidates.front();
+
+    bool within_cap = (cand->queued() < cand->capacity());
+    if (!within_cap)
+      continue;
+    std::vector<Wayp> try_rte;
+    std::vector<Stop> try_sch;
+    DistInt cst = sop_insert(*cand, cust, try_sch, try_rte);
+    bool within_time = chktw(try_sch, try_rte);
+    if (within_time) {
+      cand->set_rte(try_rte);
+      cand->set_sch(try_sch);
+      cand->reset_lvn();
+      cand->incr_queued();
+      best_sol.push_back({cust, *cand, cst});  // cand has new rte/sch now
+      best_solcst += cst;
+    }
+    // Vehicles in lcl_grid are now different from this->grid_ (ground-truth)
+  } // finished all customers
+  std::cout << "best_solcst: " << best_solcst << std::endl;
+
+  /* Perturb the solution; pick a random assigned customer; try assign to
+   * another one of its candidates; accept with probability. */
+  if (best_sol.empty()) return;
   for (int T = 0; T < T_MAX; ++T) {
-    /* Each temperature starts with an initial random solution */
-    std::vector<std::tuple<Customer, MutableVehicle, DistInt>> sol = {};
-    DistInt this_solcst = 0;
-    qcount = qcount_backup;
-    for (const Customer& cust : customers()) {
-      /* Skip customers already assigned (but not yet picked up) */
-      if (cust.assigned())
-        continue;
-      /* Skip customers under delay */
-      if (delay(cust.id()))
-        continue;
-
-      if (T == 0) ncust++; // don't double count
-
-      /* Get candidates from the local grid index
-       * (the grid is refreshed during listen()) */
-      DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ RANGE;
-      auto candidates = grid_.within_about(rng, cust.orig());
-      if (candidates.empty())
-        continue;
-
-      /* Assign to a random candidate */
-      std::shuffle(candidates.begin(), candidates.end(), gen);
-      auto& cand = candidates.front();
-      if (qcount.at(cand->id()).first < qcount.at(cand->id()).second) {
-        // DistInt cst = haversine(cand->last_visited_node(), cust.orig());
-        std::vector<Wayp> unused_rte;
-        std::vector<Stop> unused_sch;
-        DistInt cst = sop_insert(*cand, cust, unused_sch, unused_rte);
-        sol.push_back({cust, *cand, cst});
-        this_solcst += cst;
-        (qcount.at(cand->id()).first)++;
-      }
-    } // finished all customers
-    best_sol = sol;
-    best_solcst = this_solcst;
-    /* Perturb the solution; pick a random assigned customer; remove it from
-     * current assignment; try assign to another one of its candidates; accept
-     * with probability. */
-    if (sol.empty()) break;
-    std::uniform_int_distribution<> n(0,sol.size()-1);
+    std::uniform_int_distribution<> n(0,best_sol.size()-1);
     for (int i = 0; i < PERT; ++i) {
-      auto itr = sol.begin();
-      std::advance(itr, n(gen));
+
+      /* Pick a random customer to perturb */
+      auto sol = best_sol;
+      auto cust_itr = sol.begin();
+      std::advance(cust_itr, n(gen));
       DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ RANGE;
-      Customer& cust = std::get<0>(*itr);
-      DistInt cst = 0;
-      auto candidates = grid_.within_about(rng, cust.orig());
+      Customer& cust = std::get<0>(*cust_itr);
+
+      /* Pick a random candidate to assign to */
+      auto candidates = lcl_grid.within_about(rng, cust.orig());
       if (candidates.empty())
         continue;
-      std::shuffle(candidates.begin(), candidates.end(), gen);
-      auto cand = candidates.front();
-      if (qcount.at(cand->id()).first < qcount.at(cand->id()).second) {
-          std::get<1>(*itr) = *cand;
-        std::vector<Wayp> unused_rte;
-        std::vector<Stop> unused_sch;
-        cst = sop_insert(*cand, cust, unused_sch, unused_rte);
-        // this_solcst += haversine(cand->last_visited_node(), cust.orig());
-        this_solcst -= std::get<2>(*itr);
-        this_solcst += cst;
-      }
-      if (!sol.empty() && hillclimb(T)) {
-        (qcount.at(std::get<1>(*itr).id()).first)--;
-        (qcount.at(cand->id()).first)++;
-        best_sol = sol;
-        best_solcst = this_solcst;
-        nclimbs_++;
-      } else if (!sol.empty() && this_solcst < best_solcst) {
-        (qcount.at(std::get<1>(*itr).id()).first)--;
-        (qcount.at(cand->id()).first)++;
-        best_sol = sol;
-        best_solcst = this_solcst;
-      } else {
-        this_solcst += std::get<2>(*itr);
-        this_solcst -= cst;
+      std::uniform_int_distribution<> m(0,candidates.size()-1);
+      auto vehl_itr = candidates.begin();
+      std::advance(vehl_itr, m(gen));
+      auto cand = *vehl_itr;
+
+      /* Try find the cost */
+      bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
+      if (is_same)
+        continue;
+      bool within_cap = (cand->queued() < cand->capacity());
+      if (!within_cap)
+        continue;
+      std::vector<Wayp> alt_rte;
+      std::vector<Stop> alt_sch;
+      DistInt cst = sop_insert(*cand, cust, alt_sch, alt_rte);
+      bool within_time = chktw(alt_sch, alt_rte);
+      if (within_time) {
+        /* If cost is less than solution's cost OR hillclimb, accept it */
+        bool climb = hillclimb(T);
+        if (cst < std::get<2>(*cust_itr) || climb) {
+          if (climb) {
+            nclimbs_++;
+            ndrops_++;
+          }
+          else
+            ndrops_++;
+          /* Modify the candidate in the grid */
+          cand->set_rte(alt_rte);
+          cand->set_sch(alt_sch);
+          cand->reset_lvn();
+          cand->incr_queued();
+
+          /* Modify the current vehicle in the grid */
+          auto sptr = lcl_grid.select(std::get<1>(*cust_itr).id());
+          if (sptr == nullptr) {
+            print(MessageType::Error) << "Could not find vehicle in local grid" << std::endl;
+            throw;
+          }
+          auto less_sch = sptr->schedule().data();
+          opdel(less_sch, cust.id());
+          std::vector<Wayp> less_rte {};
+          route_through(less_sch, less_rte);
+          sptr->set_sch(less_sch);
+          sptr->set_rte(less_rte);
+          sptr->decr_queued();
+
+          /* Store the new solution */
+          std::get<1>(*cust_itr) = *cand; // modify sol with new cand
+          std::get<2>(*cust_itr) = cst;   // modify sol with new cost
+          DistInt solcst = cst;
+          for (auto &assignment : sol) {
+            if (std::get<1>(assignment).id() == sptr->id())
+              std::get<1>(assignment) = *sptr;  // modify old assignment
+            else
+              solcst += std::get<2>(assignment);
+            if (std::get<1>(assignment).id() == cand->id())
+              std::get<1>(assignment) = *cand;  // modify old assignment
+          }
+          best_sol = sol;
+          best_solcst = solcst;
+        }
       }
       if (timeout(start))
         break;
     } // end perturbation
+    print << "Best temperature cost: " << best_solcst << std::endl;
   } // end temperature
+  print << "Final cost: " << best_solcst << std::endl;
+  print << nclimbs_ << "/" << ndrops_ << std::endl;
 
   /* Commit the solution:
    * Add each customer to the vehicle one by one, in order of appearance. */
-  std::unordered_map<VehlId, std::vector<Customer>> commits;
+  std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
+  std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
+  std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
   for (const auto& assignment : best_sol) {
-    commits[std::get<1>(assignment).id()] = {};
+    auto &vehl_id = std::get<1>(assignment).id();
+    commit_cadd[vehl_id] = {};
+    if (commit_rte.count(vehl_id) == 0)
+      commit_rte[vehl_id] = std::get<1>(assignment).route().data();
+    if (commit_sch.count(vehl_id) == 0)
+      commit_sch[vehl_id] = std::get<1>(assignment).schedule().data();
   }
   for (const auto& assignment : best_sol) {
     auto& cust = std::get<0>(assignment);
     auto& cand_id = std::get<1>(assignment).id();
-    commits[cand_id].push_back(cust);
+    commit_cadd[cand_id].push_back(cust);
+    // std::get<1>(assignment).print();
   }
   print << "starting to commit..." << std::endl;
-  for (const auto& kv : commits) {
+  for (const auto& kv : commit_cadd) {
     auto& custs = kv.second;
     auto& cand_id = kv.first;
     auto cand = MutableVehicle(*std::find_if(vehicles().begin(), vehicles().end(),
             [&](const Vehicle& a){ return a.id() == cand_id; }));
     std::vector<CustId> custs_to_add = {};
     print << "Commiting " << custs.size() << " custs..." << std::endl;
-    /* The customers are inserted one at a time in no particular order...
-     * here might be a reason for poor performance */
-    for (const auto& cust : custs) {
-      cargo::sop_insert(cand, cust, sch, rte);
-      if (cargo::chktw(sch, rte)) { // skip if time window fails
-        cand.set_sch(sch);
-        cand.set_rte(rte);
-        cand.reset_lvn();
-        custs_to_add.push_back(cust.id());
-      }
-    }
-    if (assign(custs_to_add, {}, rte, sch, cand)) {
+    for (const auto& cust : custs)
+      custs_to_add.push_back(cust.id());
+    if (assign(custs_to_add, {}, commit_rte.at(cand_id), commit_sch.at(cand_id), cand)) {
       for (const auto& cust_id : custs_to_add) {
         print(MessageType::Success)
           << "Match " << "(cust" << cust_id << ", veh" << cand.id() << ")"
@@ -238,10 +275,10 @@ bool SimulatedAnnealing::hillclimb(int& T) {
 int main() {
   /* Set the options */
   Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-sm-3.instance";
   op.path_to_solution = "simulated_annealing.sol";
   op.path_to_dataout  = "simulated_annealing.dat";
   op.time_multiplier  = 1;

@@ -51,6 +51,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   Grid grid_;
 
   int nclimbs_;
+  int ndrops_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
