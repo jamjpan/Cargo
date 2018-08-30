@@ -454,8 +454,6 @@ long int Cargo::total_route_cost() {
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 0));
     const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
-    print << "Vehicle cost: " << route.back().first << std::endl;
-    print_rte(route);
     cst += route.back().first;
   }
   if (rc != SQLITE_DONE) {
@@ -469,7 +467,6 @@ long int Cargo::total_route_cost() {
     const CustId cust_id = sqlite3_column_int(sac_stmt, 0);
     const VehlId assigned_to = sqlite3_column_int(sac_stmt, 7);
     if (assigned_to == 0) {
-      print << "Cust " << cust_id << " cost: " << trip_costs_.at(cust_id) << std::endl;
       cst += trip_costs_.at(cust_id);
     }
   }
@@ -639,9 +636,10 @@ void Cargo::start(RSAlgorithm& rsalg) {
         << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
     else
       std::this_thread::sleep_for(milli(sleep_interval_ - dur));
-    
+
     if (OFFLINE) {
       ofmx.unlock();
+      std::this_thread::sleep_for(milli(10));
     }
 
     /* Increment the time step */

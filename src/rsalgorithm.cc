@@ -484,6 +484,9 @@ void RSAlgorithm::select_matchable_vehicles() {
     Route route(sqlite3_column_int(smv_stmt, 0), raw_rte);
     Schedule schedule(sqlite3_column_int(smv_stmt, 0), raw_sch);
 
+    if (schedule.data().at(0).loc() == schedule.data().at(1).loc()
+        && schedule.data().at(1).type() == StopType::VehlDest) continue;
+
     /* Construct vehicle object
      * If permanent taxi, set vehl.dest() to the last wp in the route */
     SimlTime vlt = sqlite3_column_int(smv_stmt, 4);
