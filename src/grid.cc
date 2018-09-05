@@ -39,6 +39,21 @@ Grid::Grid(int n) {
   n_ = n;
 }
 
+Grid::Grid(const Grid &grid) {
+  this->x_dim_ = grid.x_dim_;
+  this->y_dim_ = grid.y_dim_;
+  this->n_     = grid.n_;
+  this->data_.resize(grid.data_.size());
+  for (size_t i = 0; i < grid.data_.size(); ++i) {
+    this->data_[i].resize(grid.data_.at(i).size());
+    for (size_t j = 0; j < grid.data_.at(i).size(); ++j) {
+      MutableVehicle mutvehl_copy = *(grid.data_.at(i).at(j));
+      auto sptr_copy = std::make_shared<MutableVehicle>(mutvehl_copy);
+      this->data_.at(i)[j] = sptr_copy;
+    }
+  }
+}
+
 void Grid::insert(const Vehicle& vehl) {
   MutableVehicle mutvehl(vehl);
   insert(mutvehl);
@@ -49,6 +64,14 @@ void Grid::insert(const MutableVehicle& mutvehl) {
   // Create and store a shared_ptr to the copy
   auto sptr = std::make_shared<MutableVehicle>(mutvehl);
   data_.at(hash(Cargo::node2pt(mutvehl.last_visited_node()))).push_back(sptr);
+}
+
+std::shared_ptr<MutableVehicle> Grid::select(const VehlId &vehl_id) {
+  for (const auto &cell : data_)
+    for (const auto &sptr : cell)
+      if (sptr->id() == vehl_id)
+        return sptr;
+  return nullptr;
 }
 
 // Populate res with pointers to the underlying MutableVehicles we are
