@@ -126,6 +126,23 @@ Cargo::~Cargo() {
   sqlite3_finalize(stc_stmt);
   sqlite3_finalize(mov_stmt);
   sqlite3_finalize(usc_stmt);
+
+  if (database_file_ != "") {
+    int rc;
+    sqlite3 *p_file;
+    sqlite3_backup *p_backup;
+    rc = sqlite3_open(database_file_.c_str(), &p_file);
+    if (rc == SQLITE_OK) {
+      p_backup = sqlite3_backup_init(p_file, "main", db_);
+      if (p_backup) {
+          sqlite3_backup_step(p_backup, -1);
+          sqlite3_backup_finish(p_backup);
+      }
+      rc = sqlite3_errcode(p_file);
+    }
+    sqlite3_close(p_file);
+  }
+
   if (err != NULL) sqlite3_free(err);
   sqlite3_close(db_);
   print << "Database closed." << std::endl;
@@ -639,7 +656,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
         << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
     else
       std::this_thread::sleep_for(milli(sleep_interval_ - dur));
-    
+
     if (OFFLINE) {
       ofmx.unlock();
     }
@@ -718,6 +735,8 @@ void Cargo::initialize(const Options& opt) {
     print(MessageType::Error) << "Failed (create db). Reason:\n";
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
+
+  database_file_ = opt.path_to_save;
 
   /* Enable foreign keys */
   if (sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_FKEY, 1, NULL) != SQLITE_OK) {
@@ -920,4 +939,3 @@ void Cargo::initialize(const Options& opt) {
 }
 
 }  // namespace cargo
-
