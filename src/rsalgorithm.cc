@@ -613,11 +613,11 @@ void RSAlgorithm::listen() {
 
   // Don't sleep if time exceeds batch time
   int dur = std::round(dur_milli(t1-t0).count());
-  if (Cargo::OFFLINE) {
+
+  if (Cargo::OFFLINE)
     Cargo::ofmx.unlock();
-    dur = 0;
-  }
-  if (dur > batch_time_ * 1000)
+
+  if (dur > batch_time_ * 1000 || Cargo::OFFLINE)
     print(MessageType::Warning)
         << "listen() ("           << dur                << " ms) "
         << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
