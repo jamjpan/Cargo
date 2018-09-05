@@ -103,7 +103,7 @@ class Cargo {
   static std::mutex dbmx;  // protect the db
   static std::mutex spmx;  // protect the shortest-paths cache
   static std::mutex ofmx;  // offline mutex
-  static bool OFFLINE;
+  static bool OFFLINE; // offline mode
 
  private:
   Message print;
@@ -147,6 +147,9 @@ class Cargo {
   std::vector<CustId>       log_p_, log_d_, log_t_;
   std::vector<VehlId>       log_a_;
 
+  /* Save Database */
+  Filepath database_file_;
+
   /* SQL statements */
   SqliteReturnCode rc;
   SqliteErrorMessage err;
@@ -176,4 +179,3 @@ class Cargo {
 }  // namespace cargo
 
 #endif  // CARGO_INCLUDE_LIBCARGO_CARGO_H_
-

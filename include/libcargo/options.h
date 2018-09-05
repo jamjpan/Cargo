@@ -45,9 +45,11 @@ struct Options {
     // Set to TRUE if want simulation to run until last vehicle arrives
     // (or last customer is dropped off if vehicles are taxies)
     bool full_sim = false;
+
+    // Save in-memory database into file when simulation finishs
+    Filepath path_to_save = "";
 };
 
 } // namespace cargo
 
 #endif // CARGO_INCLUDE_LIBCARGO_OPTIONS_H_
-
