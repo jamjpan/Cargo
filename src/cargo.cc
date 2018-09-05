@@ -133,7 +133,7 @@ Cargo::~Cargo() {
     sqlite3_backup *p_backup;
     rc = sqlite3_open(database_file_.c_str(), &p_file);
     if (rc == SQLITE_OK) {
-      p_backup = sqlite3_backup_init(p_file, "main", db_);
+      p_backup = sqlite3_backup_init(p_file, "main", db_, "main");
       if (p_backup) {
           sqlite3_backup_step(p_backup, -1);
           sqlite3_backup_finish(p_backup);

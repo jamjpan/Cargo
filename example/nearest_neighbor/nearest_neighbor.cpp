@@ -150,9 +150,10 @@ int main() {
   op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_problem  = "../../data/benchmark/rs-sm-1.instance";
   op.path_to_solution = "nearest_neighbor.sol";
   op.path_to_dataout  = "nearest_neighbor.dat";
+  op.path_to_save = "nearest_neighbor.sqlite3.backup";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
