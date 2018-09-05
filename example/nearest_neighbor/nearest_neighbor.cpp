@@ -36,7 +36,7 @@ typedef std::chrono::duration<double, std::milli> dur_milli;
 typedef std::chrono::milliseconds milli;
 
 NearestNeighbor::NearestNeighbor()
-    : RSAlgorithm("nearest_neighbor"),
+    : RSAlgorithm("nearest_neighbor", true),
       grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = BATCH;
   nmat_ = 0;
@@ -158,6 +158,7 @@ int main() {
   op.matching_period  = 60;
 
   cargo::Cargo cargo(op);
+  Cargo::OFFLINE = true;
 
   /* Initialize a new nn alg */
   NearestNeighbor nn;

@@ -43,7 +43,7 @@ typedef std::chrono::duration<double, std::milli> dur_milli;
 typedef std::chrono::milliseconds milli;
 
 TripVehicleGrouping::TripVehicleGrouping()
-    : RSAlgorithm("trip_vehicle_grouping"),
+    : RSAlgorithm("trip_vehicle_grouping", true),
       grid_(100) /* <-- Initialize my 100x100 grid (see grid.h) */ {
   batch_time() = BATCH;
   stid_ = 0;
@@ -288,67 +288,67 @@ void TripVehicleGrouping::match() {
 
     /* Trips of size >= 3
      * ------------------ */
-    // size_t k = 3;
-    // while ((size_t)(vehl.capacity() - vehl.queued()) >= k && tripk.count(k-1) > 0) {
-    //   /* Loop through trips of size k-1 */
-    //   for (SharedTripId id_a : tripk.at(k - 1)) {
-    //     const SharedTrip& trip_a = lcl_trip.at(id_a);
-    //     /* Compare against remaining trips of size k-1 */
-    //     for (SharedTripId id_b : tripk.at(k - 1)) {
-    //       if (id_a == id_b) continue;
-    //       const SharedTrip& trip_b = lcl_trip.at(id_b);
-    //       /* Join trip_a and trip_b into new trip (no dups) */
-    //       SharedTrip shtrip(trip_a);
-    //       for (const Customer& cust : trip_b)
-    //         if (std::find(shtrip.begin(), shtrip.end(), cust) == shtrip.end())
-    //           shtrip.push_back(cust);
-    //       /* If shtrip is size k... */
-    //       if (shtrip.size() == k) {
-    //         bool all_ok = true;
-    //         /* ... check each subtrip if it is already a trip */
-    //         for (size_t p = 0; p < shtrip.size(); ++p) {
-    //           bool subtrip_ok = false;
-    //           SharedTrip subtrip(shtrip);
-    //           subtrip.erase(subtrip.begin() + p);
-    //           for (SharedTripId id_q : tripk.at(k - 1))
-    //             if (subtrip == lcl_trip.at(id_q)) {
-    //               subtrip_ok = true;
-    //               break;
-    //             }
-    //           if (!subtrip_ok) {
-    //             all_ok = false;
-    //             break;
-    //           }
-    //         }
-    //         if (all_ok) {
-    //           DistInt cstout = 0;
-    //           std::vector<Stop> schout;
-    //           std::vector<Wayp> rteout;
-    //           if (travel(vehl, shtrip, cstout, schout, rteout, lcl_gtre)) {
-    //             SharedTripId stid;
-    //             #pragma omp critical
-    //             { stid = add_trip(shtrip);
-    //               vt_sch[vehl.id()][stid] = schout;
-    //               vt_rte[vehl.id()][stid] = rteout; }
-    //             lcl_vted[vehl.id()][stid] = cstout;
-    //             lcl_trip[stid] = shtrip;
-    //             tripk[k].push_back(stid);
-    //           }
-    //         }
-    //       }  // end if shtrip.size() == k
-    //       /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
-    //       if (std::round(std::chrono::duration<double, std::milli>(
-    //           std::chrono::high_resolution_clock::now() - t0).count()) > timeout) {
-    //         timed_out = true;
-    //         break;
-    //       }
-    //     }  // end inner for
-    //     if (timed_out) break;
-    //   } // end outer for
-    //   k++;
-    //   /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
-    //   if (timed_out) continue;  // <-- continue to the next vehicle
-    // } // end while
+    size_t k = 3;
+    while ((size_t)(vehl.capacity() - vehl.queued()) >= k && tripk.count(k-1) > 0) {
+      /* Loop through trips of size k-1 */
+      for (SharedTripId id_a : tripk.at(k - 1)) {
+        const SharedTrip& trip_a = lcl_trip.at(id_a);
+        /* Compare against remaining trips of size k-1 */
+        for (SharedTripId id_b : tripk.at(k - 1)) {
+          if (id_a == id_b) continue;
+          const SharedTrip& trip_b = lcl_trip.at(id_b);
+          /* Join trip_a and trip_b into new trip (no dups) */
+          SharedTrip shtrip(trip_a);
+          for (const Customer& cust : trip_b)
+            if (std::find(shtrip.begin(), shtrip.end(), cust) == shtrip.end())
+              shtrip.push_back(cust);
+          /* If shtrip is size k... */
+          if (shtrip.size() == k) {
+            bool all_ok = true;
+            /* ... check each subtrip if it is already a trip */
+            for (size_t p = 0; p < shtrip.size(); ++p) {
+              bool subtrip_ok = false;
+              SharedTrip subtrip(shtrip);
+              subtrip.erase(subtrip.begin() + p);
+              for (SharedTripId id_q : tripk.at(k - 1))
+                if (subtrip == lcl_trip.at(id_q)) {
+                  subtrip_ok = true;
+                  break;
+                }
+              if (!subtrip_ok) {
+                all_ok = false;
+                break;
+              }
+            }
+            if (all_ok) {
+              DistInt cstout = 0;
+              std::vector<Stop> schout;
+              std::vector<Wayp> rteout;
+              if (travel(vehl, shtrip, cstout, schout, rteout, lcl_gtre)) {
+                SharedTripId stid;
+                #pragma omp critical
+                { stid = add_trip(shtrip);
+                  vt_sch[vehl.id()][stid] = schout;
+                  vt_rte[vehl.id()][stid] = rteout; }
+                lcl_vted[vehl.id()][stid] = cstout;
+                lcl_trip[stid] = shtrip;
+                tripk[k].push_back(stid);
+              }
+            }
+          }  // end if shtrip.size() == k
+          /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
+          // if (std::round(std::chrono::duration<double, std::milli>(
+          //     std::chrono::high_resolution_clock::now() - t0).count()) > timeout) {
+          //   timed_out = true;
+          //   break;
+          // }
+        }  // end inner for
+        // if (timed_out) break;
+      } // end outer for
+      k++;
+      /* Heuristic: try for only RTV_TIMEOUT ms per vehicle */
+      // if (timed_out) continue;  // <-- continue to the next vehicle
+    } // end while
     } // end if vehls with capacity
     if (timeout(start)) {
       #pragma omp cancel for
@@ -635,6 +635,7 @@ int main() {
   op.matching_period  = 60;
 
   cargo::Cargo cargo(op);
+  Cargo::OFFLINE = true;
 
   /* Initialize a new tvg */
   TripVehicleGrouping tvg;

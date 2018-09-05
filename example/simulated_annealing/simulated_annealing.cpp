@@ -31,16 +31,16 @@
 using namespace cargo;
 
 const int BATCH = 30;  // seconds
-const int RANGE = 60000; // meters
-const int PERT  = 10; // how many solutions to generate per iter?
-const int T_MAX = 20; // maximum "temperature"
+const int RANGE = 2000; // meters
+const int PERT  = 100000; // how many solutions to generate per iter?
+const int T_MAX = 10; // maximum "temperature"
 
 std::vector<int> avg_dur {};
 
 typedef std::chrono::duration<double, std::milli> dur_milli;
 typedef std::chrono::milliseconds milli;
 
-SimulatedAnnealing::SimulatedAnnealing() : RSAlgorithm("simulated_annealing"),
+SimulatedAnnealing::SimulatedAnnealing() : RSAlgorithm("simulated_annealing", true),
     grid_(100), d(0,1) {
   batch_time() = BATCH;
   nmat_ = 0;
@@ -177,6 +177,7 @@ void SimulatedAnnealing::match() {
           route_through(less_sch, less_rte);
           sptr->set_sch(less_sch);
           sptr->set_rte(less_rte);
+          sptr->reset_lvn();
           sptr->decr_queued();
 
           /* Store the new solution */
@@ -275,10 +276,10 @@ bool SimulatedAnnealing::hillclimb(int& T) {
 int main() {
   /* Set the options */
   Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-sm-3.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   op.path_to_solution = "simulated_annealing.sol";
   op.path_to_dataout  = "simulated_annealing.dat";
   op.time_multiplier  = 1;
@@ -286,6 +287,7 @@ int main() {
   op.matching_period  = 60;
 
   Cargo cargo(op);
+  Cargo::OFFLINE = true;
   SimulatedAnnealing sa;
   cargo.start(sa);
 }

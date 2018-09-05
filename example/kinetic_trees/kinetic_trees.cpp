@@ -35,15 +35,15 @@
 
 using namespace cargo;
 
-const int BATCH     = 1;  // seconds
-const int RANGE     = 1500; // meters
+const int BATCH     = 30;  // seconds
+const int RANGE     = 2000; // meters
 
 std::vector<int> avg_dur {};
 
 typedef std::chrono::duration<double, std::milli> dur_milli;
 typedef std::chrono::milliseconds milli;
 
-KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees"),
+KineticTrees::KineticTrees() : RSAlgorithm("kinetic_trees", true),
       grid_(100) {   // (grid.h)
   batch_time() = BATCH;  // (rsalgorithm.h)
   nmat_  = 0;  // match counter
@@ -284,6 +284,7 @@ int main() {
 
   /* Construct Cargo */
   Cargo cargo(op);
+  Cargo::OFFLINE = true;
 
   /* Initialize algorithm */
   KineticTrees kt;

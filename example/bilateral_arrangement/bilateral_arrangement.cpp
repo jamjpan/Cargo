@@ -42,7 +42,8 @@ typedef std::chrono::milliseconds milli;
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right); };
 
-BilateralArrangement::BilateralArrangement() : RSAlgorithm("bilateral_arrangement"),
+BilateralArrangement::BilateralArrangement()
+    : RSAlgorithm("bilateral_arrangement", true),
       grid_(100) {   // (grid.h)
   batch_time() = BATCH;  // (rsalgorithm.h)
   nswapped_ = 0;  // number swapped and accepted
@@ -211,6 +212,7 @@ int main() {
 
   /* Construct Cargo */
   cargo::Cargo cargo(op);
+  Cargo::OFFLINE = true;
 
   /* Initialize algorithm */
   BilateralArrangement ba;
