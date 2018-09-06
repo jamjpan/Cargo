@@ -1,4 +1,2 @@
-# Solution Visualizer for Cargo
+This tool visualizes a simulation using the Cargo-generated .dat file.
 
-**Usage**:
-python3 solplot.py rnet_file prob_file sol_file [ --out output.mp4 ]

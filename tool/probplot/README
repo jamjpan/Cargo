@@ -1,5 +1,4 @@
-Usage:
-plotprobset <rnet_file> [-i problem_instance]
+This tool plots a problem instance (see data/benchmarks for instance files).
 
-Requires matplotlib
+Requires matplotlib.
 
