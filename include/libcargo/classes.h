@@ -30,6 +30,21 @@
 
 #include "../gtree/gtree.h"
 
+/* -------
+ * SUMMARY
+ * -------
+ * This file contains definitions for major classes used in Cargo ridesharing
+ * simulator. These classes are:
+ *   - Stop
+ *   - Schedule
+ *   - Route
+ *   - Trip
+ *   - Customer
+ *   - Vehicle
+ *   - MutableVehicle
+ *   - ProblemSet
+ */
+
 namespace cargo {
 
 /* Stop is an origin or destination belonging to a customer or vehicle owner. */
