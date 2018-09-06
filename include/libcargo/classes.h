@@ -30,98 +30,105 @@
 
 #include "../gtree/gtree.h"
 
-// Properties of these classes are immutable, and they are accesed via the
-// "inspector method"; see https://isocpp.org/wiki/faq/const-correctness
 namespace cargo {
 
-// A stop is a customer (vehicle) origin or destination and correspond to
-// Cordeau's "nodes".
+/* Stop is an origin or destination belonging to a customer or vehicle owner. */
 class Stop {
  public:
-  /* Constructor
-   *   param1: id of the stop owner (VehlId or CustId)
-   *   param2: id of the node (NodeId)
-   *   param3: stop type
-   *   param4: time window early
-   *   param5: time window late
-   *   param6: visited time (-1=unvisited) */
-  Stop(TripId, NodeId, StopType, ErlyTime, LateTime, SimlTime v = -1);
-  const TripId   & owner()     const;
-  const NodeId   & loc()       const;
-  const StopType & type()      const;
-  const ErlyTime & early()     const;
-  const LateTime & late()      const;
-  const SimlTime & visitedAt() const;
+  /* Constructor */
+  Stop(
+    TripId,            // param1: id of owner (VehlId or CustId)
+    NodeId,            // param2: id of stop location node (NodeId)
+    StopType,          // param3: type of stop (cust/vehl origin or destination)
+    ErlyTime,          // param4: early time window bound (e_i)
+    LateTime,          // param5: late time window bound (l_i)
+    SimlTime v = -1    // param6: visited time (-1 means not visited)
+  );
+  const TripId   & owner()     const;  // return owner
+  const NodeId   & loc()       const;  // return location
+  const StopType & type()      const;  // return type
+  const ErlyTime & early()     const;  // return early bound
+  const LateTime & late()      const;  // return late bound
+  const SimlTime & visitedAt() const;  // return visited time
 
-  bool operator==(const Stop& rhs) const {
+  /* Equality comparator
+   * Stop A and B are equal if owner and location are the same. */
+  bool operator==(const Stop & rhs) const {
     return owner_ == rhs.owner_ && location_ == rhs.location_;
   }
 
  private:
-  TripId owner_;
-  NodeId location_;
+  TripId   owner_;
+  NodeId   location_;
   StopType type_;
   ErlyTime early_;
   LateTime late_;
   SimlTime visitedAt_;
 };
 
-// Schedules are meant to be attached to vehicles. If you need to manipulate a
-// schedule, for example construct one, use std::vector<Stop>
+/* Schedule is sequence of Stops for Vehicle to follow. ----------------------*/
 class Schedule {
  public:
+  /* Constructors */
   Schedule() = default;
-  Schedule(VehlId, std::vector<Stop>);
-  const VehlId            & owner()    const;
-  const std::vector<Stop> & data()     const;
-  const Stop              & at(SchIdx) const;
-  const Stop              & front()    const;
-        size_t              size()     const;
-        void                print()    const;
+  Schedule(
+    VehlId,            // param1: id of owner
+    std::vector<Stop>  // param2: raw sequence of Stops
+  );
+  const VehlId            & owner()    const;  // return owner
+  const std::vector<Stop> & data()     const;  // return raw sequence of Stops
+  const Stop              & at(SchIdx) const;  // return particular Stop
+  const Stop              & front()    const;  // return first Stop
+        size_t              size()     const;  // return Schedule size
+        void                print()    const;  // print to standard out
 
  private:
   VehlId owner_;
   std::vector<Stop> data_;
 };
 
-// Routes are meant to be attached to vehicles. If you need to manipulate a
-// route, for example construct one from segments, use std::vector<Wayp>
+/* Route is sequence of Waypoints for Vehicle to follow. ---------------------*/
 class Route {
  public:
+  /* Constructors */
   Route() = default;
-  Route(VehlId, std::vector<Wayp>);
-  const VehlId            & owner()         const;
-  const std::vector<Wayp> & data()          const;
-  const NodeId            & node_at(RteIdx) const;
-  const DistInt           & dist_at(RteIdx) const;
-  const DistInt           & cost()          const;
-  const Wayp              & at(RteIdx)      const;
-        size_t              size()          const;
-        void                print()         const;
+  Route(
+    VehlId,            // param1: id of owner
+    std::vector<Wayp>  // param2: raw sequence of Waypoints
+  );
+  const VehlId            & owner()         const;  // return owner
+  const std::vector<Wayp> & data()          const;  // return raw sequence
+  const NodeId            & node_at(RteIdx) const;  // return particular node
+  const DistInt           & dist_at(RteIdx) const;  // return distance to
+  const DistInt           & cost()          const;  // return total distance
+  const Wayp              & at(RteIdx)      const;  // return particular Wayp
+        size_t              size()          const;  // return Route size
+        void                print()         const;  // print to standard out
 
  private:
   VehlId owner_;
   std::vector<Wayp> data_;
 };
 
-// A Trip is the base class for a customer or vehicle.
+/* Base class for Customers and Vehicles. ------------------------------------*/
 class Trip {
  public:
-  /* Constructor
-   *   param1: id
-   *   param2: origin id
-   *   param3: destination id
-   *   param4: time window early
-   *   param5: time window late
-   *   param6: load */
+  /* Constructors */
   Trip() = default;
-  Trip(TripId, OrigId, DestId, ErlyTime, LateTime, Load);
-  const TripId            & id()    const;
-  const OrigId            & orig()  const;
-  const DestId            & dest()  const;
-  const ErlyTime          & early() const;
-  const LateTime          & late()  const;
-        Load                load()  const;
+  Trip(
+    TripId,    // id of the trip (CustId or VehlId)
+    OrigId,    // id of origin (NodeId)
+    DestId,    // id of destination (NodeId)
+    ErlyTime,  // early time window bound (e_i)
+    LateTime,  // late time window bound (l_i)
+    Load       // load (negative indicates vehicle capacity)
+  );
+  const TripId            & id()    const;  // return id
+  const OrigId            & orig()  const;  // return origin id
+  const DestId            & dest()  const;  // return destination id
+  const ErlyTime          & early() const;  // return early bound
+  const LateTime          & late()  const;  // return late bound
+        Load                load()  const;  // return load (NOT current load)
 
  protected:
   TripId id_;
@@ -132,66 +139,77 @@ class Trip {
   Load load_;
 };
 
-// A Customer represents a new ride request
+/* Ridesharing customer. -----------------------------------------------------*/
 class Customer : public Trip {
  public:
-  /* Constructor
-   *   param1: customer id
-   *   param2: origin id
-   *   param3: destination id
-   *   param4: time window early
-   *   param5: time window late
-   *   param6: load
-   *   param7: customer status
-   *   param8: assigned to (-1=unassigned) */
-  Customer(CustId, OrigId, DestId, ErlyTime, LateTime, Load, CustStatus, VehlId a = -1);
-  const CustStatus & status()     const;
-  const VehlId     & assignedTo() const;
-        bool         assigned()   const;
-        void         print()      const;
+  /* Constructor */
+  Customer(
+    CustId,        // id of the Customer
+    OrigId,        // id of origin (NodeId)
+    DestId,        // id of destination (NodeId)
+    ErlyTime,      // early time window bound (e_i)
+    LateTime,      // late time window bound (l_i)
+    Load,          // load (always positive for customer)
+    CustStatus,    // status (see types.h)
+    VehlId a = -1  // assigned vehicle (-1 means not assigned)
+  );
+  const CustStatus & status()     const;  // return status (see types.h)
+  const VehlId     & assignedTo() const;  // return assigned vehicle
+        bool         assigned()   const;  // return TRUE if assigned
+        void         print()      const;  // print properties to standard out
 
-  bool operator==(const Customer& rhs) const { return id_ == rhs.id_; }
+  /* Equality operator
+   * Customer A and B are equal if id is the same. */
+  bool operator==(const Customer & rhs) const { return id_ == rhs.id_; }
 
  private:
   CustStatus status_;
   VehlId assignedTo_;
 };
 
-// Immutable Vehicle class, use for reading and processing
+/* Ridesharing Vehicle. ------------------------------------------------------*/
 class Vehicle : public Trip {
  public:
+  /* Copy constructor */
+  Vehicle(const Vehicle &) = default;
+  /* Constructors */
   Vehicle() = default;
-  Vehicle(const Vehicle&) = default;
-  /* Constructor 1
-   *   param1: id
-   *   param2: origin id
-   *   param3: destination id
-   *   param4: time window early
-   *   param5: time window late
-   *   param6: load
-   *   param7: gtree for finding default route */
-  Vehicle(VehlId, OrigId, DestId, ErlyTime, LateTime, Load, GTree::G_Tree&);
-  /* Constructor 2
-   *   param1-6: same as above
-   *   param7:   queued (assigned but not yet picked up)
-   *   param8:   next-node distance
-   *   param9:   route
-   *   param10:  schedule
-   *   param11:  index of last visited node
-   *   param12:  vehicle status */
-  Vehicle(VehlId, OrigId, DestId, ErlyTime, LateTime, Load, Load,
-          DistInt, Route, Schedule, RteIdx, VehlStatus);
-  const DistInt    & next_node_distance()    const;
-  const Route      & route()                 const;
-  const Schedule   & schedule()              const;
-  const RteIdx     & idx_last_visited_node() const;
-  const NodeId     & last_visited_node()     const;
-  const VehlStatus & status()                const;
-        Load         queued()                const;
-        Load         capacity()              const;
-  void print()                               const;
+  Vehicle( /* Basic constructor */
+    VehlId,          // id of the Vehicle
+    OrigId,          // id of origin (NodeId)
+    DestId,          // id of destination (NodeId)
+    ErlyTime,        // early time window bound (e_i)
+    LateTime,        // late time window bound (l_i)
+    Load,            // load (always negative for vehicle)
+    GTree::G_Tree &  // Specific G-tree to use for construction
+  );
+  Vehicle( /* Fine-detail constructor */
+    VehlId,
+    OrigId,
+    DestId,
+    ErlyTime,
+    LateTime,
+    Load,
+    Load,       // num queued (customers assigned but not yet picked up)
+    DistInt,    // distance to next node in Route
+    Route,      // vehicle's route
+    Schedule,   // vehicle's schedule
+    RteIdx,     // index of current node in Route
+    VehlStatus  // status (see types.h)
+  );
+  const DistInt    & next_node_distance()    const;  // return next node dist.
+  const Route      & route()                 const;  // return Route
+  const Schedule   & schedule()              const;  // return Schedule
+  const RteIdx     & idx_last_visited_node() const;  // index to last-visit node
+  const NodeId     & last_visited_node()     const;  // return last-visit node
+  const VehlStatus & status()                const;  // return status
+        Load         queued()                const;  // return number queued
+        Load         capacity()              const;  // return BASE capacity
+  void print()                               const;  // print to standard out
 
-  bool operator==(const Vehicle& rhs) const { return id_ == rhs.id_; }
+  /* Equality operator
+   * Vehicle A and B are equal if id is the same. */
+  bool operator==(const Vehicle & rhs) const { return id_ == rhs.id_; }
 
  protected:
   DistInt next_node_distance_;
@@ -202,32 +220,42 @@ class Vehicle : public Trip {
   VehlStatus status_;
 };
 
-// Mutable Vehicle class, use when local vehicle needs modification. You are
-// responsible for synchronizing any MutableVehicles with the db.
+/* Mutable Vehicle. ----------------------------------------------------------*/
 class MutableVehicle : public Vehicle {
  public:
+  /* Copy constructor
+   * Create a MutableVehicle from an ordinary Vehicle */
+  MutableVehicle(const Vehicle &);
+  /* Constructors */
   MutableVehicle() = default;
-  MutableVehicle(const Vehicle&);
-  void set_rte(const std::vector<Wayp>&);
-  void set_rte(const Route&);
-  void set_sch(const std::vector<Stop>&);
-  void set_sch(const Schedule&);
-  void set_nnd(const DistInt&);
-  void set_lvn(const RteIdx&);
-  void reset_lvn();
-  void incr_queued();
-  void decr_queued();
+
+  void set_rte(const std::vector<Wayp> &);  // set raw route
+  void set_rte(const Route &);              // set Route
+  void set_sch(const std::vector<Stop> &);  // set raw schedule
+  void set_sch(const Schedule &);           // set Schedule
+  void set_nnd(const DistInt &);            // set distance to next node
+  void set_lvn(const RteIdx &);             // set last-visited node index
+  void reset_lvn();                         // set last-visited node index to 0
+  void incr_queued();                       // increase value of queued by 1
+  void decr_queued();                       // decrease value of queued by 1
 };
 
-// A problem is the set of trips keyed by their early time. When the
-// simulator time reaches SimlTime, all the trips in the group are broadcasted.
+/* Ridesharing problem instance.
+ * Corresponds to .instance file in data/benchmarks. -------------------------*/
 class ProblemSet {
  public:
+  /* Constructor */
   ProblemSet();
-  const std::unordered_map<ErlyTime, std::vector<Trip>>& trips() const;
-  std::string& name();
-  std::string& road_network();
-  void set_trips(const std::unordered_map<ErlyTime, std::vector<Trip>>&);
+
+  const std::unordered_map<ErlyTime, std::vector<Trip>> & trips() const;
+    // return all trips
+
+  std::string & name();          // get/set instance name
+  std::string & road_network();  // get/set road network
+
+  /* Trips are grouped by their early time (time of appearance) */
+  void set_trips(const std::unordered_map<ErlyTime, std::vector<Trip>> &);
+    // store trips
 
  private:
   std::string name_;
@@ -237,20 +265,20 @@ class ProblemSet {
 
 }  // namespace cargo
 
-/* For using Vehicle, Customer as custom keys in an unordered_map
- * (http://en.cppreference.com/w/cpp/container/unordered_map/unordered_map) */
+
+/*****************************************************************************/
 namespace std {
 
-template <> struct hash<cargo::Vehicle> {
-  std::size_t operator()(const cargo::Vehicle& vehl) const {
-    return std::hash<int>{}(vehl.id());
-  }
+/* Hash vehicles by their id */
+template <> struct hash<cargo::Vehicle>  {
+  std::size_t operator()(const cargo::Vehicle  & vehl) const
+  { return std::hash<int>{}(vehl.id()); }
 };
 
+/* Hash customers by their id */
 template <> struct hash<cargo::Customer> {
-  std::size_t operator()(const cargo::Customer& cust) const {
-    return std::hash<int>{}(cust.id());
-  }
+  std::size_t operator()(const cargo::Customer & cust) const
+  { return std::hash<int>{}(cust.id()); }
 };
 
 }  // namespace std
