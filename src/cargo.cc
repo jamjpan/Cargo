@@ -213,9 +213,9 @@ int Cargo::step(int& ndeact) {
             << " early: " << vet << "\n"
             << " late:  " << vlt << "\n"
             << " nnd:   " << nnd << "\n"
-            << " lvn:   " << lvn << "\n"
-            << " sched: "; print_sch(sch);
-      print << " route: "; print_rte(rte); });
+            << " lvn:   " << lvn << "\n"; });
+      //       << " sched: "; print_sch(sch);
+      // print << " route: "; print_rte(rte); });
 
     bool active = true;  // all vehicles selected by ssv_stmt are active
     int nstops = 0;
@@ -471,6 +471,8 @@ long int Cargo::total_route_cost() {
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 0));
     const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
+    print << "Vehicle cost: " << route.back().first << std::endl;
+    // print_rte(route);
     cst += route.back().first;
   }
   if (rc != SQLITE_DONE) {

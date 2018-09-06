@@ -32,7 +32,7 @@ using namespace cargo;
 
 const int BATCH = 30;  // seconds
 const int RANGE = 2000; // meters
-const int PERT  = 100000; // how many solutions to generate per iter?
+const int PERT  = 10000; // how many solutions to generate per iter?
 const int T_MAX = 10; // maximum "temperature"
 
 std::vector<int> avg_dur {};
@@ -108,7 +108,9 @@ void SimulatedAnnealing::match() {
       cand->set_sch(try_sch);
       cand->reset_lvn();
       cand->incr_queued();
-      best_sol.push_back({cust, *cand, cst});  // cand has new rte/sch now
+      std::tuple<Customer, MutableVehicle, DistInt> temp_tuple(cust, *cand, cst);
+      best_sol.push_back(temp_tuple);  // cand has new rte/sch now
+      // best_sol.push_back({cust, *cand, cst});  // cand has new rte/sch now
       best_solcst += cst;
     }
     // Vehicles in lcl_grid are now different from this->grid_ (ground-truth)
@@ -199,10 +201,10 @@ void SimulatedAnnealing::match() {
       if (timeout(start))
         break;
     } // end perturbation
-    print << "Best temperature cost: " << best_solcst << std::endl;
+    // print << "Best temperature cost: " << best_solcst << std::endl;
   } // end temperature
-  print << "Final cost: " << best_solcst << std::endl;
-  print << nclimbs_ << "/" << ndrops_ << std::endl;
+  // print << "Final cost: " << best_solcst << std::endl;
+  // print << nclimbs_ << "/" << ndrops_ << std::endl;
 
   /* Commit the solution:
    * Add each customer to the vehicle one by one, in order of appearance. */
@@ -251,8 +253,14 @@ void SimulatedAnnealing::match() {
     if (!kv.second) beg_delay(kv.first);
   t1 = std::chrono::high_resolution_clock::now();
   // Stop timing --------------------------------
+  double temp_time = std::round(dur_milli(t1-t0).count());
+  print << "Time Cost: " << temp_time << std::endl;
+  if (ncust > 0)
+    avg_dur.push_back(temp_time / ncust);
+  /*
   if (ncust > 0)
     avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+  */
 }
 
 void SimulatedAnnealing::end() {
@@ -276,12 +284,13 @@ bool SimulatedAnnealing::hillclimb(int& T) {
 int main() {
   /* Set the options */
   Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  op.path_to_roadnet  = "../../data/roadnetwork/mny.rnet";
+  op.path_to_gtree    = "../../data/roadnetwork/mny.gtree";
+  op.path_to_edges    = "../../data/roadnetwork/mny.edges";
+  op.path_to_problem  = "../../data/benchmark/rs-md-9.instance";
   op.path_to_solution = "simulated_annealing.sol";
   op.path_to_dataout  = "simulated_annealing.dat";
+  op.path_to_save = "simulated_annealing.db";
   op.time_multiplier  = 1;
   op.vehicle_speed    = 20;
   op.matching_period  = 60;
