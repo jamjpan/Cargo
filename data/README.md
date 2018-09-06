@@ -1,58 +1,42 @@
-# Data
+This directory contains benchmark problem instances and road networks.
 
-## Benchmarks
+benchmark/
 
-TODO (benchmarks aren't final yet)
+    .instance file format:
 
-| Benchmark | Road | n-custs | m-vehls | min t | max t |
-| --------- | ---- | ------- | ------- | ----- | ----- |
-| rs-lg-5   | mny  | 37,471  | 3,747   | 0     | 0     |
+    Line 1: instance name
+    Line 2: road network (space) percentage taxis
+    Line 3: VEHICLES (space) number of vehicles
+    Line 4: CUSTOMERS (space) number of customers
+    Line 5: (blank line)
+    Line 6: (header row)
+    Line 7-end: vehicles and customers
 
-### File formats:
+    Notes:
+        * ORIGIN and DEST are specific to the road network in line 2
+        * DEST == -1 indicates a taxi
+        * Q < 0 indicates vehicle capacity
 
-```
-*.instance
-Line 1 is the instance name.
-Line 2 is the road network the instance corresponds to.
-Line 3 gives the number of vehicles.
-Line 4 gives the number of customers.
-Line 5 is blank.
-Line 6 gives the column headers
-The column headers are:
-    ID: the ID of the customer/vehicle
-    ORIGIN: the origin node
-    DEST: the destination node
-    Q: the load (positive = customer; negative = vehicle seat capacity)
-    EARLY: the time when the customer/vehicle appears
-    LATE: the latest time the customer/vehicle should arrive at dest
-```
+roadnetwork/
 
-## Road Networks
+    .edges file format:
 
-| Road | n-nodes | m-edges |
-| ---- | ------- | ------- |
-| mny  | 12,320  | 15,722  |
-| bj5  | 351,290 | 371,911 |
-| cd1  | 33,609  | 36,927  |
+    Line 1: number nodes (space) number edges
+    Line 2-end: from (space) to (space) weight
 
-### File formats:
 
-```
-*.edges
-The first line is the number of nodes followed by the number of edges.
-The rest of the lines has three columns:
-    Column 1: edge_id
-    Column 2: from node_id of the edge
-    Column 3: to node_id of the edge
+    .rnet file format:
 
-*.rnet
-Each line is seven columns:
-    Column 1: edge_id (matches with *.edges)
-    Column 2: from node_id of the edge
-    Column 3: to node_id of the edge
-    Column 4: longitude of the from node
-    Column 5: latitude of the from node
-    Column 6: longitude of the to node
-    Column 7: latitude of the to node
-```
+    Column 1: edge id
+    Column 2: from
+    Column 3: to
+    Column 4: from longitude
+    Column 5: from latitude
+    Column 6: to longitude
+    Column 7: to latitude
+
+    Notes:
+        * from and to match with .edges file
+        * Example - visualize using gnuplot:
+            plot 'bj5.rnet' u 4:5:($6-$4):($7-$5) w vectors nohead
 
