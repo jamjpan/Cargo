@@ -27,15 +27,21 @@
 #include "classes.h"
 #include "types.h"
 
+/* -------
+ * SUMMARY
+ * -------
+ * This file contains definitions for the Grid class.
+ */
+
 namespace cargo {
 
 // Based on "Optimization of Large-Scale, Real-Time Simulations by Spatial
 // Hashing" by Erin J. Hastings, Jaruwan Mesit, Ratan K. Guha, SCSC 2005
 //
 // Buckets are numbered starting from lower-left to upper-right. In each row,
-// the buckets are numbered from left to right. Vehicles in the grid are mutable
-// to allow for refresh (if immutable, we would have to delete the old vehicle
-// and replace it with a new one).
+// the buckets are numbered from left to right. Vehicles in the grid are
+// mutable to allow for refresh (if immutable, we would have to delete the old
+// vehicle and replace it with a new one).
 class Grid {
  public:
   Grid(int);  // int = number of cells; total grid size = int^2
@@ -47,15 +53,21 @@ class Grid {
 
   /* Return candidates within about DistDbl. It's "about", not "exact", because
    * returns all candidates in grid cells covered by DistDbl */
-  std::vector<std::shared_ptr<MutableVehicle>> &within_about(const DistDbl &,
-                                                             const NodeId &);
+  std::vector<std::shared_ptr<MutableVehicle>> & within_about(
+    const DistDbl &,
+    const NodeId &
+  );
 
   /* Return all vehicles */
   std::vector<std::shared_ptr<MutableVehicle>>& all();
 
   /* Commit changes to a vehicle back to the grid */
-  void commit(std::shared_ptr<MutableVehicle> &, const std::vector<Wayp> &,
-              const std::vector<Stop> &, const DistInt &);
+  void commit(
+          std::shared_ptr<MutableVehicle> &,
+    const std::vector<Wayp> &,
+    const std::vector<Stop> &,
+    const DistInt &
+  );
 
   void clear();
 

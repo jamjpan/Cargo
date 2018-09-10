@@ -32,23 +32,30 @@
 
 #include "../sqlite3/sqlite3.h"
 
+/* -------
+ * SUMMARY
+ * -------
+ * This file defines the RSAlgorithm class.
+ */
+
 namespace cargo {
 
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
+#define TIMEOUT(t)  \
+    if (timeout(t)) \
+      break;
 
-// The class for ridesharing algorithms. Users can implement the
-// handle_customer(), handle_vehicle(), match(), end(), and listen() methods.
-//
-// Only listen() has a default behavior. The behavior is to select all active
-// vehicles into vehicles_ (retrievable with vehicles()), select all waiting
-// customers into waiting_customers_ (retrievable with waiting_customers()),
-// then sleep for batch_time_ (settable with batch_time()). The method is
-// called continuously inside Cargo::start().
+#define RETURN_SUCCESS      \
+    { end_delay(cust.id()); \
+      stop_timing();        \
+      return; }
+
+#define RETURN_FAIL         \
+    { beg_delay(cust.id()); \
+      stop_timing();        \
+      return; }
+
 class RSAlgorithm {
  public:
-  // Pass along a name string to RSAlgorithm
-  // Set fifo if want RSAlgorithm messages in a separate stream (not stdout)
   RSAlgorithm(const std::string& name = "noname", bool fifo = false);
   ~RSAlgorithm();
 
@@ -57,16 +64,18 @@ class RSAlgorithm {
   virtual void handle_vehicle(const Vehicle&);
   virtual void match();
   virtual void end();
-  virtual void listen();
+  virtual void listen(
+    bool skip_assigned = true,
+    bool skip_delayed = true
+  );
 
   // Setters/getters
   const std::string & name()        const;  // e.g. "greedy_insertion"
   const bool        & done()        const;  // true if done
   const int         & matches()     const;  // # matches
   const int         & rejected()    const;  // # rejected due to out of sync
-  const float       & avg_cust_ht() const;  // avg. cust handling time
+        float         avg_cust_ht() const;  // avg. cust handling time
         int         & batch_time();         // set to 1 for streaming
-      //   bool        & offline();
         void          kill();               // sets done_ to true
 
   // Populates customers_ and vehicles_
@@ -86,12 +95,14 @@ class RSAlgorithm {
    * then the function will attempt to compute a new route using the vehicle's
    * current position going through the schedule (param4). If this new route
    * meets constraints, then the assignment is accepted. */
-  bool assign(const std::vector<CustId>&,  // custs to add
-              const std::vector<CustId>&,  // custs to del
-              const std::vector<Wayp>  &,  // new route
-              const std::vector<Stop>  &,  // new schedule
-                    MutableVehicle&,       // vehicle to assign to
-                    bool strict = false);  // set if do not want re-routing
+  bool assign(
+    const std::vector<CustId> &,  // custs to add
+    const std::vector<CustId> &,  // custs to del
+    const std::vector<Wayp>   &,  // new route
+    const std::vector<Stop>   &,  // new schedule
+          MutableVehicle      &,  // vehicle to assign to
+          bool strict = false     // set if do not want re-routing
+  );
 
   /* Return true if customer delay is less than RETRY_ */
   bool delay(const CustId &);
@@ -100,25 +111,34 @@ class RSAlgorithm {
   void beg_delay(const CustId &);
   void end_delay(const CustId &);
 
+  /* Begin/end handling timing */
+  void start_timing();
+  void stop_timing();
+
   /* Timeout long-running executions (pass a start clock) */
-  bool timeout(std::chrono::time_point<std::chrono::high_resolution_clock> &);
+  bool timeout(std::chrono::time_point<hiclock> &);
 
   Message print;
 
  protected:
   int nmat_;  // number matched
   int nrej_;  // number rejectd
-  float avg_cust_ht_;  // avg cust handling time
+  std::vector<float> cust_ht_; // all cust handling times
+
   /* If a customer doesn't get matched right away, put it here */
   std::unordered_map<CustId, SimlTime> delay_;
-  int retry_;  // try again after RETRY secs
+
+  int retry_;   // try again after RETRY secs
   int timeout_; // timeout long-running executions (millisecs)
-//   bool offline_; // if in off line mode, timeout() always return false
 
  private:
   std::string name_;
   bool done_;
   int batch_time_;  // seconds
+  std::chrono::time_point<hiclock> batch_0;
+  std::chrono::time_point<hiclock> batch_1;
+  std::chrono::time_point<hiclock> timing_0;
+  std::chrono::time_point<hiclock> timing_1;
 
   std::vector<Customer> customers_;
   std::vector<Vehicle>  vehicles_;
@@ -144,17 +164,20 @@ class RSAlgorithm {
     CURLOC_MISMATCH,
     PREFIX_MISMATCH,
     CADD_SYNC_FAIL,
-    CDEL_SYNC_FAIL } SyncResult;
+    CDEL_SYNC_FAIL
+  } SyncResult;
 
-  SyncResult sync(const std::vector<Wayp>     & new_rte,
-                  const std::vector<Wayp>     & cur_rte,
-                  const RteIdx                & idx_lvn,
-                  const std::vector<Stop>     & new_sch,
-                  const std::vector<Stop>     & cur_sch,
-                  const std::vector<CustId>   & cadd,
-                  const std::vector<CustId>   & cdel,
-                        std::vector<Wayp>     & out_rte,
-                        std::vector<Stop>     & out_sch);
+  SyncResult sync(
+    const std::vector<Wayp>   & new_rte,
+    const std::vector<Wayp>   & cur_rte,
+    const RteIdx              & idx_lvn,
+    const std::vector<Stop>   & new_sch,
+    const std::vector<Stop>   & cur_sch,
+    const std::vector<CustId> & cadd,
+    const std::vector<CustId> & cdel,
+          std::vector<Wayp>   & out_rte,
+          std::vector<Stop>   & out_sch
+  );
 };
 
 }  // namespace cargo

@@ -39,7 +39,7 @@ struct Options {
     // approximately 1/2 real seconds.
     float time_multiplier = 1;
 
-    SimlTime matching_period = 60; // Customers must be matched within this time (sec)
+    SimlTime matching_period = 60;
     Speed vehicle_speed = 20; // meters per second
 
     // Set to TRUE if want simulation to run until last vehicle arrives
@@ -48,6 +48,9 @@ struct Options {
 
     // Save in-memory database into file when simulation finishs
     Filepath path_to_save = "";
+
+    // Set TRUE to enable static mode
+    bool static_mode = false;
 };
 
 } // namespace cargo

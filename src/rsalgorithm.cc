@@ -36,37 +36,32 @@
 
 namespace cargo {
 
-/* RSAlgorithm class constructor:
- * Set a name; set fifo to true if want messages to print to own stream
- * (a *.feed file will be created in the runtime dir) */
-RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
-    : print(name, fifo) {
-  name_ = name;
-  done_ = false;
-  batch_time_ = 1;
-  nmat_ = 0;
-  nrej_ = 0;
-  avg_cust_ht_ = 0;
-  delay_ = {};
-  retry_ = 15;
-  timeout_ = 1;
-  /* Statements are described in dbsql.h */
-  if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt, -1, &ssr_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt, -1, &sss_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt, -1, &sav_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::svs_stmt, -1, &svs_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sov_stmt, -1, &sov_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sva_stmt, -1, &sva_stmt, NULL) != SQLITE_OK) {
-    print(MessageType::Error) << "Failed (create rsalg stmts). Reason:\n";
-    throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  }
+RSAlgorithm::RSAlgorithm(
+  const std::string & name,  // e.g. "greedy_insertion"
+        bool          fifo)  // set to true to send output to *.feed file
+    : print(name, fifo)
+{
+  name_         = name;
+  done_         = false;
+  batch_time_   = 1;
+  nmat_         = 0;
+  nrej_         = 0;
+  delay_        = {};
+  retry_        = 15;
+  timeout_      = 1;
+  prepare(sql::ssr_stmt, &ssr_stmt);
+  prepare(sql::sss_stmt, &sss_stmt);
+  prepare(sql::uro_stmt, &uro_stmt);
+  prepare(sql::sch_stmt, &sch_stmt);
+  prepare(sql::qud_stmt, &qud_stmt);
+  prepare(sql::com_stmt, &com_stmt);
+  prepare(sql::smv_stmt, &smv_stmt);
+  prepare(sql::sac_stmt, &sac_stmt);
+  prepare(sql::sav_stmt, &sav_stmt);
+  prepare(sql::svs_stmt, &svs_stmt);
+  prepare(sql::swc_stmt, &swc_stmt);
+  prepare(sql::sov_stmt, &sov_stmt);
+  prepare(sql::sva_stmt, &sva_stmt);
 }
 
 /* Destructor: finalize every stmt */
@@ -91,7 +86,14 @@ const std::string & RSAlgorithm::name()        const { return name_; }
 const bool        & RSAlgorithm::done()        const { return done_; }
 const int         & RSAlgorithm::matches()     const { return nmat_; }
 const int         & RSAlgorithm::rejected()    const { return nrej_; }
-const float       & RSAlgorithm::avg_cust_ht() const { return avg_cust_ht_; }
+      float         RSAlgorithm::avg_cust_ht() const
+{
+  float sum = 0;
+  float len = (float)this->cust_ht_.size();
+  for (auto & cht : this->cust_ht_)
+    sum += cht;
+  return sum/len;
+}
       int         & RSAlgorithm::batch_time()        { return batch_time_; }
       void          RSAlgorithm::kill()              { done_ = true; }
 
@@ -109,12 +111,13 @@ std::vector<Vehicle>  & RSAlgorithm::vehicles()     { return vehicles_; }
  * strict=true, assign will not do re-routing and just return false if sync
  * fails. */
 bool RSAlgorithm::assign(
-        const std::vector<CustId> & custs_to_add,
-        const std::vector<CustId> & custs_to_del,
-        const std::vector<Wayp>   & new_rte,
-        const std::vector<Stop>   & new_sch,
-              MutableVehicle      & vehl,
-              bool                strict) {  // default strict=false
+  const std::vector<CustId> & custs_to_add,
+  const std::vector<CustId> & custs_to_del,
+  const std::vector<Wayp>   & new_rte,
+  const std::vector<Stop>   & new_sch,
+        MutableVehicle      & vehl,
+        bool                  strict)
+{
   /* Acquire lock:
    * During this time, no other process (e.g. Cargo::step) can
    * access the database. */
@@ -291,38 +294,50 @@ bool RSAlgorithm::assign(
   return true;
 }
 
-bool RSAlgorithm::delay(const CustId& cust_id) {
+bool RSAlgorithm::delay(const CustId& cust_id)
+{
   return (delay_.count(cust_id) && delay_.at(cust_id) >= Cargo::now() - retry_)
     ? true : false;
 }
 
-void RSAlgorithm::beg_delay(const CustId& cust_id) {
-  delay_[cust_id] = Cargo::now();
-}
+void RSAlgorithm::beg_delay(const CustId& cust_id)
+{ delay_[cust_id] = Cargo::now(); }
 
-void RSAlgorithm::end_delay(const CustId& cust_id) {
-  if (delay_.count(cust_id)) delay_.erase(cust_id);
+void RSAlgorithm::end_delay(const CustId& cust_id)
+{ if (delay_.count(cust_id)) delay_.erase(cust_id); }
+
+void RSAlgorithm::start_timing()
+{ this->timing_0 = hiclock::now(); }
+
+void RSAlgorithm::stop_timing()
+{
+  this->timing_1 = hiclock::now();
+  this->cust_ht_.push_back(
+    std::round(dur_milli(this->timing_1 - this->timing_0).count())
+  );
 }
 
 bool RSAlgorithm::timeout(
-        std::chrono::time_point<std::chrono::high_resolution_clock> & start) {
-  if (Cargo::OFFLINE)
+  std::chrono::time_point<hiclock> & start)
+{
+  if (Cargo::static_mode)
     return false;
-  auto end = std::chrono::high_resolution_clock::now();
+  auto end = hiclock::now();
   int dur = std::round(dur_milli(end-start).count());
   return (dur >= timeout_ || this->done()) ? true : false;
 }
 
-RSAlgorithm::SyncResult
-RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
-                  const std::vector<Wayp>   & cur_rte,
-                  const RteIdx              & idx_lvn,
-                  const std::vector<Stop>   & new_sch,
-                  const std::vector<Stop>   & cur_sch,
-                  const std::vector<CustId> & cadd,
-                  const std::vector<CustId> & cdel,
-                        std::vector<Wayp>   & out_rte,
-                        std::vector<Stop>   & out_sch) {
+RSAlgorithm::SyncResult RSAlgorithm::sync(
+  const std::vector<Wayp>   & new_rte,
+  const std::vector<Wayp>   & cur_rte,
+  const RteIdx              & idx_lvn,
+  const std::vector<Stop>   & new_sch,
+  const std::vector<Stop>   & cur_sch,
+  const std::vector<CustId> & cadd,
+  const std::vector<CustId> & cdel,
+        std::vector<Wayp>   & out_rte,
+        std::vector<Stop>   & out_sch)
+{
   out_rte = {};
   out_sch = {};
 
@@ -472,7 +487,8 @@ RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
   return SUCCESS;
 }
 
-void RSAlgorithm::select_matchable_vehicles() {
+void RSAlgorithm::select_matchable_vehicles()
+{
   vehicles_.clear();
   sqlite3_bind_int(smv_stmt, 1, Cargo::now());
   sqlite3_bind_int(smv_stmt, 2, (int)VehlStatus::Arrived);
@@ -512,7 +528,8 @@ void RSAlgorithm::select_matchable_vehicles() {
   sqlite3_reset(smv_stmt);
 }
 
-void RSAlgorithm::select_waiting_customers() {
+void RSAlgorithm::select_waiting_customers()
+{
   customers_.clear();
   sqlite3_bind_int(swc_stmt, 1, (int)CustStatus::Waiting);
   sqlite3_bind_int(swc_stmt, 2, Cargo::now());
@@ -530,7 +547,8 @@ void RSAlgorithm::select_waiting_customers() {
   sqlite3_reset(swc_stmt);
 }
 
-std::vector<Customer> RSAlgorithm::get_all_customers() {
+std::vector<Customer> RSAlgorithm::get_all_customers()
+{
   std::vector<Customer> custs;
   while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
     Customer customer(
@@ -546,7 +564,8 @@ std::vector<Customer> RSAlgorithm::get_all_customers() {
   return custs;
 }
 
-std::vector<Vehicle> RSAlgorithm::get_all_vehicles() {
+std::vector<Vehicle> RSAlgorithm::get_all_vehicles()
+{
   std::vector<Vehicle> vehls;
   while ((rc = sqlite3_step(sav_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sav_stmt,  8));
@@ -578,60 +597,70 @@ std::vector<Vehicle> RSAlgorithm::get_all_vehicles() {
 }
 
 /* Overrideables */
-void RSAlgorithm::handle_customer(const Customer&) {
-  /* For streaming-matching or other customer processing. */
-}
+void RSAlgorithm::handle_customer(const Customer&)
+{ /* For streaming-matching or other customer processing. */ }
 
-void RSAlgorithm::handle_vehicle(const Vehicle&) {
-  /* For vehicle processing (e.g. add to a spatial index) */
-}
+void RSAlgorithm::handle_vehicle(const Vehicle&)
+{ /* For vehicle processing (e.g. add to a spatial index) */ }
 
-void RSAlgorithm::match() {
+void RSAlgorithm::match()
+{
   /* For bulk-matching. Access current customers and vehicles using
    * customers() and vehicles() */
 }
 
-void RSAlgorithm::end() { /* Executes after the simulation finishes. */ }
+void RSAlgorithm::end()
+{ /* Executes after the simulation finishes. */ }
 
-void RSAlgorithm::listen() {
-  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-  typedef std::chrono::duration<double, std::milli> dur_milli;
-  typedef std::chrono::milliseconds milli;
-
-  // Start timing -------------------------------
-  t0 = std::chrono::high_resolution_clock::now();
-  if (Cargo::OFFLINE)
+void RSAlgorithm::listen(
+  bool skip_assigned,
+  bool skip_delayed)
+{
+  // Start timing --------------------------------------------------------------
+  batch_0 = hiclock::now();
+  if (Cargo::static_mode)
     Cargo::ofmx.lock();
-
   select_matchable_vehicles();
-  for (const auto& vehicle : vehicles_) handle_vehicle(vehicle);
+  for (const auto& vehicle : vehicles_)
+    handle_vehicle(vehicle);
 
   select_waiting_customers();
-  int ncusts = customers_.size();
-  for (const auto& customer : customers_) handle_customer(customer);
-
+  int ncusts = 0;
+  for (const auto& customer : customers_) {
+    if (customer.assigned() && skip_assigned)
+      ;
+    else if (delay(customer.id()) && skip_delayed)
+      ;
+    else {
+      ncusts++;
+      handle_customer(customer);
+    }
+  }
   match();
-  t1 = std::chrono::high_resolution_clock::now();
-  // Stop timing --------------------------------
+  batch_1 = hiclock::now();
+  // Stop timing ---------------------------------------------------------------
+
+  // Set default timeout_
+  this->timeout_ = std::ceil((float)this->batch_time_/ncusts*(1000.0));
 
   // Don't sleep if time exceeds batch time
-  int dur = std::round(dur_milli(t1-t0).count());
+  int dur = std::round(dur_milli(batch_1 - batch_0).count());
 
-  if (Cargo::OFFLINE)
+  if (Cargo::static_mode)
     Cargo::ofmx.unlock();
 
-  if (dur > batch_time_ * 1000 || Cargo::OFFLINE)
+  if (dur > batch_time_ * 1000 || Cargo::static_mode) {
     print(MessageType::Warning)
-        << "listen() ("           << dur                << " ms) "
-        << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
-        << vehicles_.size() << " vehls and " << ncusts << " custs"
-        << std::endl;
-  else {
+      << "listen() (" << dur << " ms) "
+      << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
+      << vehicles_.size() << " vehls and " << ncusts << " custs"
+      << std::endl;
+  } else {
     print
-        << "listen() handled "
-        << vehicles_.size() << " vehls and " << customers_.size() << " custs "
-        << "in " << dur << " ms"
-        << std::endl;
+      << "listen() handled "
+      << vehicles_.size() << " vehls and " << customers_.size() << " custs "
+      << "in " << dur << " ms"
+      << std::endl;
     std::this_thread::sleep_for(milli(batch_time_ * 1000 - dur));
   }
 }

@@ -105,8 +105,14 @@ void Route::print() const {
 
 
 /* Trip ----------------------------------------------------------------------*/
-Trip::Trip(TripId owner, NodeId oid, NodeId did, ErlyTime e, LateTime l,
-           Load ld) {
+Trip::Trip(
+  TripId owner,
+  NodeId oid,
+  NodeId did,
+  ErlyTime e,
+  LateTime l,
+  Load ld)
+{
   this->id_ = owner;
   this->orig_ = oid;
   this->dest_ = did;

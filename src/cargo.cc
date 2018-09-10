@@ -44,10 +44,10 @@
 
 namespace cargo {
 
+/* Initialize Global Variables -----------------------------------------------*/
 /* Set the size (number of elements) of the shortest-paths cache */
 const int LRU_CACHE_SIZE = 1000000;
 
-/* Initialize global vars */
 /* Containers for quick node/edge lookup */
 KVNodes Cargo::nodes_ = {};
 KVEdges Cargo::edges_ = {};
@@ -72,44 +72,42 @@ SimlTime Cargo::t_ = 0;
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
 std::mutex Cargo::ofmx;
-bool Cargo::OFFLINE = false;
+bool Cargo::static_mode = false;
 
 /* Shortest-paths cache: hash is stringified orig/dest pair */
 cache::lru_cache<std::string, std::vector<NodeId>>
 Cargo::spcache_(LRU_CACHE_SIZE);
 
-/* Cargo class constructor:
- * Set options, initialize Message; prepare the db */
-Cargo::Cargo(const Options& opt) : print("cargo") {
+
+/* Cargo ---------------------------------------------------------------------*/
+Cargo::Cargo(
+  const Options & opt)
+    : print("cargo")
+{
   print << "Initializing Cargo" << std::endl;
   rng.seed(std::random_device()());  // used for random_node
   this->initialize(opt);  // loads data into the db
-  /* Statements are described in dbsql.h */
-  if (sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sar_stmt, -1, &sar_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::ssv_stmt, -1, &ssv_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::ucs_stmt, -1, &ucs_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::dav_stmt, -1, &dav_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::pup_stmt, -1, &pup_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::vis_stmt, -1, &vis_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::stc_stmt, -1, &stc_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::mov_stmt, -1, &mov_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::usc_stmt, -1, &usc_stmt, NULL) != SQLITE_OK) {
-    print(MessageType::Error) << "Failed (create stmts). Reason:\n";
-    throw std::runtime_error(sqlite3_errmsg(db_));
-  }
+  prepare(sql::tim_stmt, &tim_stmt);
+  prepare(sql::sac_stmt, &sac_stmt);
+  prepare(sql::sar_stmt, &sar_stmt);
+  prepare(sql::ssv_stmt, &ssv_stmt);
+  prepare(sql::ucs_stmt, &ucs_stmt);
+  prepare(sql::uro_stmt, &uro_stmt);
+  prepare(sql::sch_stmt, &sch_stmt);
+  prepare(sql::dav_stmt, &dav_stmt);
+  prepare(sql::pup_stmt, &pup_stmt);
+  prepare(sql::drp_stmt, &drp_stmt);
+  prepare(sql::vis_stmt, &vis_stmt);
+  prepare(sql::lvn_stmt, &lvn_stmt);
+  prepare(sql::stc_stmt, &stc_stmt);
+  prepare(sql::nnd_stmt, &nnd_stmt);
+  prepare(sql::mov_stmt, &mov_stmt);
+  prepare(sql::usc_stmt, &usc_stmt);
   print(MessageType::Success) << "Cargo initialized!" << std::endl;
 }
 
-/* Destructor:
- * Need to finalize every stmt and close the db */
-Cargo::~Cargo() {
+Cargo::~Cargo()
+{
   sqlite3_finalize(tim_stmt);
   sqlite3_finalize(sac_stmt);
   sqlite3_finalize(sar_stmt);
@@ -143,7 +141,8 @@ Cargo::~Cargo() {
     sqlite3_close(p_file);
   }
 
-  if (err != NULL) sqlite3_free(err);
+  if (err != NULL)
+    sqlite3_free(err);
   sqlite3_close(db_);
   print << "Database closed." << std::endl;
 }
@@ -155,10 +154,13 @@ const std::string & Cargo::road_network() { return probset_.road_network(); }
 /* "Move" the vehicles by subtracting distance to next node according to
  * route and speed. Handle accordingly if vehicle moves to next node and if
  * next node is a stop of some type. */
-int Cargo::step(int& ndeact) {
+int Cargo::step(
+  int & ndeact)
+{
   /* "Stop" the simulation once all the customers have appeared
    * (no matches can be made anymore) */
-  if (!full_sim_ && t_ > tmin_) speed_ = 1000000;  // sufficiently big
+  if (!full_sim_ && t_ > tmin_)
+    speed_ = 1000000;  // sufficiently big
 
   /* Reset counters */
   int nrows = 0;  // number of vehicles moved to new nodes
@@ -199,10 +201,14 @@ int Cargo::step(int& ndeact) {
     const VehlId vid   = sqlite3_column_int(ssv_stmt,0); // id
     const SimlTime vet = sqlite3_column_int(ssv_stmt,3); // early
     const SimlTime vlt = sqlite3_column_int(ssv_stmt,4); // late
-    const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt, 8));
-    const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt,11));
-    const std::vector<Wayp> rte(rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt, 8) / sizeof(Wayp));
-    const std::vector<Stop> sch(schbuf,schbuf+sqlite3_column_bytes(ssv_stmt,11) / sizeof(Stop));
+    const Wayp* rtebuf = static_cast<const Wayp*>(
+      sqlite3_column_blob(ssv_stmt, 8));
+    const Stop* schbuf = static_cast<const Stop*>(
+      sqlite3_column_blob(ssv_stmt,11));
+    const std::vector<Wayp> rte(
+      rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt, 8) / sizeof(Wayp));
+    const std::vector<Stop> sch(
+      schbuf,schbuf+sqlite3_column_bytes(ssv_stmt,11) / sizeof(Stop));
     std::vector<Stop> new_sch = sch;                     // mutable copy
     RteIdx  lvn = sqlite3_column_int(ssv_stmt,9);        // last-visited node
     DistInt nnd = sqlite3_column_int(ssv_stmt,10);       // next-node dist
@@ -243,10 +249,14 @@ int Cargo::step(int& ndeact) {
           sqlite3_bind_int(dav_stmt, 1, (int)VehlStatus::Arrived);
           sqlite3_bind_int(dav_stmt, 2, vid);
           if (sqlite3_step(dav_stmt) != SQLITE_DONE) {
-            print(MessageType::Error) << "Failed (deactivate vehicle " << vid << "). Reason:\n";
+            print(MessageType::Error)
+              << "Failed (deactivate vehicle " << vid << "). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           } else
-            DEBUG(1, { print(MessageType::Info) << "Vehicle " << vid << " arrived." << std::endl; });
+            DEBUG(1, {
+              print(MessageType::Info)
+                << "Vehicle " << vid << " arrived." << std::endl;
+            });
           sqlite3_clear_bindings(dav_stmt);
           sqlite3_reset(dav_stmt);
           active = false;  // stops the while loops
@@ -258,36 +268,46 @@ int Cargo::step(int& ndeact) {
          * (essentially recreate the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
           NodeId new_dest = stop.loc();
-          while (new_dest == stop.loc()) new_dest = random_node();  // random destination
-          Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
-          Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
+          while (new_dest == stop.loc()) new_dest = random_node();
+          Stop a(
+            stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
+          Stop b(
+            stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
           std::vector<Wayp> new_rte;
           route_through({a, b}, new_rte);
           int new_nnd = new_rte.at(1).first;
           /* Add traveled distance to the waypoints in the new route */
           for (auto& wp : new_rte)
             wp.first += rte.back().first;
-          print << "Vehicle " << vid << " got new dest (" << new_dest << ", " << new_rte.front().first << ", " << new_rte.back().first << ")" << std::endl;
+          print
+            << "Vehicle " << vid << " got new dest ("
+            << new_dest << ", " << new_rte.front().first << ", "
+            << new_rte.back().first << ")"
+            << std::endl;
 
           /* Insert the new route */
-          sqlite3_bind_blob(uro_stmt, 1,
-            static_cast<void const*>(new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
+          sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(
+            new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
           sqlite3_bind_int(uro_stmt, 2, 0);        // lvn
           sqlite3_bind_int(uro_stmt, 3, new_nnd);  // nnd
           sqlite3_bind_int(uro_stmt, 4, stop.owner());
           if (sqlite3_step(uro_stmt) != SQLITE_DONE) {
-            print(MessageType::Error) << "Failure at route " << stop.owner() << "\n";
-            print(MessageType::Error) << "Failed (insert route). Reason:\n";
+            print(MessageType::Error)
+              << "Failure at route " << stop.owner() << "\n";
+            print(MessageType::Error)
+              << "Failed (insert route). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           }
           sqlite3_clear_bindings(uro_stmt);
           sqlite3_reset(uro_stmt);
 
           /* Insert schedule */
-          Stop next_loc(stop.owner(), new_rte.at(1).second, StopType::VehlOrig, stop.early(), -1);
+          Stop next_loc(
+            stop.owner(), new_rte.at(1).second, StopType::VehlOrig,
+            stop.early(), -1);
           std::vector<Stop> sch{next_loc, b};
-          sqlite3_bind_blob(sch_stmt, 1,
-            static_cast<void const*>(sch.data()),sch.size()*sizeof(Stop),SQLITE_TRANSIENT);
+          sqlite3_bind_blob(sch_stmt, 1, static_cast<void const*>(
+            sch.data()),sch.size()*sizeof(Stop),SQLITE_TRANSIENT);
           sqlite3_bind_int(sch_stmt, 2, stop.owner());
           if (sqlite3_step(sch_stmt) != SQLITE_DONE) {
             print(MessageType::Error) << "Failure at schedule " << stop.owner() << "\n";
@@ -612,7 +632,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
     t0 = std::chrono::high_resolution_clock::now();
-    if (OFFLINE)
+    if (static_mode)
       ofmx.lock();
 
     /* Log timed-out customers */
@@ -656,7 +676,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
     else
       std::this_thread::sleep_for(milli(sleep_interval_ - dur));
 
-    if (OFFLINE) {
+    if (static_mode) {
       ofmx.unlock();
       std::this_thread::sleep_for(milli(10));
     }
@@ -932,6 +952,8 @@ void Cargo::initialize(const Options& opt) {
 
   solution_file_ = opt.path_to_solution;
   dataout_file_ = opt.path_to_dataout;
+
+  static_mode = opt.static_mode;
 
   t_ = 0;  // Ready to begin!
   print << "\t\tDone" << std::endl;
