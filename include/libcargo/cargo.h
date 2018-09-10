@@ -39,10 +39,7 @@
 #include "../lrucache/lrucache.hpp"
 #include "../sqlite3/sqlite3.h"
 
-/* -------
- * SUMMARY
- * -------
- * Cargo is a simulator and requests generator. Its two functionalities are to
+/* Cargo is a simulator and requests generator. Its two functionalities are to
  * simulate the movement of vehicles, and to generate customer requests and
  * vehicles in "real time". These are generated from a "problem instance", a
  * special text file that lists customers, vehicles, and their properties.
@@ -60,7 +57,6 @@
  *
  * Cargo will poll an internal sqlite3 database for new vehicle routes. These
  * routes can be updated through an RSAlgorithm. */
-
 namespace cargo {
 
 class Cargo {
@@ -79,53 +75,35 @@ class Cargo {
   int step(int &);
 
   /* Accessors */
-  static DistInt edgew(
-    const NodeId & u,
-    const NodeId & v)
-  { return edges_.at(u).at(v); }
-
-  static Point node2pt(const NodeId & i)
-  { return nodes_.at(i); }
-
-  static DistInt basecost(const TripId & i)
-  { return trip_costs_.at(i); }
-
-  static BoundingBox     bbox()    { return bbox_; }
-  static Speed         & vspeed()  { return speed_; }
-  static SimlTime        now()     { return t_; }
-  static GTree::G_Tree & gtree()   { return gtree_; }
-  static sqlite3       * db()      { return db_; }
+  static DistInt         edgew(const NodeId& u, const NodeId& v) { return edges_.at(u).at(v); }
+  static Point           node2pt(const NodeId& i)  { return nodes_.at(i); }
+  static DistInt         basecost(const TripId& i) { return trip_costs_.at(i); }
+  static BoundingBox     bbox()                    { return bbox_; }
+  static Speed         & vspeed()                  { return speed_; }
+  static SimlTime        now()                     { return t_; }
+  static GTree::G_Tree & gtree()                   { return gtree_; }
+  static sqlite3       * db()                      { return db_; }
 
   /* Access the shortest-paths cache */
-  static std::vector<NodeId> spget(
-    const NodeId & u,
-    const NodeId & v)
-  {
+  static std::vector<NodeId> spget(const NodeId& u, const NodeId& v) {
     std::string k = std::to_string(u)+"|"+std::to_string(v);
     return spcache_.get(k);
   }
 
-  static void spput(
-    const NodeId & u,
-    const NodeId & v,
-          std::vector<NodeId> & path)
-  {
+  static void spput(const NodeId& u, const NodeId& v, std::vector<NodeId>& path) {
     std::string k = std::to_string(u)+"|"+std::to_string(v);
     spcache_.put(k, path);
   }
 
-  static bool spexist(
-    const NodeId & u,
-    const NodeId & v)
-  {
+  static bool spexist(const NodeId& u, const NodeId& v) {
     std::string k = std::to_string(u)+"|"+std::to_string(v);
     return spcache_.exists(k);
   }
 
   static std::mutex dbmx;  // protect the db
   static std::mutex spmx;  // protect the shortest-paths cache
-  static std::mutex ofmx;  // static mode mutex
-  static bool static_mode; // static mode
+  static std::mutex ofmx;  // offline mutex
+  static bool OFFLINE; // offline mode
 
  private:
   Message print;

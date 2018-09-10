@@ -140,11 +140,6 @@ typedef int         SqliteReturnCode;
 typedef char*       SqliteErrorMessage;
 typedef const char* SqliteQuery;
 
-// Chrono
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
-typedef std::chrono::high_resolution_clock hiclock;
-
 }  // namespace cargo
 
 #endif  // CARGO_INCLUDE_LIBCARGO_TYPES_H_

@@ -22,15 +22,7 @@
 #ifndef CARGO_INCLUDE_LIBCARGO_DEBUG_H_
 #define CARGO_INCLUDE_LIBCARGO_DEBUG_H_
 
-/* -------
- * SUMMARY
- * -------
- * This file contains DEBUG macro for turning on/off code blocks.
- * Usage: DEBUG(int, stmt)
- *
- * SET DEBUG LEVEL HERE.
- */
-
+/* Usage: DEBUG(int, stmt) */
 #define DEBUG(level, x)                  \
   do {                                   \
     if (level && debug_flag >= level) x; \
@@ -40,13 +32,13 @@ namespace cargo {
 
 // Debug levels
 enum class DebugFlag {
-  Level0,  // turn off all messages
+  Level0,  // turn off debugging messages
   Level1,
   Level2,
   Level3,
 };
 
-const int debug_flag = (int)DebugFlag::Level0;  // <-- SET DEBUG LEVEL HERE.
+const int debug_flag = (int)DebugFlag::Level0;
 
 }  // namespace cargo
 

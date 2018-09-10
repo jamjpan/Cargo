@@ -36,57 +36,33 @@
 
 namespace cargo {
 
-/* Print ---------------------------------------------------------------------*/
-void print_rte(
-  const std::vector<Wayp> & rte)
-{
-  for (const auto & wp : rte)
+void print_rte(const std::vector<Wayp>& rte) {
+  for (const auto& wp : rte)
     std::cout << " (" << wp.first << "|" << wp.second << ")";
   std::cout << std::endl;
 }
 
-void print_sch(
-  const std::vector<Stop> & sch)
-{
+void print_sch(const std::vector<Stop>& sch) {
   for (const auto& sp : sch)
-    std::cout
-      << " (owner=" << sp.owner()
-      << ";loc="    << sp.loc()
-      << ";e="      << sp.early()
-      << ";late="   << sp.late()
-      << ";type="   << (int)sp.type() << ")";
+    std::cout << " (owner=" << sp.owner() << ";loc=" << sp.loc() << ";e=" << sp.early()
+              << ";late=" << sp.late() << ";type=" << (int)sp.type() << ")";
   std::cout << std::endl;
 }
 
 
-/* Prepare -------------------------------------------------------------------*/
-void prepare(
-  const SqliteQuery     q,
-        sqlite3_stmt ** stmt)
-{
-  if (sqlite3_prepare_v2(Cargo::db(), q, -1, stmt, NULL) != SQLITE_OK) {
-    std::cout << "Failed prepare. Reason:\n";
-    throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  }
-}
-
-
-/* Find Pickup Range ---------------------------------------------------------*/
-DistInt pickup_range(
-  const Customer & cust,
-  const SimlTime & t)
-{
+DistInt pickup_range(const Customer      & cust,
+                     const SimlTime      & now) {
   DistInt dist = Cargo::basecost(cust.id());
-  return (cust.late()-(dist/Cargo::vspeed())-t)*Cargo::vspeed();
+  return (cust.late()-(dist/Cargo::vspeed())-now)*Cargo::vspeed();
 }
 
-
-/* Create Route Through Schedule ---------------------------------------------*/
-DistInt route_through(
-  const std::vector<Stop> & sch,
-        std::vector<Wayp> & rteout,
-        GTree::G_Tree     & gtree)
-{
+// Complexity: O(|schedule|*|route|)
+//   - for loop body executes n-1 times, for n stops
+//   - std::copy is exactly |route| operations
+//   - assume find_path, shortest_path_dist are O(1) with gtree
+DistInt route_through(const std::vector<Stop> & sch,
+                            std::vector<Wayp> & rteout,
+                            GTree::G_Tree     & gtree) {
   DistInt cst = 0;
   rteout.clear();
   rteout.push_back({0, sch.front().loc()});
@@ -96,19 +72,15 @@ DistInt route_through(
 
     std::vector<NodeId> seg {};
     bool in_cache = false;
-    {
-      std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-      in_cache = Cargo::spexist(from, to);
-      if (in_cache)
-        seg = Cargo::spget(from, to);
+    { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+    in_cache = Cargo::spexist(from, to);
+    if (in_cache)
+      seg = Cargo::spget(from, to);
     } // Lock released
     if(!in_cache) {
-      try {
-        gtree.find_path(from, to, seg);
-      }
+      try { gtree.find_path(from, to, seg); }
       catch (...) {
-        std::cout
-          << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
+        std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
         print_sch(sch);
         std::cout << "index: " << i << std::endl;
         throw;
@@ -124,35 +96,24 @@ DistInt route_through(
   return cst;
 }
 
-DistInt route_through(
-  const std::vector<Stop> & sch,
-        std::vector<Wayp> & rteout)
-{
+DistInt route_through(const std::vector<Stop> & sch,
+                            std::vector<Wayp> & rteout) {
   return route_through(sch, rteout, Cargo::gtree());
 }
 
-
-/* Constraints Checking ------------------------------------------------------*/
 bool chkpc(const Schedule& s) {
   // Last stop must be this vehicle destination
-  if (s.data().back().type() != StopType::VehlDest
-     || s.data().back().owner() != s.owner()) {
-    DEBUG(3, {
-      std::cout
-        << "chk_prec() last stop is not a vehl dest, "
-        << "or last stop owner mismatch"
-        << std::endl;
-    });
+  if (s.data().back().type() != StopType::VehlDest ||
+      s.data().back().owner() != s.owner()) {
+    DEBUG(3, { std::cout << "chk_prec() last stop is not a vehl dest, or last stop owner mismatch" << std::endl; });
     return false;
   }
 
   // Second-to-last stop cannot be any origin if schedule size > 2
-  if (s.data().size() > 2
-     && (std::prev(s.data().end(), 2)->type() == StopType::CustOrig
-        || std::prev(s.data().end(), 2)->type() == StopType::VehlOrig)) {
-    DEBUG(3, {
-      std::cout << "chk_prec() 2nd-last stop is an origin" << std::endl;
-    });
+  if (s.data().size() > 2 &&
+      (std::prev(s.data().end(), 2)->type() == StopType::CustOrig ||
+       std::prev(s.data().end(), 2)->type() == StopType::VehlOrig)) {
+    DEBUG(3, { std::cout << "chk_prec() 2nd-last stop is an origin" << std::endl; });
     return false;
   }
 
@@ -162,19 +123,14 @@ bool chkpc(const Schedule& s) {
   for (auto i = s.data().begin(); i != s.data().end(); ++i) {
     // Any vehicle origin cannot appear in the schedule, aside from at 0
     if (i > s.data().begin() && i->type() == StopType::VehlOrig) {
-      DEBUG(3, {
-        std::cout << "chk_prec() first stop is not a VehlOrig" << std::endl;
-      });
+      DEBUG(3, { std::cout << "chk_prec() first stop is not a VehlOrig" << std::endl; });
       return false;
     }
 
     // A vehicle origin that is not this vehicle cannot appear at 0
-    if (i == s.data().begin()
-       && i->type() == StopType::VehlOrig
-       && i->owner() != s.owner()) {
-      DEBUG(3, {
-        std::cout << "chk_prec() first stop is not this VehlOrig" << std::endl;
-      });
+    if (i == s.data().begin() && i->type() == StopType::VehlOrig &&
+        i->owner() != s.owner()) {
+      DEBUG(3, { std::cout << "chk_prec() first stop is not this VehlOrig" << std::endl; });
       return false;
     }
 
@@ -182,82 +138,57 @@ bool chkpc(const Schedule& s) {
     for (auto j = s.data().begin(); j != s.data().end() && !paired; ++j) {
       if (i == j) continue;
       if (i->owner() == j->owner()) {
-        if (i->type() == StopType::CustOrig
-           && j->type() == StopType::CustDest
-           && i < j)
+        if (i->type() == StopType::CustOrig &&
+            j->type() == StopType::CustDest && i < j)
           paired = true;
-        else if (i->type() == StopType::CustOrig
-                && j->type() == StopType::CustDest
-                && i > j) {
-          DEBUG(3, {
-            std::cout << "CustOrig appears after its CustDest" << std::endl;
-          });
+        else if (i->type() == StopType::CustOrig &&
+                 j->type() == StopType::CustDest && i > j) {
+          DEBUG(3, { std::cout << "CustOrig appears after its CustDest" << std::endl; });
           return false;
-        } else if (i->type() == StopType::CustDest
-                  && j->type() == StopType::CustOrig
-                  && i > j)
+        } else if (i->type() == StopType::CustDest &&
+                   j->type() == StopType::CustOrig && i > j)
           paired = true;
-        else if (i->type() == StopType::CustDest
-                && j->type() == StopType::CustOrig
-                && i < j) {
-          DEBUG(3, {
-            std::cout << "CustDest appears before its CustOrig" << std::endl;
-          });
+        else if (i->type() == StopType::CustDest &&
+                 j->type() == StopType::CustOrig && i < j) {
+          DEBUG(3, { std::cout << "CustDest appears before its CustOrig" << std::endl; });
           return false;
-        } else if (i->type() == StopType::VehlOrig
-                  && j->type() == StopType::VehlDest
-                  && i < j)
+        } else if (i->type() == StopType::VehlOrig &&
+                   j->type() == StopType::VehlDest && i < j)
           paired = true;
-        else if (i->type() == StopType::VehlOrig
-                 && j->type() == StopType::VehlDest
-                 & i > j) {
-          DEBUG(3, {
-            std::cout << "VehlOrig appears after its VehlDest" << std::endl;
-          });
+        else if (i->type() == StopType::VehlOrig &&
+                 j->type() == StopType::VehlDest && i > j) {
+          DEBUG(3, { std::cout << "VehlOrig appears after its VehlDest" << std::endl; });
           return false;
-        } else if (i->type() == StopType::VehlDest
-                  && j->type() == StopType::VehlOrig
-                  && i > j)
+        } else if (i->type() == StopType::VehlDest &&
+                   j->type() == StopType::VehlOrig && i > j)
           paired = true;
-        else if (i->type() == StopType::VehlDest
-                && j->type() == StopType::VehlOrig
-                && i < j) {
-          DEBUG(3, {
-            std::cout << "VehlDest appears before its VehlOrig" << std::endl;
-          });
+        else if (i->type() == StopType::VehlDest &&
+                 j->type() == StopType::VehlOrig && i < j) {
+          DEBUG(3, { std::cout << "VehlDest appears before its VehlOrig" << std::endl; });
           return false;
         }
       }
     }
-    if (!paired
-       && (i->type() != StopType::CustDest
-       && i->type() != StopType::VehlDest)) {
-      DEBUG(3, {
-        std::cout << "An origin is unpaired" << std::endl;
-      });
+    if (!paired && (i->type() != StopType::CustDest &&
+                    i->type() != StopType::VehlDest)) {
+      DEBUG(3, { std::cout << "An origin is unpaired" << std::endl; });
       return false;
     }
   }
   return true;
 }
 
-bool chktw(
-  const std::vector<Stop> & sch,
-  const std::vector<Wayp> & rte)
-{
+bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
   DEBUG(3, { std::cout << "chktw() got sch:"; print_sch(sch); });
   DEBUG(3, { std::cout << "chktw() got rte:"; print_rte(rte); });
 
   // Check the end point first
-  if (sch.back().late() != -1
-     && sch.back().late() < rte.back().first / (float)Cargo::vspeed()) {
-    DEBUG(3, {
-      std::cout
-        << "chktw() found "
-        << "sch.back().late()["      << sch.back().late() << "] < "
-        << "rte.back().first/speed[" << rte.back().first/(float)Cargo::vspeed()
-        << "]"
-        << std::endl;
+  if (sch.back().late() != -1 &&
+      sch.back().late() < rte.back().first / (float)Cargo::vspeed()) {
+    DEBUG(3, { std::cout << "chktw() found "
+      << "sch.back().late()["      << sch.back().late() << "] < "
+      << "rte.back().first/speed[" << rte.back().first / (float)Cargo::vspeed() << "]"
+      << std::endl;
     });
     return false;
   }
@@ -274,13 +205,12 @@ bool chktw(
         throw;
       }
     }
-    if (i->late() != -1
-       && i->late() < j->first/(float)Cargo::vspeed()) {
-      DEBUG(3, {
-        std::cout << "chktw() found "
-          << "i->late()["      << i->late() << "] < "
-          << "j->first/speed[" << j->first/(float)Cargo::vspeed() << "]"
-          << std::endl;
+    if (i->late() != -1 &&
+        i->late() < j->first / (float)Cargo::vspeed()) {
+      DEBUG(3, { std::cout << "chktw() found "
+        << "i->late()["      << i->late() << "] < "
+        << "j->first/speed[" << j->first / (float)Cargo::vspeed() << "]"
+        << std::endl;
       });
       return false;
     }
@@ -288,11 +218,7 @@ bool chktw(
   return true;
 }
 
-
-/* Schedule Operations -------------------------------------------------------*/
-CustId randcust(
-  const std::vector<Stop> & sch)
-{
+CustId randcust(const std::vector<Stop>& sch) {
   std::vector<Stop> s = sch; // make a copy
   std::random_shuffle(s.begin(), s.end());  // randomize the order
   for (auto i = s.begin(); i != s.end()-1; ++i)
@@ -303,10 +229,7 @@ CustId randcust(
   return -1;
 }
 
-void opdel(
-        std::vector<Stop> & sch,
-  const CustId            & cust_id)
-{
+void opdel(std::vector<Stop>& sch, const CustId& cust_id) {
   std::vector<Stop> new_sch {};
   for (const Stop& a : sch)
     if (a.owner() != cust_id)
@@ -318,29 +241,20 @@ void opdel(
   sch = new_sch;
 }
 
-void opmove(
-        std::vector<Stop> & src,
-        std::vector<Stop> & dest,
-  const CustId            & cust_id)
-{ /* TODO */ }
+void opmove(std::vector<Stop>& src,
+            std::vector<Stop>& dest, const CustId& cust_id) {
 
-void opswap(
-        std::vector<Stop> & s1,
-  const CustId            & c1,
-        std::vector<Stop> & s2,
-  const CustId            & c2)
-{ /* TODO */ }
+}
 
-DistInt sop_insert(
-  const std::vector<Stop> & sch,
-  const Stop              & orig,
-  const Stop              & dest,
-        bool                fix_start,
-        bool                fix_end,
-        std::vector<Stop> & schout,
-        std::vector<Wayp> & rteout,
-        GTree::G_Tree     & gtree)
-{
+void opswap(std::vector<Stop>& s1, const CustId& c1,
+            std::vector<Stop>& s2, const CustId& c2) {
+
+}
+
+DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
+                       const Stop& dest, bool fix_start, bool fix_end,
+                       std::vector<Stop>& schout, std::vector<Wayp>& rteout,
+                       GTree::G_Tree& gtree) {
   DistInt mincst = InfInt;
   schout.clear();
   rteout.clear();
@@ -396,26 +310,17 @@ DistInt sop_insert(
   return mincst;
 }
 
-DistInt sop_insert(
-  const std::vector<Stop> & sch,
-  const Stop              & orig,
-  const Stop              & dest,
-        bool                fix_start,
-        bool                fix_end,
-        std::vector<Stop> & schout,
-        std::vector<Wayp> & rteout)
-{
-  return sop_insert(
-    sch, orig, dest, fix_start, fix_end, schout, rteout, Cargo::gtree());
+DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
+                       const Stop& dest, bool fix_start, bool fix_end,
+                       std::vector<Stop>& schout,
+                       std::vector<Wayp>& rteout) {
+  return sop_insert(sch, orig, dest, fix_start, fix_end, schout, rteout,
+                    Cargo::gtree());
 }
 
-DistInt sop_insert(
-  const Vehicle           & vehl,
-  const Customer          & cust,
-        std::vector<Stop> & schout,
-        std::vector<Wayp> & rteout,
-        GTree::G_Tree     & gtree)
-{
+DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
+                       std::vector<Stop>& schout, std::vector<Wayp>& rteout,
+                       GTree::G_Tree& gtree) {
   // The distances to the nodes in the routes found by route_through need
   // to be corrected.  veh.schedule() passed here contains only un-visited
   // stops. The first stop in the schedule is the vehicle's next node
@@ -425,41 +330,31 @@ DistInt sop_insert(
   // distance (the head) should be added.
   DistInt head = vehl.route().dist_at(vehl.idx_last_visited_node() + 1);
 
-  Stop cust_o(
-    cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
-  Stop cust_d(
-    cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
-  DistInt mincst = sop_insert(
-    vehl.schedule().data(), cust_o, cust_d, true, true, schout, rteout, gtree);
-
+  Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
+  Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
+  DistInt mincst = sop_insert(vehl.schedule().data(), cust_o, cust_d, true,
+                                  true, schout, rteout, gtree);
   // Add head to the new nodes in the route
-  for (auto& wp : rteout)
-    wp.first += head;
+  for (auto& wp : rteout) wp.first += head;
   rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
   return mincst+head;
 }
 
-DistInt sop_insert(
-  const Vehicle           & vehl,
-  const Customer          & cust,
-        std::vector<Stop> & schout,
-        std::vector<Wayp> & rteout)
-{ return sop_insert(vehl, cust, schout, rteout, Cargo::gtree()); }
+DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
+                       std::vector<Stop>& schout,
+                       std::vector<Wayp>& rteout) {
+  return sop_insert(vehl, cust, schout, rteout, Cargo::gtree());
+}
 
-DistInt sop_insert(
-  const std::shared_ptr<MutableVehicle> & mutvehl,
-  const Customer                        & cust,
-        std::vector<Stop>               & schout,
-        std::vector<Wayp>               & rteout)
-{ return sop_insert(*mutvehl, cust, schout, rteout); }
+DistInt sop_insert(const std::shared_ptr<MutableVehicle>& mutvehl,
+                       const Customer& cust, std::vector<Stop>& schout,
+                       std::vector<Wayp>& rteout) {
+  return sop_insert(*mutvehl, cust, schout, rteout);
+}
 
-DistInt sop_replace(
-  const std::shared_ptr<MutableVehicle> & mutvehl,
-  const CustId                          & rm,
-  const Customer                        & cust,
-        std::vector<Stop>               & schout,
-        std::vector<Wayp>               & rteout)
-{
+DistInt sop_replace(const std::shared_ptr<MutableVehicle>& mutvehl,
+                    const CustId& rm, const Customer& cust,
+                    std::vector<Stop>& schout, std::vector<Wayp>& rteout) {
   MutableVehicle mutcopy = *mutvehl;
   std::vector<Stop> sch1 = mutcopy.schedule().data();
   opdel(sch1, rm);

@@ -21,7 +21,6 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_FILE_H_
 #define CARGO_INCLUDE_LIBCARGO_FILE_H_
-
 #include <condition_variable>
 #include <fstream>
 #include <map>
@@ -33,28 +32,17 @@
 #include "classes.h"
 #include "types.h"
 
-/* -------
- * SUMMARY
- * -------
- * This file describes file system operations and the Logger class. The
- * operations are:
- *   - read_nodes: read *.rnet file
- *   - read_edges: read *.edges file
- *   - read_problem: read *.instance file
- * The Logger class writes statistics of a Cargo simulation to *.dat file.
- * ADD DESCRIPTION OF THE MEMBER FUNCTIONS HERE.
- */
-
 namespace cargo {
 
-/* Filesystem Read -----------------------------------------------------------*/
+/* These functions throw runtime_errors if the file cannot be read. */
 size_t read_nodes(const Filepath &, KVNodes &);                // return # nodes
 size_t read_nodes(const Filepath &, KVNodes &, BoundingBox &); // output bbox
 size_t read_edges(const Filepath &, KVEdges &);                // return # edges
 size_t read_problem(const Filepath &, ProblemSet &);           // return # trips
 
-
-/* Logger --------------------------------------------------------------------*/
+/* Thread-safe Logger for generating solplot.py input
+ * The logger is "event-based"; certain events trigger putting different
+ * messages into the log file. */
 class Logger {
  public:
   Logger(const Filepath &);
@@ -78,6 +66,8 @@ class Logger {
   static void put_t_message(const std::vector<CustId> &);
   static void put_p_message(const std::vector<CustId> &);
   static void put_d_message(const std::vector<CustId> &);
+  static void push(std::string);
+  std::string pop();
 
  private:
   static std::queue<std::string> queue_;
@@ -85,9 +75,6 @@ class Logger {
   static std::mutex mutex_;
   std::ofstream file_output_;
   bool done_;
-
-  static void push(std::string);
-  std::string pop();
 };
 
 

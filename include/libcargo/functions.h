@@ -21,95 +21,56 @@
 // SOFTWARE.
 #ifndef CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
 #define CARGO_INCLUDE_LIBCARGO_FUNCTIONS_H_
-
 #include <memory> /* shared_ptr */
 
 #include "cargo.h"
 #include "classes.h"
-#include "dbsql.h"
 #include "types.h"
-#include "../gtree/gtree.h"
-#include "../sqlite3/sqlite3.h"
 
-/* -------
- * SUMMARY
- * -------
- * This file contains definitions for common routines.
- */
+#include "../gtree/gtree.h"
 
 namespace cargo {
 
-/* Print ---------------------------------------------------------------------*/
+/* Conveniently print */
 void print_rte(const std::vector<Wayp> &);
 void print_sch(const std::vector<Stop> &);
 
-
-/* Prepare -------------------------------------------------------------------*/
-void prepare(const SqliteQuery, sqlite3_stmt **);
-
-
-/* Find Pickup Range ---------------------------------------------------------*/
 /* Given the current time (param2), return the maximum distance a vehicle can
  * be in order to pickup customer (param1) within time window constraints */
-DistInt pickup_range(
-  const Customer &,
-  const SimlTime &  // current time
-);
+DistInt pickup_range(const Customer &, const SimlTime &);
 
-
-/* Create Route Through Schedule ---------------------------------------------*/
 /* Given a schedule (param1), output the least-cost route (param2) through all
  * stops; return the cost of this route; O(|schedule|+|nodes|)*/
-DistInt route_through(
-  const std::vector<Stop> &,
-        std::vector<Wayp> &,
-        GTree::G_Tree &
-);
-DistInt route_through(
-  const std::vector<Stop> &,
-        std::vector<Wayp> &
-);
+DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt route_through(const std::vector<Stop> &, std::vector<Wayp> &);
 
+/* Given a schedule, return true if all origins precede corresponding dests
+ * O(|schedule|^2) */
+bool chkpc(const Schedule &);
 
-/* Constraints Checking ------------------------------------------------------*/
-bool chkpc(const Schedule &);  // check precedence constraint
-bool chktw(                    // check time window constraint
-  const std::vector<Stop> &,
-  const std::vector<Wayp> &
-);
+/* Given a schedule (param1) and its corresponding route (param2), return true
+ * if time windows on each stop are satisfied; O(|schedule|+|route|) */
+bool chktw(const std::vector<Stop> &, const std::vector<Wayp> &);
 
-
-/* Schedule Operations -------------------------------------------------------*/
 /* Return a random customer from a given schedule; the returned customer is
  * guaranteed to have both stops in the schedule; return -1 if none eligible */
 CustId randcust(const std::vector<Stop> &);
 
 /* Remove a customer (param2) from a schedule (param1). The customer MUST have
  * both stops present in the schedule, otherwise function will throw. */
-void opdel(
-        std::vector<Stop> &,
-  const CustId &
-);
+void opdel(std::vector<Stop> &, const CustId &);
 
 /* Move a customer (param3) from one schedule (param1) to another (param2). The
  * customer MUST have both stops present in the source schedule, otherwise
  * function will throw. Time windows are not checked in the target schedule
  * after insertion. */
-void opmove(
-        std::vector<Stop> &,
-        std::vector<Stop> &,
-  const CustId &
-);
+void opmove(std::vector<Stop> &, std::vector<Stop> &, const CustId &);
 
 /* Swap a customer (param2) from one schedule (param1) with a customer (param4)
  * from a different schedule (param3). The swapping customers MUST have both
  * stops present in their respective schedules, otherwise function will throw.
  * Time windows are not checked in either schedule after swap. */
-void opswap(
-        std::vector<Stop> &,
-  const CustId &,
-        std::vector<Stop> &,
-  const CustId &);
+void opswap(std::vector<Stop> &, const CustId &, std::vector<Stop> &, const CustId &);
 
 /* Given a schedule (param1), insert an origin (param2) and dest (param3) while
  * preserving the relative order of the other stops. Set param4 to true to fix
@@ -117,57 +78,27 @@ void opswap(
  * end stop (cannot insert after it). Output the least-cost schedule (param6)
  * and the new least-cost route (param7).
  * O(|schedule|^2 * cost of route_through) */
-DistInt sop_insert(
-  const std::vector<Stop> &,  // schedule to insert into
-  const Stop &,               // origin to insert
-  const Stop &,               // dest to insert
-        bool,                 // fix front stop
-        bool,                 // fix end stop
-        std::vector<Stop> &,  // augmented schedule
-        std::vector<Wayp> &,  // route through augmented schedule
-        GTree::G_Tree &       // for sp
-);
-DistInt sop_insert(  // use default g-tree
-  const std::vector<Stop> &,
-  const Stop &,
-  const Stop &,
-        bool,
-        bool,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
-);
+DistInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool,
+                   std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt sop_insert(const std::vector<Stop> &, const Stop &, const Stop &, bool, bool,
+                   std::vector<Stop> &, std::vector<Wayp> &);
+
 /* This version corrects the distances in the route (param4) by taking into
  * account vehicle's (param1) traveled distance. */
-DistInt sop_insert(
-  const Vehicle &,
-  const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &,
-        GTree::G_Tree &
-);
-DistInt sop_insert(  // use default g-tree
-  const Vehicle &,
-  const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
-);
+DistInt sop_insert(const Vehicle &, const Customer &,
+                   std::vector<Stop> &, std::vector<Wayp> &, GTree::G_Tree &);
+DistInt sop_insert(const Vehicle &, const Customer &,
+                   std::vector<Stop> &, std::vector<Wayp> &);
+
 /* This version is for convenience; vehicles returned by grid are
  * MutableVehicle pointers. */
-DistInt sop_insert(
-  const std::shared_ptr<MutableVehicle> &,
-  const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
-);
+DistInt sop_insert(const std::shared_ptr<MutableVehicle> &, const Customer &,
+                   std::vector<Stop> &, std::vector<Wayp> &);
+
 /* Replace customer (param2) with a new customer (param3)
  * (remove the old customer, then sop_insert the new customer) */
-DistInt sop_replace(
-  const std::shared_ptr<MutableVehicle> &,
-  const CustId &,
-  const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
-);
+DistInt sop_replace(const std::shared_ptr<MutableVehicle> &, const CustId &,
+                    const Customer &, std::vector<Stop> &, std::vector<Wayp> &);
 
 }  // namespace cargo
 
