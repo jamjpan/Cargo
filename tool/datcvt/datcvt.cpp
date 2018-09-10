@@ -5,7 +5,8 @@
 
 const int VEH_N = 3005;
 const int CUST_N = 1005;
-const int SPEED = 20;
+const int SPEED = 10;
+const int LATE_BOUND = 9000;
 
 struct trip {
     int id;
@@ -79,13 +80,13 @@ int main(int argc, char *argv[])
     ofs << "   serv load early late nodeid :=" << std::endl;
 
     for (int i = 0; i < vehicle_num; ++i)
-        ofs << " " << i + 1 << " 0   0   0   900000   " << vehicles[i]->origin << std::endl;
+        ofs << " " << i + 1 << " 0   0   0   " << LATE_BOUND << "   " << vehicles[i]->origin << std::endl;
     for (int i = 0; i < vehicle_num; ++i)
-        ofs << " " << vehicle_num + i + 1 << " 0   0   0   900000   " << vehicles[i]->dest << std::endl;
+        ofs << " " << vehicle_num + i + 1 << " 0   0   0   " << LATE_BOUND << "   " << vehicles[i]->dest << std::endl;
     for (int i = 0; i < customer_num; ++i)
-        ofs << " " << vehicle_num * 2 + i + 1 << " 0   1   0   900000   " << customers[i]->origin << std::endl;
+        ofs << " " << vehicle_num * 2 + i + 1 << " 0   1   0   " << LATE_BOUND << "   " << customers[i]->origin << std::endl;
     for (int i = 0; i < customer_num; ++i) {
-        ofs << " " << vehicle_num * 2 + customer_num + i + 1 << " 0  -1   0   900000   " << customers[i]->dest;
+        ofs << " " << vehicle_num * 2 + customer_num + i + 1 << " 0  -1   0   " << LATE_BOUND << "   " << customers[i]->dest;
         if (i == customer_num - 1)
             ofs << ";\n\n";
         else
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
 
     ofs << "param ride :=" << std::endl;
     for (int i = 0; i < customer_num; ++i) {
-        ofs << " " << vehicle_num * 2 + i + 1 << " " << gtree.search(customers[i]->origin, customers[i]->dest) + SPEED * 600;
+        ofs << " " << vehicle_num * 2 + i + 1 << " " << (gtree.search(customers[i]->origin, customers[i]->dest) + SPEED - 1) / SPEED + 600;
         if (i == customer_num - 1)
             ofs << ";\n\n";
         else
@@ -103,7 +104,7 @@ int main(int argc, char *argv[])
 
     ofs << "param trip :=" << std::endl;
     for (int i = 0; i < vehicle_num; ++i) {
-        ofs << " " << i + 1 << " 900000";
+        ofs << " " << i + 1 << " " << LATE_BOUND;
         if (i == vehicle_num - 1)
             ofs << ";\n\n";
         else
