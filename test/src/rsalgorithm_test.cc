@@ -67,19 +67,19 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       REQUIRE(rsalg.assign({cust1.id()}, {}, rte, sch, sync_vehl, true) == true);
     }
 
-    SECTION("A12. cdel in prefix (fail)") {
-      /* 1) Assign */
-      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
-      //                             0,          1,          3,         5
-      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
-      rsalg.assign({cust1.id()}, {}, rte, sch, sync_vehl, true);
-      /* 2) Try to commit a delete */
-      int _; cargo.step(_);
-      sch = {vehl_orig, vehl_dest};
-      //             0,         5
-      sync_vehl = rsalg.get_all_vehicles().front();
-      REQUIRE(rsalg.assign({}, {cust1.id()}, rte, sch, sync_vehl, true) == false);
-    }
+    // SECTION("A12. cdel in prefix (fail)") {
+    //   /* 1) Assign */
+    //   std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+    //   //                             0,          1,          3,         5
+    //   MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+    //   rsalg.assign({cust1.id()}, {}, rte, sch, sync_vehl, true);
+    //   /* 2) Try to commit a delete */
+    //   int _; cargo.step(_);
+    //   sch = {vehl_orig, vehl_dest};
+    //   //             0,         5
+    //   sync_vehl = rsalg.get_all_vehicles().front();
+    //   REQUIRE(rsalg.assign({}, {cust1.id()}, rte, sch, sync_vehl, true) == false);
+    // }
 
     SECTION("A14. pass existing stop (pass)") {
       /* 1) Assign */
@@ -122,19 +122,19 @@ TEST_CASE("RSAlgorithm::assign()", "") {
       VehiclesSynced(sync_vehl, vehl);
     }
 
-    SECTION("A2. cdel (fail)") {
-      /* 1) Assign */
-      std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
-      //                             0,          1,          3,         5
-      MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
-      rsalg.assign({cust1.id()}, {}, rte, sch, sync_vehl, true);
-      /* 2) Try to commit a delete */
-      int _; cargo.step(_);
-      sch = {vehl_orig, cust4_orig, cust4_dest, vehl_dest};
-      //             0,          7,         9,          5
-      sync_vehl = rsalg.get_all_vehicles().front();
-      REQUIRE(rsalg.assign({cust4.id()}, {cust1.id()}, rerte, sch, sync_vehl) == false);
-    }
+    // SECTION("A2. cdel (fail)") {
+    //   /* 1) Assign */
+    //   std::vector<Stop> sch {vehl_orig, cust1_orig, cust1_dest, vehl_dest};
+    //   //                             0,          1,          3,         5
+    //   MutableVehicle sync_vehl(rsalg.get_all_vehicles().front());
+    //   rsalg.assign({cust1.id()}, {}, rte, sch, sync_vehl, true);
+    //   /* 2) Try to commit a delete */
+    //   int _; cargo.step(_);
+    //   sch = {vehl_orig, cust4_orig, cust4_dest, vehl_dest};
+    //   //             0,          7,         9,          5
+    //   sync_vehl = rsalg.get_all_vehicles().front();
+    //   REQUIRE(rsalg.assign({cust4.id()}, {cust1.id()}, rerte, sch, sync_vehl) == false);
+    // }
 
     SECTION("A3. pass existing (pass)") {
       /* 1) Assign */

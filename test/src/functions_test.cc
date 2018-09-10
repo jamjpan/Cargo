@@ -22,11 +22,11 @@ TEST_CASE("functions", "[functions]") {
     REQUIRE(randcust(sch2) == 2);
   }
 
-  SECTION("remove_cust") {
-    std::vector<Stop> sch {a1, b1, b2, a2};
-    remove_cust(sch, 2);
-    std::vector<Stop> new_sch {a1, a2};
-    REQUIRE(sch == new_sch);
-  }
+  SECTION("pickup_range") { /* TODO */ }
+  SECTION("route_through") { /* TODO */ }
+  SECTION("chkpc") { /* TODO */ }
+  SECTION("chktw") { /* TODO */ }
+  SECTION("sop_insert") { /* TODO */ }
+  SECTION("sop_replace") { /* TODO */ }
 }
 

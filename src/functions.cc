@@ -36,6 +36,7 @@
 
 namespace cargo {
 
+/* Print ---------------------------------------------------------------------*/
 void print_rte(const std::vector<Wayp>& rte) {
   for (const auto& wp : rte)
     std::cout << " (" << wp.first << "|" << wp.second << ")";
@@ -50,19 +51,29 @@ void print_sch(const std::vector<Stop>& sch) {
 }
 
 
-DistInt pickup_range(const Customer      & cust,
-                     const SimlTime      & now) {
+/* Random customer -----------------------------------------------------------*/
+CustId randcust(const std::vector<Stop>& sch) {
+  std::vector<Stop> s = sch; // make a copy
+  std::random_shuffle(s.begin(), s.end());  // randomize the order
+  for (auto i = s.begin(); i != s.end()-1; ++i)
+    if (i->type() != StopType::VehlOrig && i->type() != StopType::VehlDest)
+      for (auto j = i+1; j != s.end(); ++j)
+        if (j->owner() == i->owner())
+            return i->owner();
+  return -1;
+}
+
+
+/* Pickup range --------------------------------------------------------------*/
+DistInt pickup_range(const Customer& cust, const SimlTime& now) {
   DistInt dist = Cargo::basecost(cust.id());
   return (cust.late()-(dist/Cargo::vspeed())-now)*Cargo::vspeed();
 }
 
-// Complexity: O(|schedule|*|route|)
-//   - for loop body executes n-1 times, for n stops
-//   - std::copy is exactly |route| operations
-//   - assume find_path, shortest_path_dist are O(1) with gtree
-DistInt route_through(const std::vector<Stop> & sch,
-                            std::vector<Wayp> & rteout,
-                            GTree::G_Tree     & gtree) {
+
+/* Route operations ----------------------------------------------------------*/
+DistInt route_through(const std::vector<Stop>& sch, std::vector<Wayp>& rteout,
+                      GTree::G_Tree& gtree) {
   DistInt cst = 0;
   rteout.clear();
   rteout.push_back({0, sch.front().loc()});
@@ -218,17 +229,8 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
   return true;
 }
 
-CustId randcust(const std::vector<Stop>& sch) {
-  std::vector<Stop> s = sch; // make a copy
-  std::random_shuffle(s.begin(), s.end());  // randomize the order
-  for (auto i = s.begin(); i != s.end()-1; ++i)
-    if (i->type() != StopType::VehlOrig && i->type() != StopType::VehlDest)
-      for (auto j = i+1; j != s.end(); ++j)
-        if (j->owner() == i->owner())
-            return i->owner();
-  return -1;
-}
 
+/* Schedule operations -------------------------------------------------------*/
 void opdel(std::vector<Stop>& sch, const CustId& cust_id) {
   std::vector<Stop> new_sch {};
   for (const Stop& a : sch)
@@ -239,16 +241,6 @@ void opdel(std::vector<Stop>& sch, const CustId& cust_id) {
     throw;
   }
   sch = new_sch;
-}
-
-void opmove(std::vector<Stop>& src,
-            std::vector<Stop>& dest, const CustId& cust_id) {
-
-}
-
-void opswap(std::vector<Stop>& s1, const CustId& c1,
-            std::vector<Stop>& s2, const CustId& c2) {
-
 }
 
 DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
