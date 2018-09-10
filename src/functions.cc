@@ -51,6 +51,15 @@ void print_sch(const std::vector<Stop>& sch) {
 }
 
 
+/* Prepare sqlite_stmt -------------------------------------------------------*/
+void prepare_stmt(SqliteQuery query, sqlite3_stmt** stmt) {
+  if (sqlite3_prepare_v2(Cargo::db(), query, -1, stmt, NULL) != SQLITE_OK) {
+    std::cout << "Prepare query failed: \n" << query << std::endl;
+    throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
+  }
+}
+
+
 /* Random customer -----------------------------------------------------------*/
 CustId randcust(const std::vector<Stop>& sch) {
   std::vector<Stop> s = sch; // make a copy

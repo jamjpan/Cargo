@@ -84,26 +84,22 @@ Cargo::Cargo(const Options& opt) : print("cargo") {
   print << "Initializing Cargo" << std::endl;
   rng.seed(std::random_device()());  // used for random_node
   this->initialize(opt);  // loads data into the db
-  /* Statements are described in dbsql.h */
-  if (sqlite3_prepare_v2(db_, sql::tim_stmt, -1, &tim_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sar_stmt, -1, &sar_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::ssv_stmt, -1, &ssv_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::ucs_stmt, -1, &ucs_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::dav_stmt, -1, &dav_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::pup_stmt, -1, &pup_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::drp_stmt, -1, &drp_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::vis_stmt, -1, &vis_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::lvn_stmt, -1, &lvn_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::stc_stmt, -1, &stc_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::nnd_stmt, -1, &nnd_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::mov_stmt, -1, &mov_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(db_, sql::usc_stmt, -1, &usc_stmt, NULL) != SQLITE_OK) {
-    print(MessageType::Error) << "Failed (create stmts). Reason:\n";
-    throw std::runtime_error(sqlite3_errmsg(db_));
-  }
+  prepare_stmt(sql::tim_stmt, &tim_stmt);
+  prepare_stmt(sql::sac_stmt, &sac_stmt);
+  prepare_stmt(sql::sar_stmt, &sar_stmt);
+  prepare_stmt(sql::ssv_stmt, &ssv_stmt);
+  prepare_stmt(sql::ucs_stmt, &ucs_stmt);
+  prepare_stmt(sql::uro_stmt, &uro_stmt);
+  prepare_stmt(sql::sch_stmt, &sch_stmt);
+  prepare_stmt(sql::dav_stmt, &dav_stmt);
+  prepare_stmt(sql::pup_stmt, &pup_stmt);
+  prepare_stmt(sql::drp_stmt, &drp_stmt);
+  prepare_stmt(sql::vis_stmt, &vis_stmt);
+  prepare_stmt(sql::lvn_stmt, &lvn_stmt);
+  prepare_stmt(sql::stc_stmt, &stc_stmt);
+  prepare_stmt(sql::nnd_stmt, &nnd_stmt);
+  prepare_stmt(sql::mov_stmt, &mov_stmt);
+  prepare_stmt(sql::usc_stmt, &usc_stmt);
   print(MessageType::Success) << "Cargo initialized!" << std::endl;
 }
 

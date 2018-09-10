@@ -25,15 +25,21 @@
 
 #include "cargo.h"
 #include "classes.h"
+#include "dbsql.h"
 #include "types.h"
 
 #include "../gtree/gtree.h"
+#include "../sqlite3/sqlite3.h"
 
 namespace cargo {
 
 /* Print ---------------------------------------------------------------------*/
 void print_rte(const std::vector<Wayp> &);
 void print_sch(const std::vector<Stop> &);
+
+
+/* Prepare sqlite_stmt -------------------------------------------------------*/
+void prepare_stmt(SqliteQuery, sqlite3_stmt**);
 
 
 /* Random customer -----------------------------------------------------------*/

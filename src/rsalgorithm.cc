@@ -50,23 +50,19 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   delay_ = {};
   retry_ = 15;
   timeout_ = 1;
-  /* Statements are described in dbsql.h */
-  if (sqlite3_prepare_v2(Cargo::db(), sql::ssr_stmt, -1, &ssr_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sss_stmt, -1, &sss_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::uro_stmt, -1, &uro_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sch_stmt, -1, &sch_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::qud_stmt, -1, &qud_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::com_stmt, -1, &com_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::smv_stmt, -1, &smv_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sac_stmt, -1, &sac_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sav_stmt, -1, &sav_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::svs_stmt, -1, &svs_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::swc_stmt, -1, &swc_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sov_stmt, -1, &sov_stmt, NULL) != SQLITE_OK ||
-      sqlite3_prepare_v2(Cargo::db(), sql::sva_stmt, -1, &sva_stmt, NULL) != SQLITE_OK) {
-    print(MessageType::Error) << "Failed (create rsalg stmts). Reason:\n";
-    throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  }
+  prepare_stmt(sql::ssr_stmt, &ssr_stmt);
+  prepare_stmt(sql::sss_stmt, &sss_stmt);
+  prepare_stmt(sql::uro_stmt, &uro_stmt);
+  prepare_stmt(sql::sch_stmt, &sch_stmt);
+  prepare_stmt(sql::qud_stmt, &qud_stmt);
+  prepare_stmt(sql::com_stmt, &com_stmt);
+  prepare_stmt(sql::smv_stmt, &smv_stmt);
+  prepare_stmt(sql::sac_stmt, &sac_stmt);
+  prepare_stmt(sql::sav_stmt, &sav_stmt);
+  prepare_stmt(sql::svs_stmt, &svs_stmt);
+  prepare_stmt(sql::swc_stmt, &swc_stmt);
+  prepare_stmt(sql::sov_stmt, &sov_stmt);
+  prepare_stmt(sql::sva_stmt, &sva_stmt);
 }
 
 /* Destructor: finalize every stmt */
