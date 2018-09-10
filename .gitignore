@@ -20,6 +20,7 @@ temp.html
 private/
 build/
 lib/
+data/benchmark/temp
 tool/gtreebuilder/gtreebuilder
 tool/rspgen/rspgen
 tool/rspgen/script.sh
