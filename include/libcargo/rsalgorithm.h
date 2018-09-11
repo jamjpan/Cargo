@@ -37,14 +37,6 @@ namespace cargo {
 typedef std::chrono::duration<double, std::milli> dur_milli;
 typedef std::chrono::milliseconds milli;
 
-// The class for ridesharing algorithms. Users can implement the
-// handle_customer(), handle_vehicle(), match(), end(), and listen() methods.
-//
-// Only listen() has a default behavior. The behavior is to select all active
-// vehicles into vehicles_ (retrievable with vehicles()), select all waiting
-// customers into waiting_customers_ (retrievable with waiting_customers()),
-// then sleep for batch_time_ (settable with batch_time()). The method is
-// called continuously inside Cargo::start().
 class RSAlgorithm {
  public:
   RSAlgorithm(const std::string& name = "noname", bool fifo = false);
