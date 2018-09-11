@@ -109,11 +109,13 @@ class RSAlgorithm {
   int nmat_;  // number matched
   int nrej_;  // number rejectd
   float avg_cust_ht_;  // avg cust handling time
+
   /* If a customer doesn't get matched right away, put it here */
   std::unordered_map<CustId, SimlTime> delay_;
+
   int retry_;  // try again after RETRY secs
   int timeout_; // timeout long-running executions (millisecs)
-//   bool offline_; // if in off line mode, timeout() always return false
+  tick_t batch_0, batch_1;
 
  private:
   std::string name_;

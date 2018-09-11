@@ -619,6 +619,8 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   if (Cargo::static_mode)
     Cargo::ofmx.unlock();
 
+  this->timeout_ = std::ceil((float)batch_time_/ncusts*(1000.0));
+
   // Don't sleep if time exceeds batch time
   int dur = std::round(dur_milli(batch_1-batch_0).count());
   bool within_batch_time = (dur <= this->batch_time_ * 1000);
