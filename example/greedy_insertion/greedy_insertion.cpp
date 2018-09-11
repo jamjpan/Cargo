@@ -28,170 +28,108 @@
 
 using namespace cargo;
 
-const int BATCH     = 30;  // seconds
-const int RANGE     = 2000; // meters
+const int BATCH = 1;
+const int RANGE = 2000;
 
-std::vector<int> avg_dur {};
-
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
-
-/* Define ordering of rank_cands */
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right); };
 
-GreedyInsertion::GreedyInsertion() : RSAlgorithm("greedy_insertion", true),
-      grid_(100) {       // (grid.h)
-  batch_time() = BATCH;  // (rsalgorithm.h) set batch to 1 second ("streaming")
-  nmat_  = 0;  // match counter
-  nrej_  = 0;  // number rejected due to out-of-sync
+GreedyInsertion::GreedyInsertion()
+    : RSAlgorithm("greedy_insertion", false), grid_(100) {
+  this->batch_time() = BATCH;
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
-  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
+  this->beg_ht();
+  this->reset_workspace();
+  this->candidates =
+    this->grid_.within(RANGE, cust.orig());
 
-  // Start timing -------------------------------
-  t0 = std::chrono::high_resolution_clock::now();
-  auto start = t0;
-
-  /* Skip customers already assigned (but not yet picked up) */
-  if (cust.assigned())
-    return;
-  /* Skip customers under delay */
-  if (delay(cust.id()))
-    return;
-
-  int ncust = 1;
-
-  /* Containers for storing outputs */
-  DistInt cst = InfInt;
-  std::vector<Stop> sch, best_sch;
-  std::vector<Wayp> rte, best_rte;
-
-  /* The grid stores MutableVehicles. During one simulation step, a vehicle
-   * may be matched, altering its schedule and route, then become a candidate
-   * for another customer in the same step. During a match, the database
-   * copy of the vehicle is updated. The local copy in the grid also needs to
-   * be updated. Hence the grid returns pointers to vehicles to give access to
-   * the local vehicles. */
-  std::shared_ptr<MutableVehicle> best_vehl = nullptr;
-  bool matched = false;
-
-  /* Increment number-of-custs counter */
-  ncust_++;
-
-  /* Get candidates from the local grid index */
-  DistInt rng = /* pickup_range(cust, Cargo::now()); */ RANGE;
-  auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
-
-  /* Container to rank candidates by least cost */
-  std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)> q(cmp);
-
-  /* Loop through and rank each candidate
-   * (Timeout) */
-  for (const auto& cand : candidates) {
-    /* Increment number-of-candidates counter */
-    ncand_++;
-    cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-    rank_cand rc {cst, cand, sch, rte};
-    q.push(rc);
-    if (timeout(start))
+  /* Rank candidates (timeout) */
+  std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
+    my_q(cmp);
+  for (const MutableVehicleSptr& cand : this->candidates) {
+    if (cand->queued() < cand->capacity()) {
+      DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+      rank_cand rc {cst, cand, sch, rte};
+      my_q.push(rc);
+    }
+    if (this->timeout(this->timeout_0))
       break;
   }
 
-  /* Loop through candidates and check which is the greedy match */
-  while (!q.empty() && !matched) {
-    /* Get and unpack the best candidate */
-    auto cand = q.top(); q.pop();
-    best_vehl = std::get<1>(cand);
-    best_sch  = std::get<2>(cand);
-    best_rte  = std::get<3>(cand);
-
-    /* If best vehicle is within constraints... */
-    bool within_time = chktw(best_sch, best_rte);
-    bool within_cap = (best_vehl->queued() < best_vehl->capacity());
-    if (within_time && within_cap) {
-      /* ... accept the match */
+  /* Accept greedy valid */
+  while (!my_q.empty() && !matched) {
+    rank_cand rc = my_q.top();
+    my_q.pop();
+    best_vehl = std::get<1>(rc);
+    best_sch = std::get<2>(rc);
+    best_rte = std::get<3>(rc);
+    if (chktw(best_sch, best_rte))
       matched = true;
-    }
   }
 
-  /* Commit match to the db */
+  /* Attempt commit to db */
   if (matched) {
-    /* Function assign(3) will synchronize the vehicle (param3) before
-     * committing it the database. Synchronize is necessary due to "match
-     * latency". The vehicle may have moved since the match began computing,
-     * hence the version of the vehicle used in the match computation is stale.
-     * Synchronization trims the traveled part of the vehicle's route and the
-     * visited stops that occurred during the latency, and will also re-route
-     * the vehicle if it's missed an intersection that the match instructs it
-     * to make. */
-    if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
-      print(MessageType::Success)
-        << "Match " << "(cust" << cust.id() << ", veh" << best_vehl->id() << ")"
-        << std::endl;
-      nmat_++;  // increment matched counter
-      end_delay(cust.id());  // (rsalgorithm.h)
-    } else
-      nrej_++;  // increment rejected counter
-  } else
-    beg_delay(cust.id());
-  t1 = std::chrono::high_resolution_clock::now();
-  // Stop timing --------------------------------
-  if (ncust > 0)
-    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+    if (this->assign(
+      {cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
+      this->end_delay(cust.id());
+    } else {
+      this->nrej_++;
+      this->beg_delay(cust.id());
+    }
+  }
+  if (!matched)
+    this->beg_delay(cust.id());
+
+  this->end_ht();
 }
 
 void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
-  /* Insert each vehicle into the grid */
-  grid_.insert(vehl);
+  this->grid_.insert(vehl);
 }
 
 void GreedyInsertion::end() {
-  /* Print the statistics */
-  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
-  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
-  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
-  this->avg_cust_ht_ = sum_avg/avg_dur.size();
-  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
+  this->print_statistics();
 }
 
-void GreedyInsertion::listen() {
-  /* Clear counters */
-  ncand_ = 0;  // candidates counter
-  ncust_ = 0;  // customers counter
+void GreedyInsertion::listen(bool skip_assigned, bool skip_delayed) {
+  this->grid_.clear();
+  RSAlgorithm::listen(
+    skip_assigned, skip_delayed);
+}
 
-  /* Clear the index, then call base listen */
-  grid_.clear();
-  RSAlgorithm::listen();
+void GreedyInsertion::reset_workspace() {
+  this->sch = this->best_sch = {};
+  this->rte = this->best_rte = {};
+  this->candidates = {};
+  this->matched = false;
+  this->best_vehl = nullptr;
+  this->timeout_0 = hiclock::now();
+}
 
-  /* Report number of candidates per customer */
-  print(MessageType::Info)
-    << "Cand per cust: " << (float)ncand_/ncust_ << std::endl;
+void GreedyInsertion::print_statistics() {
+  print(MessageType::Success)
+    << "Matches: "              << this->nmat_ << '\n'
+    << "Out-of-sync rejected: " << this->nrej_ << '\n'
+    << "Avg-cust-handle: "      << this->avg_cust_ht() << "ms"
+    << std::endl;
 }
 
 int main() {
-  /* Set options */
-  Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  op.path_to_solution = "greedy_insertion.sol";
-  op.path_to_dataout  = "greedy_insertion.dat";
-  op.time_multiplier  = 1;
-  op.vehicle_speed    = 20;
-  op.matching_period  = 60;
-
-  /* Construct Cargo */
-  Cargo cargo(op);
-  Cargo::OFFLINE = true;
-
-  /* Initialize algorithm */
+  Options option;
+  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_solution = "greedy_insertion.sol";
+  option.path_to_dataout  = "greedy_insertion.dat";
+  option.time_multiplier  = 1;
+  option.vehicle_speed    = 20;
+  option.matching_period  = 60;
+  option.static_mode = true;
+  Cargo cargo(option);
   GreedyInsertion gr;
-
-  /* Start the simulation */
   cargo.start(gr);
 
   return 0;

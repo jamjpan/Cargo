@@ -23,8 +23,7 @@
 
 using namespace cargo;
 
-/* Define a "rank_cand" type to hold each candidate plus its cost */
-typedef std::tuple<DistInt, std::shared_ptr<MutableVehicle>,
+typedef std::tuple<DistInt, MutableVehicleSptr,
   std::vector<Stop>, std::vector<Wayp>> rank_cand;
 
 class GreedyInsertion : public RSAlgorithm {
@@ -35,12 +34,20 @@ class GreedyInsertion : public RSAlgorithm {
   virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
   virtual void end();
-  virtual void listen();
+  virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
-  /* My variables */
   Grid grid_;
-  int ncand_;
-  int ncust_;
+
+  /* Workspace variables */
+  std::vector<Stop> sch, best_sch;
+  std::vector<Wayp> rte, best_rte;
+  MutableVehicleSptr best_vehl;
+  std::vector<MutableVehicleSptr> candidates;
+  bool matched;
+  tick_t timeout_0;
+
+  void reset_workspace();
+  void print_statistics();
 };
 
