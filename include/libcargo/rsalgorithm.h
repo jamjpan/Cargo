@@ -65,7 +65,6 @@ class RSAlgorithm {
   const int         & matches()     const;  // # matches
   const int         & rejected()    const;  // # rejected due to out of sync
         int         & batch_time();         // set to 1 for streaming
-      //   bool        & offline();
         void          kill();               // sets done_ to true
         float         avg_cust_ht();        // avg. cust handling time
 
