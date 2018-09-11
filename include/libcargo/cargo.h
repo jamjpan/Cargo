@@ -103,7 +103,7 @@ class Cargo {
   static std::mutex dbmx;  // protect the db
   static std::mutex spmx;  // protect the shortest-paths cache
   static std::mutex ofmx;  // offline mutex
-  static bool OFFLINE; // offline mode
+  static bool static_mode; // static mode
 
  private:
   Message print;

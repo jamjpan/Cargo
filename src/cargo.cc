@@ -72,7 +72,7 @@ SimlTime Cargo::t_ = 0;
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
 std::mutex Cargo::ofmx;
-bool Cargo::OFFLINE = false;
+bool Cargo::static_mode = false;
 
 /* Shortest-paths cache: hash is stringified orig/dest pair */
 cache::lru_cache<std::string, std::vector<NodeId>>
@@ -608,7 +608,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
     t0 = std::chrono::high_resolution_clock::now();
-    if (OFFLINE)
+    if (static_mode)
       ofmx.lock();
 
     /* Log timed-out customers */
@@ -652,7 +652,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
     else
       std::this_thread::sleep_for(milli(sleep_interval_ - dur));
 
-    if (OFFLINE) {
+    if (static_mode) {
       ofmx.unlock();
       std::this_thread::sleep_for(milli(10));
     }
@@ -921,6 +921,8 @@ void Cargo::initialize(const Options& opt) {
 
   // Minimum sim time equals time of last trip appearing, plus matching pd.
   tmin_ += matp_;
+
+  static_mode = opt.static_mode;
 
   sqlite3_finalize(insert_vehicle_stmt);
   sqlite3_finalize(insert_customer_stmt);
