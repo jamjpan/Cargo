@@ -48,7 +48,7 @@ Grid::Grid(const Grid &grid) {
     this->data_[i].resize(grid.data_.at(i).size());
     for (size_t j = 0; j < grid.data_.at(i).size(); ++j) {
       MutableVehicle mutvehl_copy = *(grid.data_.at(i).at(j));
-      auto sptr_copy = std::make_shared<MutableVehicleSptr(mutvehl_copy);
+      auto sptr_copy = std::make_shared<MutableVehicle>(mutvehl_copy);
       this->data_.at(i)[j] = sptr_copy;
     }
   }
@@ -62,7 +62,7 @@ void Grid::insert(const Vehicle& vehl) {
 void Grid::insert(const MutableVehicle& mutvehl) {
   // Create a new MutableVehicle as a copy of mutvehl
   // Create and store a shared_ptr to the copy
-  auto sptr = std::make_shared<MutableVehicleSptr(mutvehl);
+  auto sptr = std::make_shared<MutableVehicle>(mutvehl);
   data_.at(hash(Cargo::node2pt(mutvehl.last_visited_node()))).push_back(sptr);
 }
 
@@ -90,8 +90,9 @@ std::vector<MutableVehicleSptr>& Grid::within(const DistDbl& d,
     for (int i = std::max(0, base_x - offset_x);
          i <= std::min(base_x + offset_x, n_ - 1); ++i) {
       int k = i + j * n_;
-      for (const auto& sptr : data_.at(k))
+      for (const auto& sptr : data_.at(k)) {
         res_.push_back(sptr);
+      }
     }
   return res_;
 }
