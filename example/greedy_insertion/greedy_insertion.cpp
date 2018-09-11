@@ -108,14 +108,6 @@ void GreedyInsertion::reset_workspace() {
   this->timeout_0 = hiclock::now();
 }
 
-void GreedyInsertion::print_statistics() {
-  print(MessageType::Success)
-    << "Matches: "              << this->nmat_ << '\n'
-    << "Out-of-sync rejected: " << this->nrej_ << '\n'
-    << "Avg-cust-handle: "      << this->avg_cust_ht() << "ms"
-    << std::endl;
-}
-
 int main() {
   Options option;
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
