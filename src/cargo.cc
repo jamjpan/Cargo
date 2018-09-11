@@ -145,7 +145,6 @@ Cargo::~Cargo() {
   print << "Database closed." << std::endl;
 }
 
-/* Get problem instance properties */
 const std::string & Cargo::name()         { return probset_.name(); }
 const std::string & Cargo::road_network() { return probset_.road_network(); }
 
