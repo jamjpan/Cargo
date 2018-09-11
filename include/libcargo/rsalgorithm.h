@@ -47,8 +47,6 @@ typedef std::chrono::milliseconds milli;
 // called continuously inside Cargo::start().
 class RSAlgorithm {
  public:
-  // Pass along a name string to RSAlgorithm
-  // Set fifo if want RSAlgorithm messages in a separate stream (not stdout)
   RSAlgorithm(const std::string& name = "noname", bool fifo = false);
   ~RSAlgorithm();
 
@@ -65,8 +63,8 @@ class RSAlgorithm {
   const int         & matches()     const;  // # matches
   const int         & rejected()    const;  // # rejected due to out of sync
         int         & batch_time();         // set to 1 for streaming
-        void          kill();               // sets done_ to true
-        float         avg_cust_ht();        // avg. cust handling time
+        void          kill();               // set done_ to true
+        float         avg_cust_ht();        // return avg. cust handling time
 
   // Populates customers_ and vehicles_
   void select_matchable_vehicles();
@@ -80,11 +78,6 @@ class RSAlgorithm {
   std::vector<Customer> get_all_customers();
   std::vector<Vehicle> get_all_vehicles();
 
-  /* Function assign(...) will try to add customers (param1) into vehicle (param5)
-   * using the route and schedule (params3,4). If the route cannot be synchronized,
-   * then the function will attempt to compute a new route using the vehicle's
-   * current position going through the schedule (param4). If this new route
-   * meets constraints, then the assignment is accepted. */
   bool assign(const std::vector<CustId>&,  // custs to add
               const std::vector<CustId>&,  // custs to del
               const std::vector<Wayp>  &,  // new route
@@ -95,6 +88,9 @@ class RSAlgorithm {
   /* Return true if customer delay is less than RETRY_ */
   bool delay(const CustId &);
 
+  /* Timeout long-running executions */
+  bool timeout(tick_t &);
+
   /* Begin/end delaying a customer */
   void beg_delay(const CustId &);
   void end_delay(const CustId &);
@@ -102,9 +98,6 @@ class RSAlgorithm {
   /* Begin/end measuring handling time */
   void beg_ht();
   void end_ht();
-
-  /* Timeout long-running executions (pass a start clock) */
-  bool timeout(std::chrono::time_point<std::chrono::high_resolution_clock> &);
 
   Message print;
 
@@ -119,13 +112,15 @@ class RSAlgorithm {
 
   int retry_;  // try again after RETRY secs
   int timeout_; // timeout long-running executions (millisecs)
-  tick_t batch_0, batch_1;
-  tick_t ht_0, ht_1;
+  tick_t batch_0;
+  tick_t batch_1;
+  tick_t ht_0;
+  tick_t ht_1;
 
  private:
   std::string name_;
   bool done_;
-  int batch_time_;  // seconds
+  int batch_time_;
 
   std::vector<Customer> customers_;
   std::vector<Vehicle>  vehicles_;
