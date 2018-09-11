@@ -48,7 +48,7 @@ Grid::Grid(const Grid &grid) {
     this->data_[i].resize(grid.data_.at(i).size());
     for (size_t j = 0; j < grid.data_.at(i).size(); ++j) {
       MutableVehicle mutvehl_copy = *(grid.data_.at(i).at(j));
-      auto sptr_copy = std::make_shared<MutableVehicle>(mutvehl_copy);
+      auto sptr_copy = std::make_shared<MutableVehicleSptr(mutvehl_copy);
       this->data_.at(i)[j] = sptr_copy;
     }
   }
@@ -62,11 +62,11 @@ void Grid::insert(const Vehicle& vehl) {
 void Grid::insert(const MutableVehicle& mutvehl) {
   // Create a new MutableVehicle as a copy of mutvehl
   // Create and store a shared_ptr to the copy
-  auto sptr = std::make_shared<MutableVehicle>(mutvehl);
+  auto sptr = std::make_shared<MutableVehicleSptr(mutvehl);
   data_.at(hash(Cargo::node2pt(mutvehl.last_visited_node()))).push_back(sptr);
 }
 
-std::shared_ptr<MutableVehicle> Grid::select(const VehlId &vehl_id) {
+MutableVehicleSptr Grid::select(const VehlId &vehl_id) {
   for (const auto &cell : data_)
     for (const auto &sptr : cell)
       if (sptr->id() == vehl_id)
@@ -76,8 +76,8 @@ std::shared_ptr<MutableVehicle> Grid::select(const VehlId &vehl_id) {
 
 // Populate res with pointers to the underlying MutableVehicles we are
 // interested in, and return a reference to the vector.
-std::vector<std::shared_ptr<MutableVehicle>>& Grid::within(
-    const DistDbl& d, const NodeId& node) {
+std::vector<MutableVehicleSptr>& Grid::within(const DistDbl& d,
+                                              const NodeId& node) {
   res_.clear();
   int offset_x =
       std::ceil(metersTolngdegs(d, Cargo::node2pt(node).lat) / x_dim_);
@@ -90,12 +90,13 @@ std::vector<std::shared_ptr<MutableVehicle>>& Grid::within(
     for (int i = std::max(0, base_x - offset_x);
          i <= std::min(base_x + offset_x, n_ - 1); ++i) {
       int k = i + j * n_;
-      for (const auto& sptr : data_.at(k)) res_.push_back(sptr);
+      for (const auto& sptr : data_.at(k))
+        res_.push_back(sptr);
     }
   return res_;
 }
 
-std::vector<std::shared_ptr<MutableVehicle>>& Grid::all() {
+std::vector<MutableVehicleSptr>& Grid::all() {
   res_.clear();
   for (auto& i : data_)
     for (auto& j : i)
@@ -104,7 +105,7 @@ std::vector<std::shared_ptr<MutableVehicle>>& Grid::all() {
 }
 
 void Grid::commit(
-        std::shared_ptr<MutableVehicle> & mutvehl,
+        MutableVehicleSptr & mutvehl,
         const std::vector<Wayp>         & new_rte,
         const std::vector<Stop>         & new_sch,
         const DistInt                   & new_nnd) {

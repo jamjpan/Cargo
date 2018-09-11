@@ -43,18 +43,17 @@ class Grid {
 
   void insert(const Vehicle &);
   void insert(const MutableVehicle &);
-  std::shared_ptr<MutableVehicle> select(const VehlId &);
+  MutableVehicleSptr select(const VehlId &);
 
   /* Return candidates within about DistDbl. It's "about", not "exact", because
    * returns all candidates in grid cells covered by DistDbl */
-  std::vector<std::shared_ptr<MutableVehicle>> &within(const DistDbl &,
-                                                       const NodeId &);
+  std::vector<MutableVehicleSptr>& within(const DistDbl &, const NodeId &);
 
   /* Return all vehicles */
-  std::vector<std::shared_ptr<MutableVehicle>>& all();
+  std::vector<MutableVehicleSptr>& all();
 
   /* Commit changes to a vehicle back to the grid */
-  void commit(std::shared_ptr<MutableVehicle> &, const std::vector<Wayp> &,
+  void commit(MutableVehicleSptr &, const std::vector<Wayp> &,
               const std::vector<Stop> &, const DistInt &);
 
   void clear();
@@ -63,8 +62,8 @@ class Grid {
   double x_dim_;
   double y_dim_;
   int n_;
-  std::vector<std::vector<std::shared_ptr<MutableVehicle>>> data_;
-  std::vector<std::shared_ptr<MutableVehicle>>
+  std::vector<std::vector<MutableVehicleSptr>> data_;
+  std::vector<MutableVehicleSptr>
       res_;  // store results of within_about here
 
   int hash(const Point &);
