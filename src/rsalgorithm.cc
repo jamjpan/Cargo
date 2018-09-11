@@ -624,7 +624,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   bool within_batch_time = (dur <= batch_time_ * 1000);
   if (!within_batch_time && !Cargo::static_mode) {
     print(MessageType::Warning)
-        << "listen() ("           << dur                << " ms) "
+        << "listen() (" << dur << " ms) "
         << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
         << vehicles_.size() << " vehls and " << ncusts << " custs"
         << std::endl;
