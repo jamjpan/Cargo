@@ -67,11 +67,11 @@ class RSAlgorithm {
 
   /* Commit to db */
   bool assign(
-    const std::vector<CustId>&,             // custs to add
-    const std::vector<CustId>&,             // custs to del
-    const std::vector<Wayp>  &,             // new route
-    const std::vector<Stop>  &,             // new schedule
-          MutableVehicle&,                  // vehicle to assign to
+    const std::vector<CustId> &,            // custs to add
+    const std::vector<CustId> &,            // custs to del
+    const std::vector<Wayp>   &,            // new route
+    const std::vector<Stop>   &,            // new schedule
+          MutableVehicle &,                 // vehicle to assign to
           bool strict = false);             // set if do not want re-routing
 
   void beg_delay(const CustId &);           // begin delaying a customer
@@ -81,6 +81,8 @@ class RSAlgorithm {
   void end_ht();                            // end measure handling time
 
   Message print;                            // print stream
+
+  void print_statistics();                  // print statistics
 
  protected:
   int nmat_;                                // number matched

@@ -225,7 +225,8 @@ bool RSAlgorithm::assign(
   vehl.set_sch(out_sch);
   vehl.reset_lvn();
   vehl.incr_queued();
-  nmat_++;
+  for (size_t i = 0; i < cadd.size() - cdel.size(); ++i)
+    nmat_++;
 
   /* Commit the synchronized route */
   sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(out_rte.data()),
@@ -320,6 +321,14 @@ bool RSAlgorithm::timeout(tick_t& start) {
   auto end = hiclock::now();
   int dur = std::round(dur_milli(end-start).count());
   return (dur >= timeout_ || this->done()) ? true : false;
+}
+
+void RSAlgorithm::print_statistics() {
+  print(MessageType::Success)
+    << "Matches: "              << this->nmat_ << '\n'
+    << "Out-of-sync rejected: " << this->nrej_ << '\n'
+    << "Avg-cust-handle: "      << this->avg_cust_ht() << "ms"
+    << std::endl;
 }
 
 RSAlgorithm::SyncResult
