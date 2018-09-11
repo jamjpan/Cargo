@@ -17,154 +17,126 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <chrono>
-#include <iostream> /* std::endl */
+#include <iostream>
+#include <queue>
 #include <vector>
 
-#include "nearest_neighbor.h"
 #include "libcargo.h"
+#include "nearest_neighbor.h"
 
 using namespace cargo;
 
-const int BATCH = 1;  // seconds
-const int RANGE = 1500; // meters
-const int K_NN  = 10; // how many nearest candidates to evaluate before give up
+const int BATCH = 1;            // batch time, seconds
+const int RANGE = 2000;         // meters
 
-std::vector<int> avg_dur {};
-
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
+auto cmp = [](rank_cand left, rank_cand right) {
+  return std::get<0>(left) > std::get<0>(right); };
 
 NearestNeighbor::NearestNeighbor()
-    : RSAlgorithm("nearest_neighbor", true),
-      grid_(100)  /* <-- Initialize my 100x100 grid (see grid.h) */ {
-  batch_time() = BATCH;
-  nmat_ = 0;
+    : RSAlgorithm("nearest_neighbor"), grid_(100) {
+  this->batch_time() = BATCH;
+  this->nmat_ = 0;
 }
 
-void NearestNeighbor::handle_customer(const cargo::Customer& cust) {
-  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
+void NearestNeighbor::handle_customer(const Customer& cust) {
+  this->beg_ht();               // begin timing
+  this->reset_workspace();      // reset workspace variables
+  this->candidates =            // collect candidates
+    this->grid_.within(RANGE, cust.orig());
 
-  // Start timing -------------------------------
-  t0 = std::chrono::high_resolution_clock::now();
-  auto start = t0;
-
-  /* Skip customers already assigned (but not yet picked up) */
-  if (cust.assigned())
-    return;
-  /* Skip customers under delay */
-  if (delay(cust.id()))
-    return;
-
-  int ncust = 1;
-
-  /* Containers for storing outputs */
-  std::vector<cargo::Stop> sch, best_sch;
-  std::vector<cargo::Wayp> rte, best_rte;
-
-  /* best_vehl will point to an underlying MutableVehicle in our grid */
-  std::shared_ptr<cargo::MutableVehicle> best_vehl;
-  bool matched = false;
-
-  /* Get candidates from the local grid index
-   * (the grid is refreshed during listen()) */
-  DistInt rng = /* cargo::pickup_range(cust, cargo::Cargo::now()); */ RANGE;
-  auto candidates = grid_.within_about(rng, cust.orig());
-
-  /* Find K_NN nearest candidates
-   * Complexity: O(K_NN*|vehicles|)
-   * (Timeout the K_NN loop) */
-  std::vector<DistDbl> best_euc(K_NN, InfDbl);
-  std::vector<std::shared_ptr<MutableVehicle>> nnv(K_NN, nullptr);
-  for (int i = 0; i < K_NN; ++i) {  // O(K_NN)
-    for (const auto& cand : candidates) {  // O(|vehicles|)
-      DistDbl dist = haversine(cand->last_visited_node(), cust.orig()); // <-- libcargo/distance.h
-      bool min_dist = (dist < best_euc[i]);
-      if (i > 0) min_dist = (min_dist && (dist > best_euc[i-1]));
-      if (min_dist) {
-        best_euc[i] = dist;
-        nnv[i] = cand;
-      }
+  /* Rank candidates (timeout) */
+  std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
+    my_q(cmp);                  // rank by nearest
+  for (const MutableVehicleSptr& cand : this->candidates) {
+    if (cand->queued() < cand->capacity()) {
+      rank_cand rc = {
+        haversine(cand->last_visited_node(), cust.orig()),
+        cand
+      };
+      my_q.push(rc);            // O(log(|my_q|))
     }
-    if (timeout(start))
+    if(this->timeout(this->timeout_0))
       break;
   }
 
-  /* Loop through candidates in order of nearest first
-   * (Timeout) */
-  for (const auto& cand : nnv) {
-    if (cand == nullptr) break;  // no more candidates
-    if (cand->queued() == cand->capacity())
-      continue;  // don't consider vehs already queued to capacity
-    cargo::sop_insert(cand, cust, sch, rte);  // <-- functions.h
-    if (cargo::chktw(sch, rte)) {
-      best_sch = sch;
-      best_rte = rte;
-      best_vehl = cand;  // copy the pointer
-      matched = true;
-      break;
-    }
-    if (timeout(start))
+  /* Accept nearest valid (timeout) */
+  while (!my_q.empty() && !matched) {
+    rank_cand rc = my_q.top();  // access order by nearest
+    my_q.pop();                 // remove from queue
+    best_vehl = std::get<1>(rc);
+    sop_insert(best_vehl, cust, sch, rte);
+    if (chktw(sch,rte))         // check time window
+      matched = true;           // accept
+    if(this->timeout(this->timeout_0))
       break;
   }
 
-  /* Commit match to the db. Also refresh our local grid index, so data is
-   * fresh for other handle_customers that occur before the next listen(). */
+  /* Attempt commit to db */
   if (matched) {
-    if (assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
-      print(MessageType::Success) << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")\n";
-      nmat_++;
-      end_delay(cust.id());  // (rsalgorithm.h)
+    if (this->assign({cust.id()}, {}, rte, sch, *best_vehl)) {
+      print(MessageType::Success)
+        << "Match (cust" << cust.id() << ", veh" << best_vehl->id()
+        << std::endl;
+      this->nmat_++;            // increment # matches
+      this->end_delay(cust.id());
     }
-    else
-      nrej_++;
-  } else
-    beg_delay(cust.id());
-  t1 = std::chrono::high_resolution_clock::now();
-  // Stop timing --------------------------------
-  if (ncust > 0)
-    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+    else {
+      this->nrej_++;            // increment # rejected counter
+      this->beg_delay(cust.id());
+    }
+  }
+  if (!matched)                 // add to delay
+    this->beg_delay(cust.id());
+
+  this->end_ht();               // end timing
 }
 
-void NearestNeighbor::handle_vehicle(const cargo::Vehicle& vehl) {
-  grid_.insert(vehl);  // Insert into my grid
+void NearestNeighbor::handle_vehicle(const Vehicle& vehl) {
+  this->grid_.insert(vehl);
 }
 
 void NearestNeighbor::end() {
-  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;  // Print a msg
-  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
-  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
-  this->avg_cust_ht_ = sum_avg/avg_dur.size();
-  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
+  this->print_statistics();
 }
 
-void NearestNeighbor::listen() {
-  grid_.clear();          // Clear the index...
-  RSAlgorithm::listen();  // ...then call listen()
+void NearestNeighbor::listen(bool skip_assigned, bool skip_delayed) {
+  this->grid_.clear();
+  RSAlgorithm::listen(skip_assigned, skip_delayed);
+}
+
+void NearestNeighbor::reset_workspace() {
+  this->sch = {};
+  this->rte = {};
+  this->candidates = {};
+  this->matched = false;
+  this->best_vehl = nullptr;
+  this->timeout_0 = hiclock::now();
+}
+
+void NearestNeighbor::print_statistics() {
+  print(MessageType::Success)
+    << "Matches: "              << this->nmat_ << '\n'
+    << "Out-of-sync rejected: " << this->nrej_ << '\n'
+    << "Avg-cust-handle: "      << this->avg_cust_ht() << "ms"
+    << std::endl;
 }
 
 int main() {
-  /* Set the options */
-  cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-sm-1.instance";
-  op.path_to_solution = "nearest_neighbor.sol";
-  op.path_to_dataout  = "nearest_neighbor.dat";
-  op.path_to_save = "nearest_neighbor.sqlite3.backup";
-  op.time_multiplier  = 1;
-  op.vehicle_speed    = 20;
-  op.matching_period  = 60;
-
-  cargo::Cargo cargo(op);
-  Cargo::OFFLINE = true;
-
-  /* Initialize a new nn alg */
+  Options option;
+  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_solution = "nearest_neighbor.sol";
+  option.path_to_dataout  = "nearest_neighbor.dat";
+  option.time_multiplier  = 1;
+  option.vehicle_speed    = 20;
+  option.matching_period  = 60;
+  option.static_mode = true;
+  Cargo cargo(option);
   NearestNeighbor nn;
-
-  /* Start Cargo */
   cargo.start(nn);
+
+  return 0;
 }
 

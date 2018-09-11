@@ -19,21 +19,32 @@
 // SOFTWARE.
 #include "libcargo.h"
 
-// Implements the "cheap insertion" scheduling heuristic described in Jaw 1986.
-// For each request, the algorithm looks for the "greedy" vehicle based on the
-// heuristic, and assigns the request to this vehicle if it exists.
-class NearestNeighbor : public cargo::RSAlgorithm {
+using namespace cargo;
+
+typedef std::tuple<DistInt, MutableVehicleSptr> rank_cand;
+
+class NearestNeighbor : public RSAlgorithm {
  public:
   NearestNeighbor();
 
   /* My overrides */
-  virtual void handle_customer(const cargo::Customer &);
-  virtual void handle_vehicle(const cargo::Vehicle &);
+  virtual void handle_customer(const Customer &);
+  virtual void handle_vehicle(const Vehicle &);
   virtual void end();
-  virtual void listen();
+  virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
-  /* My variables */
-  cargo::Grid grid_;
+  Grid grid_;
+
+  /* Workspace variables */
+  std::vector<Stop> sch;
+  std::vector<Wayp> rte;
+  MutableVehicleSptr best_vehl;
+  std::vector<MutableVehicleSptr> candidates;
+  bool matched;
+  tick_t timeout_0;
+
+  void reset_workspace();
+  void print_statistics();
 };
 
