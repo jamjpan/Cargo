@@ -83,54 +83,57 @@ const int         & RSAlgorithm::matches()     const { return nmat_; }
 const int         & RSAlgorithm::rejected()    const { return nrej_; }
       int         & RSAlgorithm::batch_time()        { return batch_time_; }
       void          RSAlgorithm::kill()              { done_ = true; }
-      float         RSAlgorithm::avg_cust_ht()       {
+
+float RSAlgorithm::avg_cust_ht() {
   float sum = 0;
   for (const float& ht : handling_times_)
     sum += ht;
   return sum/(float)handling_times_.size();
 }
 
-std::vector<Customer> & RSAlgorithm::customers()    { return customers_; }
-std::vector<Vehicle>  & RSAlgorithm::vehicles()     { return vehicles_; }
+std::vector<Customer> & RSAlgorithm::customers() { return customers_; }
+std::vector<Vehicle> & RSAlgorithm::vehicles()   { return vehicles_; }
 
 bool RSAlgorithm::assign(
-        const std::vector<CustId> & custs_to_add,
-        const std::vector<CustId> & custs_to_del,
-        const std::vector<Wayp>   & new_rte,
-        const std::vector<Stop>   & new_sch,
-              MutableVehicle      & vehl,
-              bool                strict) {  // default strict=false
+  const std::vector<CustId> & custs_to_add,
+  const std::vector<CustId> & custs_to_del,
+  const std::vector<Wayp>   & new_rte,
+  const std::vector<Stop>   & new_sch,
+        MutableVehicle      & vehl,
+        bool                strict) {
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);
 
-  /* Query current vehicle properties */
+  /* Get current vehicle properties */
   sqlite3_clear_bindings(sov_stmt);
   sqlite3_reset(sov_stmt);
   sqlite3_bind_int(sov_stmt, 1, vehl.id());
   if (sqlite3_step(sov_stmt) != SQLITE_ROW) {
     vehl.print();
-    throw std::runtime_error("select one vehicle stmt returned no rows.");
+    throw std::runtime_error("sov_stmt returned no rows.");
   }
 
-  /* Return false if vehicle is already arrived
-   * (an arrived vehicle cannot be assigned to) */
-  if (static_cast<VehlStatus>(sqlite3_column_int(sov_stmt, 7)) == VehlStatus::Arrived)
+  /* Check status */
+  if (static_cast<VehlStatus>(sqlite3_column_int(sov_stmt, 7))
+          == VehlStatus::Arrived)
     return false;
 
-  /* Extract current schedule */
-  const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(sov_stmt, 11));
-  std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(sov_stmt, 11) / sizeof(Stop));
-  std::vector<Stop> cur_sch = raw_sch;
+  /* Get current schedule */
+  const Stop* schbuf =
+    static_cast<const Stop*>(sqlite3_column_blob(sov_stmt, 11));
+  std::vector<Stop> cur_sch(
+    schbuf, schbuf + sqlite3_column_bytes(sov_stmt, 11) / sizeof(Stop));
 
-  /* Extract current route */
-  const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sov_stmt, 8));
-  std::vector<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(sov_stmt, 8) / sizeof(Wayp));
-  std::vector<Wayp> cur_rte = raw_rte;
+  /* Get current route */
+  const Wayp* rtebuf
+    = static_cast<const Wayp*>(sqlite3_column_blob(sov_stmt, 8));
+  std::vector<Wayp> cur_rte(
+    rtebuf, rtebuf + sqlite3_column_bytes(sov_stmt, 8) / sizeof(Wayp));
   RteIdx  cur_lvn = sqlite3_column_int(sov_stmt, 9);
   DistInt cur_nnd = sqlite3_column_int(sov_stmt, 10);
 
   if (sqlite3_step(sov_stmt) != SQLITE_DONE) {
     vehl.print();
-    throw std::runtime_error("select one vehicle stmt returned multiple rows.");
+    throw std::runtime_error("sov_stmt returned multiple rows.");
   }
 
   /* Attempt synchronization */
@@ -139,52 +142,61 @@ bool RSAlgorithm::assign(
   std::vector<Wayp> out_rte {};  // container for synced route
   std::vector<Stop> out_sch {};  // container for synced schedule
 
-  SyncResult synced = sync(new_rte, cur_rte, cur_lvn, new_sch, cur_sch, cadd, cdel, out_rte, out_sch);
-  if (synced == SUCCESS) DEBUG(3, { print(MessageType::Info) << "sync succeeded." << std::endl; });
+  SyncResult synced = sync(
+    new_rte, cur_rte, cur_lvn, new_sch, cur_sch, cadd, cdel, out_rte, out_sch);
+  if (synced == SUCCESS)
+    DEBUG(3, { print(MessageType::Info) << "sync succeeded." << std::endl; });
   if (synced != SUCCESS) {
-    /* If strict mode is on, don't re-route */
     if (strict) {
-      DEBUG(3, { print(MessageType::Error) << "assign() strict enabled; done." << std::endl; });
+      DEBUG(3, {
+        print(MessageType::Error)
+          << "assign() strict enabled; done." << std::endl; });
       return false;
     }
-
-    /* If sync failed due to customer out of sync (a customer to delete has
-     * already been picked up, don't re-route */
     if (synced == CDEL_SYNC_FAIL) {
-      DEBUG(3, { print(MessageType::Error) << "assign() failed due to cdel-sync." << std::endl; });
+      DEBUG(3, {
+        print(MessageType::Error) << "assign() failed due to cdel-sync."
+        << std::endl; });
       return false;
     }
-
-    /* Re-route the vehicle considering its current location */
-    DEBUG(3, { print(MessageType::Info) << "assign() recomputing..." << std::endl; });
-
+    DEBUG(3, {
+      print(MessageType::Info) << "assign() recomputing..." << std::endl; });
     /* The recomputed route must include the vehicle's current location
      * and the next node in the current route (the vehicle must arrive at
      * its next node; it cannot change direction mid-edge) */
     std::vector<Stop> re_sch;
-    re_sch.push_back(Stop(vehl.id(), cur_rte.at(cur_lvn  ).second, StopType::VehlOrig, vehl.early(), vehl.late()));
-    re_sch.push_back(Stop(vehl.id(), cur_rte.at(cur_lvn+1).second, StopType::VehlOrig, vehl.early(), vehl.late()));
+    re_sch.push_back(Stop(vehl.id(), cur_rte.at(cur_lvn).second,
+                          StopType::VehlOrig, vehl.early(), vehl.late()));
+    re_sch.push_back(Stop(vehl.id(), cur_rte.at(cur_lvn + 1).second,
+                          StopType::VehlOrig, vehl.early(), vehl.late()));
 
     /* Add the original schedule, minus the first stop (old next node) */
     std::copy(new_sch.begin()+1, new_sch.end(), std::back_inserter(re_sch));
 
     /* Synchronize existing stops (remove picked-up stops) */
-    re_sch.erase(std::remove_if(re_sch.begin()+2, re_sch.end()-1, [&](const Stop& a) {
-      /* If stop does not belong to cadd, remove the stop if its not found in cur_sch */
-      if (std::find(cadd.begin(), cadd.end(), a.owner()) == cadd.end()) {
-        if (std::find_if(cur_sch.begin()+1, cur_sch.end()-1, [&](const Stop& b) {
-          return a.owner() == b.owner() && a.loc() == b.loc(); }) == cur_sch.end()-1) {
-          return true;
+    re_sch.erase(
+      std::remove_if(re_sch.begin()+2, re_sch.end()-1, [&](const Stop& a) {
+      /* If stop does not belong to cadd,
+       * remove the stop if its not found in cur_sch */
+        if (std::find(cadd.begin(), cadd.end(), a.owner()) == cadd.end()) {
+          if (std::find_if(cur_sch.begin()+1, cur_sch.end()-1,
+              [&](const Stop& b) {
+            return a.owner() == b.owner() && a.loc() == b.loc(); })
+                  == cur_sch.end()-1) {
+            return true;
+          }
         }
-      }
-      return false; }), re_sch.end()-1);
+        return false; }),
+      re_sch.end()-1
+    );
 
     DEBUG(3, { print << "assign() created re_sch:"; print_sch(re_sch); });
 
     /* Re-compute the route and add the traveled distance to each new node */
     std::vector<Wayp> re_rte;
     route_through(re_sch, re_rte);
-    for (auto& wp : re_rte) wp.first += cur_rte.at(cur_lvn).first;
+    for (auto& wp : re_rte)
+      wp.first += cur_rte.at(cur_lvn).first;
 
     DEBUG(3, { print << "assign() re-computed sync_rte:"; print_rte(re_rte); });
 
@@ -192,11 +204,17 @@ bool RSAlgorithm::assign(
     re_sch.erase(re_sch.begin());
 
     if (!chktw(re_sch, re_rte)) {
-      DEBUG(3, { print(MessageType::Error) << "assign() re-route failed due to time window" << std::endl; });
+      DEBUG(3, {
+        print(MessageType::Error)
+          << "assign() re-route failed due to time window"
+          << std::endl; });
       return false;
     }
 
-    DEBUG(3, { print(MessageType::Info) << "assign() re-route complete." << std::endl; });
+    DEBUG(3, {
+      print(MessageType::Info)
+        << "assign() re-route complete."
+        << std::endl; });
     out_rte = re_rte;
     out_sch = re_sch;
   }
