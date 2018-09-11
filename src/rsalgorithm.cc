@@ -36,9 +36,6 @@
 
 namespace cargo {
 
-/* RSAlgorithm class constructor:
- * Set a name; set fifo to true if want messages to print to own stream
- * (a *.feed file will be created in the runtime dir) */
 RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
     : print(name, fifo) {
   name_ = name;
@@ -64,7 +61,6 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   prepare_stmt(sql::sva_stmt, &sva_stmt);
 }
 
-/* Destructor: finalize every stmt */
 RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(ssr_stmt);
   sqlite3_finalize(sss_stmt);
@@ -81,7 +77,6 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(sva_stmt);
 }
 
-/* Get/set algorithm properties */
 const std::string & RSAlgorithm::name()        const { return name_; }
 const bool        & RSAlgorithm::done()        const { return done_; }
 const int         & RSAlgorithm::matches()     const { return nmat_; }
@@ -95,19 +90,9 @@ const int         & RSAlgorithm::rejected()    const { return nrej_; }
   return sum/(float)handling_times_.size();
 }
 
-/* Get retrieved customers/vehicles
- * (populate using select_matchable_vehicles() and select_waiting_customers()) */
 std::vector<Customer> & RSAlgorithm::customers()    { return customers_; }
 std::vector<Vehicle>  & RSAlgorithm::vehicles()     { return vehicles_; }
 
-/* Assignment comes in two flavors: assign and strict-assign.  assign() will
- * first try to do a strict-assign. If the new route cannot be synchronized to
- * the vehicle due to match latency, then assign will poll the vehicle's
- * position and re-compute new route using this position if strict=false. If
- * the recomputed route fails time window check, the assign returns false.
- * Otherwise it commits this recomputed route to the database. But if
- * strict=true, assign will not do re-routing and just return false if sync
- * fails. */
 bool RSAlgorithm::assign(
         const std::vector<CustId> & custs_to_add,
         const std::vector<CustId> & custs_to_del,
@@ -115,9 +100,6 @@ bool RSAlgorithm::assign(
         const std::vector<Stop>   & new_sch,
               MutableVehicle      & vehl,
               bool                strict) {  // default strict=false
-  /* Acquire lock:
-   * During this time, no other process (e.g. Cargo::step) can
-   * access the database. */
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);
 
   /* Query current vehicle properties */
