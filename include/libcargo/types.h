@@ -128,6 +128,12 @@ typedef std::unordered_map<NodeId, std::unordered_map<NodeId, DistDbl>> KVEdges;
 // Filepath
 typedef std::string Filepath;
 
+// Chrono
+typedef std::chrono::duration<double, std::milli> dur_milli;
+typedef std::chrono::milliseconds milli;
+typedef std::chrono::high_resolution_clock hiclock;
+typedef std::chrono::time_point<std::chrono::high_resolution_clock> tick_t;
+
 // Infinity
 const int    InfInt = std::numeric_limits<int>::max();
 const double InfDbl = std::numeric_limits<double>::infinity();
