@@ -34,121 +34,111 @@
 
 namespace cargo {
 
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
-
 class RSAlgorithm {
  public:
   RSAlgorithm(const std::string& name = "noname", bool fifo = false);
   ~RSAlgorithm();
 
-  // Overrideables
-  virtual void handle_customer(const Customer&);
-  virtual void handle_vehicle(const Vehicle&);
+  /* Overrideables */
+  virtual void handle_customer(const Customer &);
+  virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
   virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
-  // Setters/getters
+  /* Setters/getters */
   const std::string & name()        const;  // e.g. "greedy_insertion"
   const bool        & done()        const;  // true if done
   const int         & matches()     const;  // # matches
   const int         & rejected()    const;  // # rejected due to out of sync
-        int         & batch_time();         // set to 1 for streaming
+        int         & batch_time();         // (set to 1 for streaming)
         void          kill();               // set done_ to true
         float         avg_cust_ht();        // return avg. cust handling time
 
-  // Populates customers_ and vehicles_
-  void select_matchable_vehicles();
-  void select_waiting_customers();
+  void select_matchable_vehicles();         // populate vehicles_
+  void select_waiting_customers();          // populate customers_
+  std::vector<Vehicle>& vehicles();         // return vehicles_
+  std::vector<Customer>& customers();       // return customers_
+  std::vector<Vehicle> get_all_vehicles();  // populate & return ALL vehicles
+  std::vector<Customer> get_all_customers();// populate & return ALL customers
+  bool delay(const CustId &);               // true if customer under delay
+  bool timeout(tick_t &);                   // true if tick_t > timeout_
 
-  // Returns customers_ and vehicles_
-  std::vector<Customer> & customers();
-  std::vector<Vehicle>  & vehicles();
+  /* Commit to db */
+  bool assign(
+    const std::vector<CustId>&,             // custs to add
+    const std::vector<CustId>&,             // custs to del
+    const std::vector<Wayp>  &,             // new route
+    const std::vector<Stop>  &,             // new schedule
+          MutableVehicle&,                  // vehicle to assign to
+          bool strict = false);             // set if do not want re-routing
 
-  // Return all customer/vehicle objects
-  std::vector<Customer> get_all_customers();
-  std::vector<Vehicle> get_all_vehicles();
+  void beg_delay(const CustId &);           // begin delaying a customer
+  void end_delay(const CustId &);           // end delaying a customer
 
-  bool assign(const std::vector<CustId>&,  // custs to add
-              const std::vector<CustId>&,  // custs to del
-              const std::vector<Wayp>  &,  // new route
-              const std::vector<Stop>  &,  // new schedule
-                    MutableVehicle&,       // vehicle to assign to
-                    bool strict = false);  // set if do not want re-routing
+  void beg_ht();                            // begin measure handling time
+  void end_ht();                            // end measure handling time
 
-  /* Return true if customer delay is less than RETRY_ */
-  bool delay(const CustId &);
-
-  /* Timeout long-running executions */
-  bool timeout(tick_t &);
-
-  /* Begin/end delaying a customer */
-  void beg_delay(const CustId &);
-  void end_delay(const CustId &);
-
-  /* Begin/end measuring handling time */
-  void beg_ht();
-  void end_ht();
-
-  Message print;
+  Message print;                            // print stream
 
  protected:
-  int nmat_;  // number matched
-  int nrej_;  // number rejectd
+  int nmat_;                                // number matched
+  int nrej_;                                // number rejectd
 
-  std::vector<float> handling_times_;
+  std::vector<float> handling_times_;       // handling times container
 
-  /* If a customer doesn't get matched right away, put it here */
-  std::unordered_map<CustId, SimlTime> delay_;
+  std::unordered_map<CustId, SimlTime>      // delays container;
+    delay_;
 
-  int retry_;  // try again after RETRY secs
-  int timeout_; // timeout long-running executions (millisecs)
-  tick_t batch_0;
+  int retry_;                               // delay interval
+  int timeout_;                             // timeout limit (ms)
+  tick_t batch_0;                           // batch time tick
   tick_t batch_1;
-  tick_t ht_0;
+  tick_t ht_0;                              // handling time tick
   tick_t ht_1;
 
  private:
-  std::string name_;
-  bool done_;
-  int batch_time_;
+  std::string name_;                        // get with name()
+  bool done_;                               // get with done(), set with kill()
+  int batch_time_;                          // get/set with batch_time()
 
-  std::vector<Customer> customers_;
-  std::vector<Vehicle>  vehicles_;
+  std::vector<Customer> customers_;         // get with customers()
+  std::vector<Vehicle>  vehicles_;          // get with vehicles()
 
   SqliteReturnCode rc;
-  sqlite3_stmt* ssr_stmt;  // select route
-  sqlite3_stmt* sss_stmt;  // select schedule
-  sqlite3_stmt* uro_stmt;  // update route
-  sqlite3_stmt* sch_stmt;  // update sched
-  sqlite3_stmt* qud_stmt;  // increase queued
-  sqlite3_stmt* com_stmt;  // assign cust to veh
-  sqlite3_stmt* smv_stmt;  // select matchable vehicles
-  sqlite3_stmt* sav_stmt;  // select all vehicles
-  sqlite3_stmt* swc_stmt;  // select waiting customers
-  sqlite3_stmt* sac_stmt;  // select all customers
-  sqlite3_stmt* svs_stmt;  // select vehicle status
-  sqlite3_stmt* sov_stmt;  // select one vehicle
-  sqlite3_stmt* sva_stmt;  // select stop visitedAt
+  sqlite3_stmt* ssr_stmt;                   // select route
+  sqlite3_stmt* sss_stmt;                   // select schedule
+  sqlite3_stmt* uro_stmt;                   // update route
+  sqlite3_stmt* sch_stmt;                   // update sched
+  sqlite3_stmt* qud_stmt;                   // increase queued
+  sqlite3_stmt* com_stmt;                   // assign cust to veh
+  sqlite3_stmt* smv_stmt;                   // select matchable vehicles
+  sqlite3_stmt* sav_stmt;                   // select all vehicles
+  sqlite3_stmt* swc_stmt;                   // select waiting customers
+  sqlite3_stmt* sac_stmt;                   // select all customers
+  sqlite3_stmt* svs_stmt;                   // select vehicle status
+  sqlite3_stmt* sov_stmt;                   // select one vehicle
+  sqlite3_stmt* sva_stmt;                   // select stop visitedAt
 
-  typedef enum {
+  typedef enum {                            // used interally for sync()
     SUCCESS,
     INVALID_VEHICLE,
     CURLOC_MISMATCH,
     PREFIX_MISMATCH,
     CADD_SYNC_FAIL,
-    CDEL_SYNC_FAIL } SyncResult;
+    CDEL_SYNC_FAIL
+  } SyncResult;
 
-  SyncResult sync(const std::vector<Wayp>     & new_rte,
-                  const std::vector<Wayp>     & cur_rte,
-                  const RteIdx                & idx_lvn,
-                  const std::vector<Stop>     & new_sch,
-                  const std::vector<Stop>     & cur_sch,
-                  const std::vector<CustId>   & cadd,
-                  const std::vector<CustId>   & cdel,
-                        std::vector<Wayp>     & out_rte,
-                        std::vector<Stop>     & out_sch);
+  SyncResult sync(                          // internal function
+    const std::vector<Wayp>   & new_rte,
+    const std::vector<Wayp>   & cur_rte,
+    const RteIdx              & idx_lvn,
+    const std::vector<Stop>   & new_sch,
+    const std::vector<Stop>   & cur_sch,
+    const std::vector<CustId> & cadd,
+    const std::vector<CustId> & cdel,
+          std::vector<Wayp>   & out_rte,
+          std::vector<Stop>   & out_sch);
 };
 
 }  // namespace cargo
