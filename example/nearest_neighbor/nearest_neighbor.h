@@ -45,6 +45,5 @@ class NearestNeighbor : public RSAlgorithm {
   tick_t timeout_0;
 
   void reset_workspace();
-  void print_statistics();
 };
 

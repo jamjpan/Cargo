@@ -50,7 +50,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   for (const MutableVehicleSptr& cand : this->candidates) {
     if (cand->queued() < cand->capacity()) {
       DistDbl cst = haversine(cand->last_visited_node(), cust.orig());
-      rank_cand rc = {cst, cand}
+      rank_cand rc = {cst, cand};
       my_q.push(rc);                        // O(log(|my_q|))
     }
     if(this->timeout(this->timeout_0))
@@ -63,7 +63,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     my_q.pop();                             // remove from queue
     best_vehl = std::get<1>(rc);
     sop_insert(best_vehl, cust, sch, rte);  // (functions.h)
-    if (chktw(sch, rte)                     // check time window (functions.h)
+    if (chktw(sch, rte))                    // check time window (functions.h)
       matched = true;                       // accept
     if (this->timeout(this->timeout_0))     // (rsalgorithm.h)
       break;
@@ -90,7 +90,7 @@ void NearestNeighbor::handle_vehicle(const Vehicle& vehl) {
 }
 
 void NearestNeighbor::end() {
-  this->print_statistics();
+  this->print_statistics();                 // (rsalgorithm.h)
 }
 
 void NearestNeighbor::listen(bool skip_assigned, bool skip_delayed) {
@@ -108,14 +108,6 @@ void NearestNeighbor::reset_workspace() {
   this->timeout_0 = hiclock::now();
 }
 
-void NearestNeighbor::print_statistics() {
-  print(MessageType::Success)
-    << "Matches: "              << this->nmat_ << '\n'
-    << "Out-of-sync rejected: " << this->nrej_ << '\n'
-    << "Avg-cust-handle: "      << this->avg_cust_ht() << "ms"
-    << std::endl;
-}
-
 int main() {
   Options option;                           // (options.h)
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
@@ -127,7 +119,7 @@ int main() {
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
-  option.static_mode = true;
+  option.static_mode = false;
   Cargo cargo(option);                      // (cargo.h)
   NearestNeighbor nn;
   cargo.start(nn);
