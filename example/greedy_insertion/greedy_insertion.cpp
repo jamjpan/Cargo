@@ -17,10 +17,9 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <chrono>
-#include <ctime>
 #include <iostream> /* std::endl */
-#include <unordered_map>
+#include <queue>
+#include <tuple>
 #include <vector>
 
 #include "greedy_insertion.h"
@@ -32,7 +31,8 @@ const int BATCH = 1;
 const int RANGE = 2000;
 
 auto cmp = [](rank_cand left, rank_cand right) {
-  return std::get<0>(left) > std::get<0>(right); };
+  return std::get<0>(left) > std::get<0>(right);
+};
 
 GreedyInsertion::GreedyInsertion()
     : RSAlgorithm("greedy_insertion", false), grid_(100) {
@@ -63,8 +63,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     rank_cand rc = my_q.top();
     my_q.pop();
     best_vehl = std::get<1>(rc);
-    best_sch = std::get<2>(rc);
-    best_rte = std::get<3>(rc);
+    best_sch  = std::get<2>(rc);
+    best_rte  = std::get<3>(rc);
     if (chktw(best_sch, best_rte))
       matched = true;
   }
@@ -127,7 +127,7 @@ int main() {
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
-  option.static_mode = true;
+  option.static_mode = false;
   Cargo cargo(option);
   GreedyInsertion gr;
   cargo.start(gr);
