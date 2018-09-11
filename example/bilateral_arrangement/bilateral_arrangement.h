@@ -21,8 +21,7 @@
 
 using namespace cargo;
 
-/* Define a "rank_cand" type to hold each candidate plus its cost */
-typedef std::tuple<DistInt, std::shared_ptr<MutableVehicle>,
+typedef std::tuple<DistInt, MutableVehicleSptr,
   std::vector<Stop>, std::vector<Wayp>> rank_cand;
 
 class BilateralArrangement : public RSAlgorithm {
@@ -33,20 +32,21 @@ class BilateralArrangement : public RSAlgorithm {
   virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
-  virtual void listen();
+  virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
-  /* My variables */
+  Grid grid_;
   int nswapped_;
-  cargo::Grid grid_;
 
-  /* If a customer doesn't get matched right away,
-   * try again after RETRY seconds. */
-  std::unordered_map<CustId, SimlTime> delay_;
+  /* Workspace variables */
+  std::vector<Stop> sch, best_sch, old_sch;
+  std::vector<Wayp> rte, best_rte;
+  MutableVehicleSptr best_vehl;
+  std::vector<MutableVehicleSptr> candidates;
+  bool matched;
+  tick_t timeout_0;
+  CustId removed_cust;
 
-  /* A customer might get matched 'twice' because it gets swapped out..
-   * .. so remember which customers get matched */
-  std::unordered_map<CustId, bool> matched_;
-
+  void reset_workspace();
 };
 

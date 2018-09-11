@@ -18,10 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <algorithm> /* std::random_shuffle, std::remove_if, std::find_if */
-#include <chrono>
 #include <iostream> /* std::endl */
 #include <queue>
-#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -30,194 +28,127 @@
 
 using namespace cargo;
 
-const int BATCH     = 30;  // seconds
-const int RANGE     = 2000; // meters
+const int BATCH = 1;
+const int RANGE = 2000;
 
-std::vector<int> avg_dur {};
-
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
-
-/* Define ordering of rank_cands */
 auto cmp = [](rank_cand left, rank_cand right) {
-  return std::get<0>(left) > std::get<0>(right); };
+  return std::get<0>(left) > std::get<0>(right);
+};
 
 BilateralArrangement::BilateralArrangement()
-    : RSAlgorithm("bilateral_arrangement", true),
-      grid_(100) {   // (grid.h)
-  batch_time() = BATCH;  // (rsalgorithm.h)
-  nswapped_ = 0;  // number swapped and accepted
-  nrej_     = 0;  // number rejected due to out-of-sync
-}
-
-void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
-  /* Insert each vehicle into the grid */
-  grid_.insert(vehl);
+    : RSAlgorithm("bilateral_arrangement", false), grid_(100) {
+  this->batch_time() = BATCH;
+  this->nswapped_ = 0;
 }
 
 void BilateralArrangement::match() {
-  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-  this->timeout_ = std::ceil((float)BATCH/customers().size()*(1000.0));
-  int ncust = 0;
-
-  // Start timing -------------------------------
-  t0 = std::chrono::high_resolution_clock::now();
-
   /* BilateralArrangement is a random algorithm due to this shuffle. */
   std::random_shuffle(customers().begin(), customers().end());
 
-  /* Extract riders one at a time */
   while (!customers().empty()) {
-    auto start = std::chrono::high_resolution_clock::now();
     Customer cust = customers().back();
     customers().pop_back();
+    this->beg_ht();
+    this->reset_workspace();
+    this->candidates =
+      this->grid_.within(RANGE, cust.orig());
 
-    /* Skip customers already assigned (but not yet picked up) */
-    if (cust.assigned())
-      continue;
-    /* Skip customers under delay */
-    if (delay(cust.id()))
-      continue;
-
-    ncust++;
-
-    /* Containers for storing outputs */
-    cargo::DistInt cst = cargo::InfInt;
-    std::vector<cargo::Stop> sch, best_sch;
-    std::vector<cargo::Wayp> rte, best_rte;
-    CustId removed_cust = -1;
-
-    /* best_vehl will point to an underlying MutableVehicle in our grid */
-    std::shared_ptr<MutableVehicle> best_vehl = nullptr;
-    bool matched = false;
-
-    /* Get candidates from the local grid index */
-    DistInt rng = /* pickup_range(cust, Cargo::now()); */ RANGE;
-    auto candidates = grid_.within_about(rng, cust.orig());  // (grid.h)
-
-    /* Container to rank candidates by least cost */
-    std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)> q(cmp);
-
-    /* Loop through and rank each candidate
-     * (Timeout) */
-    for (const auto& cand : candidates) {
-      cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-      q.push({cst, cand, sch, rte});
-      if (timeout(start))
+    /* Rank candidates (timeout) */
+    std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
+      my_q(cmp);
+    for (const MutableVehicleSptr& cand : this->candidates) {
+      if (cand->queued() < cand->capacity()) {
+        DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+        rank_cand rc {cst, cand, sch, rte};
+        my_q.push(rc);
+      }
+      if (this->timeout(this->timeout_0))
         break;
     }
 
-    /* Process each candidate, starting from least-cost, to see if can accept
-     * the customer within constraints. If cannot, try to replace an existing
-     * customer in the candidate's schedule with this customer, and try again. */
-    while (!q.empty() && !matched) {
-      /* Get and unpack the best candidate */
-      auto cand = q.top(); q.pop();
-      best_vehl = std::get<1>(cand);
-      best_sch  = std::get<2>(cand);
-      best_rte  = std::get<3>(cand);
-
-      /* If best vehicle is within constraints... */
-      bool within_time = chktw(best_sch, best_rte);
-      bool within_cap = (best_vehl->queued() < best_vehl->capacity());
-      if (within_time && within_cap) {
-        /* ... accept the match */
+    /* Try to accept greedy valid */
+    while (!my_q.empty() && !matched) {
+      rank_cand rc = my_q.top();
+      my_q.pop();
+      best_vehl = std::get<1>(rc);
+      best_sch  = std::get<2>(rc);
+      best_rte  = std::get<3>(rc);
+      if (chktw(best_sch, best_rte)) {
         matched = true;
-      } else {
-        /* ... otherwise, remove some random not-picked-up customer from cand
-         * and try the insertion again. If it meets constraints, then accept. */
+      } else {  // try to replace existing customer
         CustId remove_me = randcust(best_vehl->schedule().data());
         if (remove_me != -1) {
-          std::vector<Stop> old_sch = best_vehl->schedule().data(); // make a backup
-          std::vector<Stop> new_sch;
-          std::vector<Wayp> new_rte;
-          /* Replace remove_me with cust to produce new_sch, new_rte */
-          sop_replace(best_vehl, remove_me, cust, new_sch, new_rte);
-          /* If replacement is within constraints... */
-          if (chktw(new_sch, new_rte)) {
-            /* ... accept the match */
-            print(MessageType::Info)
-              << "Vehicle " << best_vehl->id()
-              << " feasible after remove " << remove_me << std::endl;
-            nswapped_++;  // increment counter
-            best_sch = new_sch;
-            best_rte = new_rte;
+          old_sch = best_vehl->schedule().data();
+          sop_replace(best_vehl, remove_me, cust, best_sch, best_rte);
+          if (chktw(best_sch, best_rte)) {
+            nswapped_++;
             matched = true;
             removed_cust = remove_me;
-            matched_[remove_me] = false;
           } else {
-            /* ... restore the backup */
-            best_vehl->set_sch(old_sch);  // restore the backup
+            best_vehl->set_sch(old_sch);
           }
         }
       }
-    } // end while !q.empty()
+    }
 
-    /* Commit to db */
+    /* Attempt commit to db */
     if (matched) {
-      std::vector<CustId> cust_to_del {};
-      if (removed_cust != -1) cust_to_del.push_back(removed_cust);
+      std::vector<CustId> cdel = {};
+      if (removed_cust != -1)
+        cdel.push_back(removed_cust);
+      if (this->assign({cust.id()}, cdel, best_rte, best_sch, *best_vehl)) {
+        this->end_delay(cust.id());
+      } else {
+        this->nrej_++;
+        this->beg_delay(cust.id());
+      }
+    }
+    if (!matched)
+      this->beg_delay(cust.id());
 
-      /* assign() will modify best_vehl with the synchronized version to
-       * account for match latency */
-      if (assign({cust.id()}, cust_to_del, best_rte, best_sch, *best_vehl)) {
-        print(MessageType::Success)
-          << "Match (cust" << cust.id() << ", veh" << best_vehl->id() << ")"
-          << std::endl;
-        matched_[cust.id()] = true;
-        end_delay(cust.id());  // (rsalgorithm.h)
-      } else
-        nrej_++;  // increment rejected counter
-    } else
-      beg_delay(cust.id());
-  } // end while !customers().empty()
+    this->end_ht();
+  }
+}
 
-  t1 = std::chrono::high_resolution_clock::now();
-  // Stop timing --------------------------------
-  if (ncust > 0)
-    avg_dur.push_back(std::round(dur_milli(t1-t0).count())/float(ncust));
+void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
+  this->grid_.insert(vehl);
 }
 
 void BilateralArrangement::end() {
-  /* Print the statistics */
-  nmat_ = 0;  // (rsalgorithm.h)
-  for (const auto& kv : matched_)
-    if (kv.second == true) nmat_++;
-  print(MessageType::Success) << "Matches: " << nmat_ << std::endl;
-  print(MessageType::Success) << "Swapped: " << nswapped_ << std::endl;
-  print(MessageType::Success) << "Out-of-sync rejected: " << nrej_ << std::endl;
-  int sum_avg = 0; for (auto& n : avg_dur) sum_avg += n;
-  this->avg_cust_ht_ = sum_avg/avg_dur.size();
-  print(MessageType::Success) << "Avg-cust-handle: " << avg_cust_ht_ << "ms" << std::endl;
+  this->print_statistics();
 }
 
-void BilateralArrangement::listen() {
-  /* Clear the index, then call base listen */
-  grid_.clear();
-  RSAlgorithm::listen();
+void BilateralArrangement::listen(bool skip_assigned, bool skip_delayed) {
+  this->grid_.clear();
+  RSAlgorithm::listen(
+    skip_assigned, skip_delayed);
+}
+
+void BilateralArrangement::reset_workspace() {
+  this->sch = this->best_sch = this->old_sch = {};
+  this->rte = this->best_rte = {};
+  this->candidates = {};
+  this->matched = false;
+  this->best_vehl = nullptr;
+  this->timeout_0 = hiclock::now();
+  this->removed_cust = -1;
 }
 
 int main() {
   /* Set options */
-  cargo::Options op;
-  op.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  op.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  op.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  op.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  op.path_to_solution = "bilateral_arrangement.sol";
-  op.path_to_dataout  = "bilateral_arrangement.dat";
-  op.time_multiplier  = 1;
-  op.vehicle_speed    = 20;
-  op.matching_period  = 60;
-
-  /* Construct Cargo */
-  cargo::Cargo cargo(op);
-  Cargo::OFFLINE = true;
-
-  /* Initialize algorithm */
+  Options option;
+  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_solution = "bilateral_arrangement.sol";
+  option.path_to_dataout  = "bilateral_arrangement.dat";
+  option.time_multiplier  = 1;
+  option.vehicle_speed    = 20;
+  option.matching_period  = 60;
+  option.static_mode = false;
+  Cargo cargo(option);
   BilateralArrangement ba;
-
-  /* Start the simulation */
   cargo.start(ba);
 
   return 0;
