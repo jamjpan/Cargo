@@ -225,6 +225,7 @@ bool RSAlgorithm::assign(
   vehl.set_sch(out_sch);
   vehl.reset_lvn();
   vehl.incr_queued();
+  nmat_++;
 
   /* Commit the synchronized route */
   sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(out_rte.data()),
@@ -645,11 +646,11 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
         << this->vehicles_.size() << " vehls and " << ncusts << " custs"
         << std::endl;
   } else if (within_batch_time) {
-    print
-        << "listen() handled "
-        << this->vehicles_.size() << " vehls and "
-        << this->customers_.size() << " custs " << "in " << dur << " ms"
-        << std::endl;
+    // print
+    //     << "listen() handled "
+    //     << this->vehicles_.size() << " vehls and "
+    //     << this->customers_.size() << " custs " << "in " << dur << " ms"
+    //     << std::endl;
     std::this_thread::sleep_for(milli(this->batch_time_ * 1000 - dur));
   }
 }
