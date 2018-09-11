@@ -47,8 +47,8 @@ class Grid {
 
   /* Return candidates within about DistDbl. It's "about", not "exact", because
    * returns all candidates in grid cells covered by DistDbl */
-  std::vector<std::shared_ptr<MutableVehicle>> &within_about(const DistDbl &,
-                                                             const NodeId &);
+  std::vector<std::shared_ptr<MutableVehicle>> &within(const DistDbl &,
+                                                       const NodeId &);
 
   /* Return all vehicles */
   std::vector<std::shared_ptr<MutableVehicle>>& all();

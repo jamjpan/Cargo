@@ -76,7 +76,7 @@ std::shared_ptr<MutableVehicle> Grid::select(const VehlId &vehl_id) {
 
 // Populate res with pointers to the underlying MutableVehicles we are
 // interested in, and return a reference to the vector.
-std::vector<std::shared_ptr<MutableVehicle>>& Grid::within_about(
+std::vector<std::shared_ptr<MutableVehicle>>& Grid::within(
     const DistDbl& d, const NodeId& node) {
   res_.clear();
   int offset_x =
