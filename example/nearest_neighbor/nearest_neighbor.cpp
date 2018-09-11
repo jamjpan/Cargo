@@ -49,11 +49,8 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     my_q(cmp);                              // rank by nearest
   for (const MutableVehicleSptr& cand : this->candidates) {
     if (cand->queued() < cand->capacity()) {
-      rank_cand rc = {
-        haversine(                          // (distance.h)
-          cand->last_visited_node(), cust.orig()),
-        cand
-      };
+      DistDbl cst = haversine(cand->last_visited_node(), cust.orig());
+      rank_cand rc = {cst, cand}
       my_q.push(rc);                        // O(log(|my_q|))
     }
     if(this->timeout(this->timeout_0))
@@ -66,7 +63,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     my_q.pop();                             // remove from queue
     best_vehl = std::get<1>(rc);
     sop_insert(best_vehl, cust, sch, rte);  // (functions.h)
-    if (chktw(sch,rte))                     // check time window (functions.h)
+    if (chktw(sch, rte)                     // check time window (functions.h)
       matched = true;                       // accept
     if (this->timeout(this->timeout_0))     // (rsalgorithm.h)
       break;
@@ -77,8 +74,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     if (this->assign(                       // (rsalgorithm.h)
       {cust.id()}, {}, rte, sch, *best_vehl)) {
       this->end_delay(cust.id());           // (rsalgorithm.h)
-    }
-    else {
+    } else {
       this->nrej_++;                        // increment # rejected counter
       this->beg_delay(cust.id());           // rsalgorithm.h
     }
