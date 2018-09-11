@@ -34,15 +34,16 @@ auto cmp = [](rank_cand left, rank_cand right) {
 
 NearestNeighbor::NearestNeighbor()
     : RSAlgorithm("nearest_neighbor"), grid_(100) {
-  this->batch_time() = BATCH;
-  this->nmat_ = 0;
+  this->batch_time() = BATCH;   // (rsalgorithm.h)
+  this->nmat_ = 0;              // (rsalgorithm.h)
 }
 
 void NearestNeighbor::handle_customer(const Customer& cust) {
-  this->beg_ht();               // begin timing
+  this->beg_ht();               // begin timing (rsalgorithm.h)
   this->reset_workspace();      // reset workspace variables
   this->candidates =            // collect candidates
-    this->grid_.within(RANGE, cust.orig());
+    this->grid_.within(         // (grid.h)
+      RANGE, cust.orig());
 
   /* Rank candidates (timeout) */
   std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
@@ -50,7 +51,8 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   for (const MutableVehicleSptr& cand : this->candidates) {
     if (cand->queued() < cand->capacity()) {
       rank_cand rc = {
-        haversine(cand->last_visited_node(), cust.orig()),
+        haversine(              // (distance.h)
+          cand->last_visited_node(), cust.orig()),
         cand
       };
       my_q.push(rc);            // O(log(|my_q|))
@@ -64,25 +66,30 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     rank_cand rc = my_q.top();  // access order by nearest
     my_q.pop();                 // remove from queue
     best_vehl = std::get<1>(rc);
-    sop_insert(best_vehl, cust, sch, rte);
-    if (chktw(sch,rte))         // check time window
+    sop_insert(                 // (functions.h)
+      best_vehl, cust, sch, rte);
+    if (chktw(sch,rte))         // check time window (functions.h)
       matched = true;           // accept
-    if(this->timeout(this->timeout_0))
+    if (this->timeout(          // (rsalgorithm.h)
+      this->timeout_0))
       break;
   }
 
   /* Attempt commit to db */
   if (matched) {
-    if (this->assign({cust.id()}, {}, rte, sch, *best_vehl)) {
+    if (this->assign(           // (rsalgorithm.h)
+      {cust.id()}, {}, rte, sch, *best_vehl)) {
       print(MessageType::Success)
         << "Match (cust" << cust.id() << ", veh" << best_vehl->id()
         << std::endl;
       this->nmat_++;            // increment # matches
-      this->end_delay(cust.id());
+      this->end_delay(          // (rsalgorithm.h)
+        cust.id());
     }
     else {
       this->nrej_++;            // increment # rejected counter
-      this->beg_delay(cust.id());
+      this->beg_delay(          // (rsalgorithm.h)
+        cust.id());
     }
   }
   if (!matched)                 // add to delay
@@ -92,7 +99,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
 }
 
 void NearestNeighbor::handle_vehicle(const Vehicle& vehl) {
-  this->grid_.insert(vehl);
+  this->grid_.insert(vehl);     // (grid.h)
 }
 
 void NearestNeighbor::end() {
@@ -100,8 +107,9 @@ void NearestNeighbor::end() {
 }
 
 void NearestNeighbor::listen(bool skip_assigned, bool skip_delayed) {
-  this->grid_.clear();
-  RSAlgorithm::listen(skip_assigned, skip_delayed);
+  this->grid_.clear();          // (grid.h)
+  RSAlgorithm::listen(          // (rsalgorithm.h)
+    skip_assigned, skip_delayed);
 }
 
 void NearestNeighbor::reset_workspace() {
@@ -122,7 +130,7 @@ void NearestNeighbor::print_statistics() {
 }
 
 int main() {
-  Options option;
+  Options option;               // (options.h)
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
@@ -133,7 +141,7 @@ int main() {
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
   option.static_mode = true;
-  Cargo cargo(option);
+  Cargo cargo(option);          // (cargo.h)
   NearestNeighbor nn;
   cargo.start(nn);
 
