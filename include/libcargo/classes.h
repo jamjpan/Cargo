@@ -22,6 +22,7 @@
 #ifndef CARGO_INCLUDE_LIBCARGO_CLASSES_H_
 #define CARGO_INCLUDE_LIBCARGO_CLASSES_H_
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -254,6 +255,7 @@ class MutableVehicle : public Vehicle {
   void incr_queued();                       // increase value of queued by 1
   void decr_queued();                       // decrease value of queued by 1
 };
+typedef std::shared_ptr<MutableVehicle> MutableVehicleSptr;
 
 /* Ridesharing problem instance.
  * Corresponds to .instance file in data/benchmarks. -------------------------*/
