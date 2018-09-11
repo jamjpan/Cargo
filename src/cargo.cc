@@ -22,6 +22,7 @@
 #include <chrono>
 #include <exception>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <random>
@@ -263,7 +264,6 @@ int Cargo::step(int& ndeact) {
           /* Add traveled distance to the waypoints in the new route */
           for (auto& wp : new_rte)
             wp.first += rte.back().first;
-          print << "Vehicle " << vid << " got new dest (" << new_dest << ", " << new_rte.front().first << ", " << new_rte.back().first << ")" << std::endl;
 
           /* Insert the new route */
           sqlite3_bind_blob(uro_stmt, 1,
@@ -598,11 +598,15 @@ void Cargo::start(RSAlgorithm& rsalg) {
   Logger logger(dataout_file_);
   std::thread logger_thread([&logger]() { logger.run(); });
 
-  /* Cargo thread
-   * (Don't call any rsalg methods here) */
-  typedef std::chrono::duration<double, std::milli> dur_milli;
-  typedef std::chrono::milliseconds milli;
-  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
+  /* Cargo thread */
+  print
+    << std::setw(16) << "t        "
+    << std::setw(8) << "stepped "
+    << std::setw(7) << " active"
+    << std::setw(14) << "matched"
+    << std::endl;
+  print << "---------------------------------------------------------------------" << std::endl;
+  tick_t t0, t1;
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
     t0 = std::chrono::high_resolution_clock::now();
@@ -639,8 +643,16 @@ void Cargo::start(RSAlgorithm& rsalg) {
     /* Step the vehicles */
     nstepped = step(ndeact);
     active_vehicles_ -= ndeact;
-    print << "t=" << t_ << "; stepped " << nstepped
-          << " vehicles; remaining=" << active_vehicles_ << ";" << std::endl;
+    print
+      << std::setw(5) << t_ << " ("
+        << std::setw(6) << std::roundf((t_/(float)tmin_*100)*100)/(float)100 << "%)"
+      << std::setw(8) << nstepped
+      << std::setw(7) << active_vehicles_
+      << std::setw(8) << rsalg.matches() << " ("
+        << std::setw(6) << std::roundf((rsalg.matches()/(float)total_customers_*100)*100)/(float)100 << "%)"
+      << std::endl;
+    if (t_ > 0 && t_ % 300 == 0)
+      print << "---------------------------------------------------------------------" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
     dur = std::round(dur_milli(t1 - t0).count());
