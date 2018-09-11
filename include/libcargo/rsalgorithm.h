@@ -64,10 +64,10 @@ class RSAlgorithm {
   const bool        & done()        const;  // true if done
   const int         & matches()     const;  // # matches
   const int         & rejected()    const;  // # rejected due to out of sync
-  const float       & avg_cust_ht() const;  // avg. cust handling time
         int         & batch_time();         // set to 1 for streaming
       //   bool        & offline();
         void          kill();               // sets done_ to true
+        float         avg_cust_ht();        // avg. cust handling time
 
   // Populates customers_ and vehicles_
   void select_matchable_vehicles();
@@ -100,6 +100,10 @@ class RSAlgorithm {
   void beg_delay(const CustId &);
   void end_delay(const CustId &);
 
+  /* Begin/end measuring handling time */
+  void beg_ht();
+  void end_ht();
+
   /* Timeout long-running executions (pass a start clock) */
   bool timeout(std::chrono::time_point<std::chrono::high_resolution_clock> &);
 
@@ -108,7 +112,8 @@ class RSAlgorithm {
  protected:
   int nmat_;  // number matched
   int nrej_;  // number rejectd
-  float avg_cust_ht_;  // avg cust handling time
+
+  std::vector<float> handling_times_;
 
   /* If a customer doesn't get matched right away, put it here */
   std::unordered_map<CustId, SimlTime> delay_;
@@ -116,6 +121,7 @@ class RSAlgorithm {
   int retry_;  // try again after RETRY secs
   int timeout_; // timeout long-running executions (millisecs)
   tick_t batch_0, batch_1;
+  tick_t ht_0, ht_1;
 
  private:
   std::string name_;

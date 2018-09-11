@@ -46,7 +46,6 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   batch_time_ = 1;
   nmat_ = 0;
   nrej_ = 0;
-  avg_cust_ht_ = 0;
   delay_ = {};
   retry_ = 15;
   timeout_ = 1;
@@ -87,9 +86,14 @@ const std::string & RSAlgorithm::name()        const { return name_; }
 const bool        & RSAlgorithm::done()        const { return done_; }
 const int         & RSAlgorithm::matches()     const { return nmat_; }
 const int         & RSAlgorithm::rejected()    const { return nrej_; }
-const float       & RSAlgorithm::avg_cust_ht() const { return avg_cust_ht_; }
       int         & RSAlgorithm::batch_time()        { return batch_time_; }
       void          RSAlgorithm::kill()              { done_ = true; }
+      float         RSAlgorithm::avg_cust_ht()       {
+  float sum = 0;
+  for (const float& ht : handling_times_)
+    sum += ht;
+  return sum/(float)handling_times_.size();
+}
 
 /* Get retrieved customers/vehicles
  * (populate using select_matchable_vehicles() and select_waiting_customers()) */
@@ -300,8 +304,16 @@ void RSAlgorithm::end_delay(const CustId& cust_id) {
   if (delay_.count(cust_id)) delay_.erase(cust_id);
 }
 
-bool RSAlgorithm::timeout(
-        std::chrono::time_point<std::chrono::high_resolution_clock> & start) {
+void RSAlgorithm::beg_ht() {
+  this->ht_0 = hiclock::now();
+}
+
+void RSAlgorithm::end_ht() {
+  this->ht_1 = hiclock::now();
+  handling_times_.push_back(std::round(dur_milli(ht_1-ht_0).count()));
+}
+
+bool RSAlgorithm::timeout(tick_t& start) {
   if (Cargo::static_mode)
     return false;
   auto end = std::chrono::high_resolution_clock::now();
