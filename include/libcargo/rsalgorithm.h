@@ -55,8 +55,9 @@ class RSAlgorithm {
         void          kill();               // set done_ to true
         float         avg_cust_ht();        // return avg. cust handling time
 
+  void select_waiting_customers(            // populate customers_
+    bool skip_assigned = true, bool skip_delayed = true);
   void select_matchable_vehicles();         // populate vehicles_
-  void select_waiting_customers();          // populate customers_
   std::vector<Vehicle>& vehicles();         // return vehicles_
   std::vector<Customer>& customers();       // return customers_
   std::vector<Vehicle> get_all_vehicles();  // populate & return ALL vehicles

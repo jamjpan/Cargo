@@ -521,7 +521,8 @@ void RSAlgorithm::select_matchable_vehicles() {
   sqlite3_reset(smv_stmt);
 }
 
-void RSAlgorithm::select_waiting_customers() {
+void RSAlgorithm::select_waiting_customers(
+    bool skip_assigned, bool skip_delayed) {
   customers_.clear();
   sqlite3_bind_int(swc_stmt, 1, (int)CustStatus::Waiting);
   sqlite3_bind_int(swc_stmt, 2, Cargo::now());
@@ -532,7 +533,13 @@ void RSAlgorithm::select_waiting_customers() {
         sqlite3_column_int(swc_stmt, 4), sqlite3_column_int(swc_stmt, 5),
         static_cast<CustStatus>(sqlite3_column_int(swc_stmt, 6)),
         sqlite3_column_int(swc_stmt, 7));
-    customers_.push_back(customer);
+    if (customer.assigned() && skip_assigned) {
+      ; // do nothing
+    } else if (this->delay(customer.id()) && skip_delayed) {
+      ; // do nothing
+    } else {
+      customers_.push_back(customer);
+    }
   }
   if (rc != SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   sqlite3_clear_bindings(swc_stmt);
@@ -614,16 +621,10 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
     this->handle_vehicle(vehicle);
 
   int ncusts = 0;
-  this->select_waiting_customers();
+  this->select_waiting_customers(skip_assigned, skip_delayed);
   for (const auto& customer : this->customers_) {
-    if (customer.assigned() && skip_assigned) {
-      ; // do nothing
-    } else if (this->delay(customer.id()) && skip_delayed) {
-      ; // do nothing
-    } else {
-      this->handle_customer(customer);
-      ncusts++;
-    }
+    this->handle_customer(customer);
+    ncusts++;
   }
 
   this->match();
