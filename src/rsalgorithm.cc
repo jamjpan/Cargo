@@ -589,22 +589,29 @@ void RSAlgorithm::match() {
 
 void RSAlgorithm::end() { /* Executes after the simulation finishes. */ }
 
-void RSAlgorithm::listen() {
-  std::chrono::time_point<std::chrono::high_resolution_clock> t0, t1;
-  typedef std::chrono::duration<double, std::milli> dur_milli;
-  typedef std::chrono::milliseconds milli;
+void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
+  tick_t t0, t1;
 
   // Start timing -------------------------------
-  t0 = std::chrono::high_resolution_clock::now();
+  t0 = hiclock::now();
   if (Cargo::static_mode)
     Cargo::ofmx.lock();
 
   select_matchable_vehicles();
-  for (const auto& vehicle : vehicles_) handle_vehicle(vehicle);
+  for (const auto& vehicle : vehicles_)
+    handle_vehicle(vehicle);
 
   select_waiting_customers();
   int ncusts = customers_.size();
-  for (const auto& customer : customers_) handle_customer(customer);
+  for (const auto& customer : customers_) {
+    if (customer.assigned() && skip_assigned) {
+      ; // do nothing
+    } else if (delay(customer.id()) && skip_delayed) {
+      ; // do nothing
+    } else {
+      handle_customer(customer);
+    }
+  }
 
   match();
   t1 = std::chrono::high_resolution_clock::now();
