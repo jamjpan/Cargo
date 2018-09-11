@@ -590,12 +590,12 @@ void RSAlgorithm::match() {
 void RSAlgorithm::end() { /* Executes after the simulation finishes. */ }
 
 void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
-  tick_t t0, t1;
-
-  // Start timing -------------------------------
-  t0 = hiclock::now();
   if (Cargo::static_mode)
     Cargo::ofmx.lock();
+
+  // Start timing -------------------------------
+  tick_t t0, t1;
+  t0 = hiclock::now();
 
   select_matchable_vehicles();
   for (const auto& vehicle : vehicles_)
@@ -614,22 +614,21 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   }
 
   match();
-  t1 = std::chrono::high_resolution_clock::now();
+  t1 = hiclock::now();
   // Stop timing --------------------------------
-
-  // Don't sleep if time exceeds batch time
-  int dur = std::round(dur_milli(t1-t0).count());
-
   if (Cargo::static_mode)
     Cargo::ofmx.unlock();
 
-  if (dur > batch_time_ * 1000 || Cargo::static_mode)
+  // Don't sleep if time exceeds batch time
+  int dur = std::round(dur_milli(t1-t0).count());
+  bool within_batch_time = (dur <= batch_time_ * 1000);
+  if (!within_batch_time && !Cargo::static_mode) {
     print(MessageType::Warning)
         << "listen() ("           << dur                << " ms) "
         << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
         << vehicles_.size() << " vehls and " << ncusts << " custs"
         << std::endl;
-  else {
+  } else if (within_batch_time) {
     print
         << "listen() handled "
         << vehicles_.size() << " vehls and " << customers_.size() << " custs "
