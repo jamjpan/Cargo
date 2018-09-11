@@ -594,47 +594,48 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
     Cargo::ofmx.lock();
 
   // Start timing -------------------------------
-  tick_t t0, t1;
-  t0 = hiclock::now();
+  this->batch_0 = hiclock::now();
 
-  select_matchable_vehicles();
-  for (const auto& vehicle : vehicles_)
-    handle_vehicle(vehicle);
+  this->select_matchable_vehicles();
+  for (const auto& vehicle : this->vehicles_)
+    this->handle_vehicle(vehicle);
 
-  select_waiting_customers();
-  int ncusts = customers_.size();
-  for (const auto& customer : customers_) {
+  int ncusts = 0;
+  this->select_waiting_customers();
+  for (const auto& customer : this->customers_) {
     if (customer.assigned() && skip_assigned) {
       ; // do nothing
-    } else if (delay(customer.id()) && skip_delayed) {
+    } else if (this->delay(customer.id()) && skip_delayed) {
       ; // do nothing
     } else {
-      handle_customer(customer);
+      this->handle_customer(customer);
+      ncusts++;
     }
   }
 
-  match();
-  t1 = hiclock::now();
+  this->match();
+  this->batch_1 = hiclock::now();
   // Stop timing --------------------------------
   if (Cargo::static_mode)
     Cargo::ofmx.unlock();
 
   // Don't sleep if time exceeds batch time
-  int dur = std::round(dur_milli(t1-t0).count());
-  bool within_batch_time = (dur <= batch_time_ * 1000);
+  int dur = std::round(dur_milli(batch_1-batch_0).count());
+  bool within_batch_time = (dur <= this->batch_time_ * 1000);
   if (!within_batch_time && !Cargo::static_mode) {
     print(MessageType::Warning)
         << "listen() (" << dur << " ms) "
-        << "exceeds batch time (" << batch_time_ * 1000 << " ms) for "
-        << vehicles_.size() << " vehls and " << ncusts << " custs"
+        << "exceeds batch time ("
+        << this->batch_time_ * 1000 << " ms) for "
+        << this->vehicles_.size() << " vehls and " << ncusts << " custs"
         << std::endl;
   } else if (within_batch_time) {
     print
         << "listen() handled "
-        << vehicles_.size() << " vehls and " << customers_.size() << " custs "
-        << "in " << dur << " ms"
+        << this->vehicles_.size() << " vehls and "
+        << this->customers_.size() << " custs " << "in " << dur << " ms"
         << std::endl;
-    std::this_thread::sleep_for(milli(batch_time_ * 1000 - dur));
+    std::this_thread::sleep_for(milli(this->batch_time_ * 1000 - dur));
   }
 }
 
