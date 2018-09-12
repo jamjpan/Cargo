@@ -20,18 +20,19 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <ctime>
-#include <unordered_map>
-
 #include "libcargo.h"
-#include "treeTaxiPath.h"  // (uakfdotb/tsharesim)
+#include "treeTaxiPath.h"
 
+/* Citation:
+ *   Y. Huang et al. "Large Scale Real-time Ridesharing with Service Guarantee
+ *   on Road Networks". VLDB 2014.
+ * Author code: https://github.com/uakfdotb/tsharesim
+ */
 using namespace cargo;
 
-// Citation:
-//   Y. Huang et al. "Large Scale Real-time Ridesharing with Service Guarantee
-//   on Road Networks". VLDB 2014.
-// Author code: https://github.com/uakfdotb/tsharesim
+typedef std::tuple<DistInt, MutableVehicleSptr,
+  std::vector<Stop>, std::vector<Wayp>> rank_cand;
+
 class KineticTrees : public RSAlgorithm {
  public:
   KineticTrees();
@@ -41,21 +42,30 @@ class KineticTrees : public RSAlgorithm {
   virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
   virtual void end();
-  virtual void listen();
+  virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
-  /* My variables */
   cargo::Grid grid_;
 
-  /* Local containers to keep track of vehicle state */
+  /* Workspace variables */
+  std::vector<Stop> best_sch;
+  std::vector<Wayp> best_rte;
+  MutableVehicleSptr best_vehl;
+  std::vector<MutableVehicleSptr> candidates;
+  bool matched;
+  tick_t timeout_0;
+
+  /* Local containers for vehicle state */
   std::unordered_map<VehlId, TreeTaxiPath*>     kt_;
   std::unordered_map<VehlId, std::vector<Stop>> sched_;
   std::unordered_map<VehlId, SimlTime>          last_modified_;
 
-  /* The root of the kinetic tree is always the vehicle's next node */
   void sync_kt(TreeTaxiPath *, const std::vector<Stop> &);
 
-  /* Handy print */
+  std::vector<Stop> kt2sch(const MutableVehicleSptr &, const Stop &,
+                           const Stop &);
+
+  void reset_workspace();
   void print_kt(TreeTaxiPath *, bool temp = false);
 };
 
