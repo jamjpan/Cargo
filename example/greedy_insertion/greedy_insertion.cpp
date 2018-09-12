@@ -30,10 +30,6 @@ using namespace cargo;
 const int BATCH = 1;
 const int RANGE = 2000;
 
-auto cmp = [](rank_cand left, rank_cand right) {
-  return std::get<0>(left) > std::get<0>(right);
-};
-
 GreedyInsertion::GreedyInsertion()
     : RSAlgorithm("greedy_insertion", false), grid_(100) {
   this->batch_time() = BATCH;
@@ -45,29 +41,25 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   this->candidates =
     this->grid_.within(RANGE, cust.orig());
 
-  /* Rank candidates (timeout) */
-  std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
-    my_q(cmp);
+  DistInt best_cst = InfInt;
+
   for (const MutableVehicleSptr& cand : this->candidates) {
     if (cand->queued() < cand->capacity()) {
       DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-      rank_cand rc {cst, cand, sch, rte};
-      my_q.push(rc);
+      if (cst < best_cst) {
+        if (chktw(sch, rte)) {
+          best_vehl = cand;
+          best_sch  = sch;
+          best_rte  = rte;
+          best_cst  = cst;
+        }
+      }
     }
     if (this->timeout(this->timeout_0))
       break;
   }
-
-  /* Accept greedy valid */
-  while (!my_q.empty() && !matched) {
-    rank_cand rc = my_q.top();
-    my_q.pop();
-    best_vehl = std::get<1>(rc);
-    best_sch  = std::get<2>(rc);
-    best_rte  = std::get<3>(rc);
-    if (chktw(best_sch, best_rte))
-      matched = true;
-  }
+  if (best_vehl != nullptr)
+    matched = true;
 
   /* Attempt commit to db */
   if (matched) {

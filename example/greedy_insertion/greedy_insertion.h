@@ -21,9 +21,6 @@
 
 using namespace cargo;
 
-typedef std::tuple<DistInt, MutableVehicleSptr,
-  std::vector<Stop>, std::vector<Wayp>> rank_cand;
-
 class GreedyInsertion : public RSAlgorithm {
  public:
   GreedyInsertion();
