@@ -31,10 +31,6 @@ using namespace cargo;
 const int BATCH = 1;
 const int RANGE = 2000;
 
-auto cmp = [](rank_cand left, rank_cand right) {
-  return std::get<0>(left) > std::get<0>(right);
-};
-
 BilateralArrangement::BilateralArrangement()
     : RSAlgorithm("bilateral_arrangement", false), grid_(100) {
   this->batch_time() = BATCH;
@@ -53,29 +49,26 @@ void BilateralArrangement::match() {
     this->candidates =
       this->grid_.within(RANGE, cust.orig());
 
-    /* Rank candidates (timeout) */
-    std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
-      my_q(cmp);
+    DistInt best_cst = InfInt;
+
     for (const MutableVehicleSptr& cand : this->candidates) {
       if (cand->queued() < cand->capacity()) {
         DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-        rank_cand rc {cst, cand, sch, rte};
-        my_q.push(rc);
+        if (cst < best_cst) {
+          // No timewindow check
+          best_vehl = cand;
+          best_sch  = sch;
+          best_rte  = rte;
+          best_cst  = cst;
+        }
       }
       if (this->timeout(this->timeout_0))
         break;
     }
-
-    /* Try to accept greedy valid */
-    while (!my_q.empty() && !matched) {
-      rank_cand rc = my_q.top();
-      my_q.pop();
-      best_vehl = std::get<1>(rc);
-      best_sch  = std::get<2>(rc);
-      best_rte  = std::get<3>(rc);
+    if (best_vehl != nullptr) {
       if (chktw(best_sch, best_rte)) {
         matched = true;
-      } else {  // try to replace existing customer
+      } else {
         CustId remove_me = randcust(best_vehl->schedule().data());
         if (remove_me != -1) {
           old_sch = best_vehl->schedule().data();
@@ -115,6 +108,7 @@ void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void BilateralArrangement::end() {
+  print(MessageType::Info) << "swaps: " << this->nswapped_ << std::endl;
   this->print_statistics();
 }
 
