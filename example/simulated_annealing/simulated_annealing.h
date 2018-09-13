@@ -25,16 +25,11 @@
 
 using namespace cargo;
 
-/* Annealing a metal is the process of repeatedly heating/cooling it
- * in order to get rid of impurities. For Simulated Annealing, we first
- * generate a solution out of the unmatched customers and vehicles; then
- * perturb the solution; depending on the "temperature", we accept perturbed
- * solutions of higher or lower cost than the original solution.
- *
- * Here we use "random reassign" as our perturbation. We generate an initial
- * solution by looping through all customers and assigning to random nearest
- * neighbor; we generate a "perturbed" solution by shuffling the customers,
- * then again assign. */
+typedef std::tuple<DistInt, MutableVehicleSptr,
+  std::vector<Stop>, std::vector<Wayp>> Assignment;
+
+typedef std::unordered_map<CustId, Assignment> Sol;
+
 class SimulatedAnnealing : public RSAlgorithm {
  public:
   SimulatedAnnealing();
@@ -43,10 +38,9 @@ class SimulatedAnnealing : public RSAlgorithm {
   virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
-  virtual void listen();
+  virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
-  /* My variables */
   Grid grid_;
 
   int nclimbs_;
@@ -54,12 +48,20 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
-  typedef std::tuple<DistInt, std::shared_ptr<MutableVehicle>,
-          std::vector<Stop>, std::vector<Wayp>>     Assignment;
+  /* Workspace variables */
+  std::vector<Stop> sch;
+  std::vector<Wayp> rte;
+  std::vector<MutableVehicleSptr> candidates;
+  tick_t timeout_0;
+  std::unordered_map<CustId, bool> is_matched;
+  std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
+  std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
+  std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
+  std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
-  typedef std::unordered_map<CustId, Assignment>    Sol;
 
-  /* Probability of accepting "hill-climbing" solution */
   bool hillclimb(int &);
+
+  void reset_workspace();
 };
 
