@@ -225,8 +225,10 @@ bool RSAlgorithm::assign(
   vehl.set_sch(out_sch);
   vehl.reset_lvn();
   vehl.incr_queued();
-  for (size_t i = 0; i < cadd.size() - cdel.size(); ++i)
+  for (size_t i = 0; i < cadd.size(); ++i)
     nmat_++;
+  for (size_t i = 0; i < cdel.size(); ++i)
+    nmat_--;
 
   /* Commit the synchronized route */
   sqlite3_bind_blob(uro_stmt, 1, static_cast<void const*>(out_rte.data()),
