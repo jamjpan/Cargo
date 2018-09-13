@@ -32,8 +32,8 @@ using namespace cargo;
 
 const int BATCH = 30;
 const int RANGE = 2000;
-const int PERT  = 6;
-const int T_MAX = 5;
+const int PERT  = 1000;
+const int T_MAX = 10;
 
 SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("simulated_annealing", false), grid_(100), d(0,1) {
@@ -88,9 +88,7 @@ void SimulatedAnnealing::match() {
   /* Perturb the solution */
   std::uniform_int_distribution<> n(0, this->best_sol.size() - 1);
   for (int T = 0; T < T_MAX; ++T) {
-    print << "T=" << T << std::endl;
     for (int i = 0; i < PERT; ++i) {
-      print << "P=" << i << std::endl;
       auto sol = best_sol;
       auto cust_itr = sol.begin();          // pick random customer
       std::advance(cust_itr, n(this->gen));
@@ -243,7 +241,7 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-18.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
   option.path_to_solution = "simulated_annealing.sol";
   option.path_to_dataout  = "simulated_annealing.dat";
   option.time_multiplier  = 1;
