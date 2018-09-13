@@ -26,100 +26,50 @@
 
 using namespace cargo;
 
-/* The Trip Assignment Problem
- *
- * Citation:
- *
- * Javier Alonso-Mora, Samitha Samaranayake, Alex Wallar, Emilio Frazzoli, and
- * Daniela Rus. "On-demand high-capacity ride-sharing via dynamic trip-vehicle
- * assignment". PNAS 114(3), 2017, pp.462-467.
- *
- * The problem minimizes the cost of assigning vehicles to shared trips, plus a
- * penalty for each unserved customer. Given a set of trips, a cost c_ij gives
- * the detour cost of vehicle i serving trip j; a binary variable x_ij equals 1
- * if the vehicle serves the trip and 0 otherwise. A seperate cost C_k gives
- * the travel cost of customer k (equal to the shortest-path from the
- * customer's origin to destination), and a binary variable y_k equals 1 if the
- * customer is unserved by any trip and 0 otherwise. The objective function is:
- *
- *     min z = sum(c_ij*x_ij)        for all i,j
- *             + sum(C_k*y_k)        for all k
- *
- * The problem is constrained by two sets of equations. The first set retricts
- * vehicles to serve only 1 trip:
- *
- *     Given vehicle i, 0 <= sum over j (x_ij) <= 1 for trips j where vehicle i
- *     can serve j within window constraints
- *
- * The second set restricts customers to be served only once, or not served at
- * all:
- *
- *     Given customer k, y_k + sum over i,j (x_ij) == 1 for vehicle-trip pair
- *     ij where trip j includes customer k
- *
- * Trips are constructed iteratively using the steps in the paper. Briefly,
- * customer pairs are formed based on if the two trips are shareable; then
- * customer-vehicle pairs are formed; then trips of larger sizes (>2) are
- * formed iteratively.
- *
- * In this example, GLPK is used to solve the minimization problem. But the
- * performance of GLPK is quite poor compared with commercial options.
- */
- 
-/* typdef unordered_map to dict to save typing */
 template <typename K, typename V> using dict = std::unordered_map<K, V>;
 
-/* Semantic types */
 typedef int SharedTripId;
 typedef std::vector<Customer> SharedTrip;
 
-/* Strategy
- *
- * The default RSAlgorithm::listen() method calls match() at every
- * batch_time().  Thus during match(), we will form trips from the unassigned
- * customers and active vehicles, then construct the binary integer linear
- * program to solve the assignment problem, then call glpk to do the actual
- * solving. Vehicles will be updated based on their assignments through calls
- * to RSAlgorithm::commit(). We will use a grid index to help construct the rv
- * pairs when building the rv-graph.
- */
-class TripVehicleGrouping : public cargo::RSAlgorithm {
+class TripVehicleGrouping : public RSAlgorithm {
  public:
   TripVehicleGrouping();
 
-  /* The default penalty for unassignment is a customer's base cost. But for
-   * permanent taxis, the penalty needs to be much higher in order to divert the
-   * taxi. Set unassign_penalty to a high number > 0 to override the default. */
-  int unassign_penalty = -1; // meters
+  int unassign_penalty = -1;
 
   /* My overrides */
-  virtual void handle_vehicle(const cargo::Vehicle &);
+  virtual void handle_vehicle(const Vehicle &);
   virtual void match();
   virtual void end();
-  virtual void listen();
+  virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
-  cargo::Grid grid_;
+  Grid grid_;
 
-  /* Vector of GTrees for parallel sp
-   * Initialized when TripVehicleGrouping() is intialized */
+  /* Vector of GTrees for parallel sp */
   std::vector<GTree::G_Tree> gtre_;
 
-  /* RV-graph */
+
+  /* Workspace variables */
+  std::unordered_map<CustId, bool> is_matched;
+  tick_t timeout_rv_0;
+  tick_t timeout_rtv_0;
   dict<Customer, std::vector<Customer>> rvgrph_rr_;
   dict<Vehicle, std::vector<Customer>>  rvgrph_rv_;
+  dict<Vehicle, dict<Customer, std::vector<Stop>>> rv_sch;
+  dict<Vehicle, dict<Customer, std::vector<Wayp>>> rv_rte;
+  dict<Vehicle, dict<Customer, DistInt>>           rv_cst;
+  std::vector<CustId> matchable_custs {};
+  dict<VehlId, dict<SharedTripId, std::vector<Stop>>> vt_sch;
+  dict<VehlId, dict<SharedTripId, std::vector<Wayp>>> vt_rte;
+  dict<VehlId, Vehicle> vehmap;
 
-  /* RTV-graph */
+
   SharedTripId stid_;
   dict<VehlId, dict<SharedTripId, DistInt>> vted_;  // vehl-trip edges
   dict<CustId, std::vector<SharedTripId>>   cted_;  // cust-trip edges
   dict<SharedTripId, SharedTrip>            trip_;  // trip lookup
 
-  /* Function travel
-   * In the paper, travel uses enumeration for vehicles with small capacity,
-   * then the insertion method for each request above that capacity. We just
-   * use the insertion method for all requests. The result is tradeoff
-   * quality for speed. */
   bool travel(const Vehicle &,                // Can this vehl...
               const std::vector<Customer> &,  // ...serve these custs?
               DistInt &,                      // cost of serving
@@ -127,9 +77,8 @@ class TripVehicleGrouping : public cargo::RSAlgorithm {
               std::vector<Wayp> &,            // resultant route
               GTree::G_Tree &);               // gtree to use for sp
 
-  /* Function add_trip
-   * Add SharedTrip into trip_. If SharedTrip already exists in trip_, return
-   * its id. Also add to ctedges */
   SharedTripId add_trip(const SharedTrip &);
+
+  void reset_workspace();
 };
 
