@@ -22,6 +22,7 @@
 #ifndef CARGO_INCLUDE_LIBCARGO_DBSQL_H_
 #define CARGO_INCLUDE_LIBCARGO_DBSQL_H_
 
+#include "../sqlite3/sqlite3.h"
 #include "types.h" /* SqliteQuery types */
 
 /* -------
@@ -65,6 +66,9 @@
  */
 
 namespace cargo {
+
+void prepare_stmt(SqliteQuery, sqlite3_stmt**);
+
 namespace sql {
 
 /* Create Cargo database tables. ---------------------------------------------*/
