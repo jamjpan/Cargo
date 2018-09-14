@@ -68,7 +68,6 @@
 namespace cargo {
 
 void prepare_stmt(SqliteQuery, sqlite3_stmt**);
-void prepare_stmt(vec_t<std::pair<SqliteQuery, sqlite3_stmt**>> &);
 
 namespace sql {
 
