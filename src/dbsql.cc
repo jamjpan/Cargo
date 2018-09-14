@@ -29,6 +29,8 @@
 
 using namespace cargo;
 
+//TODO DBExecutor class
+
 void prepare_stmt(SqliteQuery query, sqlite3_stmt** stmt) {
   if (sqlite3_prepare_v2(Cargo::db(), query, -1, stmt, NULL) != SQLITE_OK) {
     std::cout << "Prepare query failed: \n" << query << std::endl;

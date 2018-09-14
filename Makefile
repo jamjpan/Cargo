@@ -5,12 +5,12 @@ CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 OBJECTS = \
 		  include/libcargo.h \
 		  include/libcargo/grid.h \
-		  include/libcargo/dbsql.h \
 		  include/libcargo/debug.h \
 		  include/libcargo/distance.h \
 		  include/libcargo/message.h \
 		  include/libcargo/types.h \
 		  build/cargo.o \
+		  build/dbsql.o \
 		  build/classes.o \
 		  build/file.o \
 		  build/functions.o \
@@ -42,6 +42,13 @@ build/classes.o: \
 	include/libcargo/types.h \
 	src/classes.cc
 	$(CXX) $(CFLAGS) src/classes.cc
+
+build/dbsql.o: \
+    include/libcargo/dbsql.h \
+	include/libcargo/types.h \
+	include/sqlite3/sqlite3.h \
+	src/dbsql.cc
+	$(CXX) $(CFLAGS) src/dbsql.cc
 
 build/file.o: \
 	include/libcargo/file.h \
