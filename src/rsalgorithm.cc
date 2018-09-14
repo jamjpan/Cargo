@@ -91,14 +91,14 @@ float RSAlgorithm::avg_cust_ht() {
   return sum/(float)handling_times_.size();
 }
 
-std::vector<Customer> & RSAlgorithm::customers() { return customers_; }
-std::vector<Vehicle> & RSAlgorithm::vehicles()   { return vehicles_; }
+vec_t<Customer> & RSAlgorithm::customers() { return customers_; }
+vec_t<Vehicle> & RSAlgorithm::vehicles()   { return vehicles_; }
 
 bool RSAlgorithm::assign(
-  const std::vector<CustId> & custs_to_add,
-  const std::vector<CustId> & custs_to_del,
-  const std::vector<Wayp>   & new_rte,
-  const std::vector<Stop>   & new_sch,
+  const vec_t<CustId> & custs_to_add,
+  const vec_t<CustId> & custs_to_del,
+  const vec_t<Wayp>   & new_rte,
+  const vec_t<Stop>   & new_sch,
         MutableVehicle      & vehl,
         bool                strict) {
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);
@@ -120,13 +120,13 @@ bool RSAlgorithm::assign(
   /* Get current schedule */
   const Stop* schbuf =
     static_cast<const Stop*>(sqlite3_column_blob(sov_stmt, 11));
-  std::vector<Stop> cur_sch(
+  vec_t<Stop> cur_sch(
     schbuf, schbuf + sqlite3_column_bytes(sov_stmt, 11) / sizeof(Stop));
 
   /* Get current route */
   const Wayp* rtebuf
     = static_cast<const Wayp*>(sqlite3_column_blob(sov_stmt, 8));
-  std::vector<Wayp> cur_rte(
+  vec_t<Wayp> cur_rte(
     rtebuf, rtebuf + sqlite3_column_bytes(sov_stmt, 8) / sizeof(Wayp));
   RteIdx  cur_lvn = sqlite3_column_int(sov_stmt, 9);
   DistInt cur_nnd = sqlite3_column_int(sov_stmt, 10);
@@ -137,10 +137,10 @@ bool RSAlgorithm::assign(
   }
 
   /* Attempt synchronization */
-  std::vector<CustId> cdel = custs_to_del;
-  std::vector<CustId> cadd = custs_to_add;
-  std::vector<Wayp> out_rte {};  // container for synced route
-  std::vector<Stop> out_sch {};  // container for synced schedule
+  vec_t<CustId> cdel = custs_to_del;
+  vec_t<CustId> cadd = custs_to_add;
+  vec_t<Wayp> out_rte {};  // container for synced route
+  vec_t<Stop> out_sch {};  // container for synced schedule
 
   SyncResult synced = sync(
     new_rte, cur_rte, cur_lvn, new_sch, cur_sch, cadd, cdel, out_rte, out_sch);
@@ -164,7 +164,7 @@ bool RSAlgorithm::assign(
     /* The recomputed route must include the vehicle's current location
      * and the next node in the current route (the vehicle must arrive at
      * its next node; it cannot change direction mid-edge) */
-    std::vector<Stop> re_sch;
+    vec_t<Stop> re_sch;
     re_sch.push_back(Stop(vehl.id(), cur_rte.at(cur_lvn).second,
                           StopType::VehlOrig, vehl.early(), vehl.late()));
     re_sch.push_back(Stop(vehl.id(), cur_rte.at(cur_lvn + 1).second,
@@ -193,7 +193,7 @@ bool RSAlgorithm::assign(
     DEBUG(3, { print << "assign() created re_sch:"; print_sch(re_sch); });
 
     /* Re-compute the route and add the traveled distance to each new node */
-    std::vector<Wayp> re_rte;
+    vec_t<Wayp> re_rte;
     route_through(re_sch, re_rte);
     for (auto& wp : re_rte)
       wp.first += cur_rte.at(cur_lvn).first;
@@ -334,15 +334,15 @@ void RSAlgorithm::print_statistics() {
 }
 
 RSAlgorithm::SyncResult
-RSAlgorithm::sync(const std::vector<Wayp>   & new_rte,
-                  const std::vector<Wayp>   & cur_rte,
+RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
+                  const vec_t<Wayp>   & cur_rte,
                   const RteIdx              & idx_lvn,
-                  const std::vector<Stop>   & new_sch,
-                  const std::vector<Stop>   & cur_sch,
-                  const std::vector<CustId> & cadd,
-                  const std::vector<CustId> & cdel,
-                        std::vector<Wayp>   & out_rte,
-                        std::vector<Stop>   & out_sch) {
+                  const vec_t<Stop>   & new_sch,
+                  const vec_t<Stop>   & cur_sch,
+                  const vec_t<CustId> & cadd,
+                  const vec_t<CustId> & cdel,
+                        vec_t<Wayp>   & out_rte,
+                        vec_t<Stop>   & out_sch) {
   out_rte = {};
   out_sch = {};
 
@@ -499,8 +499,8 @@ void RSAlgorithm::select_matchable_vehicles() {
   while ((rc = sqlite3_step(smv_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(smv_stmt,  8));
     const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(smv_stmt, 11));
-    std::vector<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(smv_stmt,  8) / sizeof(Wayp));
-    std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(smv_stmt, 11) / sizeof(Stop));
+    vec_t<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(smv_stmt,  8) / sizeof(Wayp));
+    vec_t<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(smv_stmt, 11) / sizeof(Stop));
     Route route(sqlite3_column_int(smv_stmt, 0), raw_rte);
     Schedule schedule(sqlite3_column_int(smv_stmt, 0), raw_sch);
 
@@ -557,8 +557,8 @@ void RSAlgorithm::select_waiting_customers(
   sqlite3_reset(swc_stmt);
 }
 
-std::vector<Customer> RSAlgorithm::get_all_customers() {
-  std::vector<Customer> custs;
+vec_t<Customer> RSAlgorithm::get_all_customers() {
+  vec_t<Customer> custs;
   while ((rc = sqlite3_step(sac_stmt)) == SQLITE_ROW) {
     Customer customer(
         sqlite3_column_int(sac_stmt, 0), sqlite3_column_int(sac_stmt, 1),
@@ -573,13 +573,13 @@ std::vector<Customer> RSAlgorithm::get_all_customers() {
   return custs;
 }
 
-std::vector<Vehicle> RSAlgorithm::get_all_vehicles() {
-  std::vector<Vehicle> vehls;
+vec_t<Vehicle> RSAlgorithm::get_all_vehicles() {
+  vec_t<Vehicle> vehls;
   while ((rc = sqlite3_step(sav_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sav_stmt,  8));
     const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(sav_stmt, 11));
-    std::vector<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(sav_stmt,  8) / sizeof(Wayp));
-    std::vector<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(sav_stmt, 11) / sizeof(Stop));
+    vec_t<Wayp> raw_rte(rtebuf, rtebuf + sqlite3_column_bytes(sav_stmt,  8) / sizeof(Wayp));
+    vec_t<Stop> raw_sch(schbuf, schbuf + sqlite3_column_bytes(sav_stmt, 11) / sizeof(Stop));
     Route route(sqlite3_column_int(sav_stmt, 0), raw_rte);
     Schedule schedule(sqlite3_column_int(sav_stmt, 0), raw_sch);
 

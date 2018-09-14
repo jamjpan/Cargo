@@ -58,19 +58,19 @@ class RSAlgorithm {
   void select_waiting_customers(            // populate customers_
     bool skip_assigned = true, bool skip_delayed = true);
   void select_matchable_vehicles();         // populate vehicles_
-  std::vector<Vehicle>& vehicles();         // return vehicles_
-  std::vector<Customer>& customers();       // return customers_
-  std::vector<Vehicle> get_all_vehicles();  // populate & return ALL vehicles
-  std::vector<Customer> get_all_customers();// populate & return ALL customers
+  vec_t<Vehicle>& vehicles();               // return vehicles_
+  vec_t<Customer>& customers();             // return customers_
+  vec_t<Vehicle> get_all_vehicles();        // populate & return ALL vehicles
+  vec_t<Customer> get_all_customers();      // populate & return ALL customers
   bool delay(const CustId &);               // true if customer under delay
   bool timeout(tick_t &);                   // true if tick_t > timeout_
 
   /* Commit to db */
   bool assign(
-    const std::vector<CustId> &,            // custs to add
-    const std::vector<CustId> &,            // custs to del
-    const std::vector<Wayp>   &,            // new route
-    const std::vector<Stop>   &,            // new schedule
+    const vec_t<CustId> &,                  // custs to add
+    const vec_t<CustId> &,                  // custs to del
+    const vec_t<Wayp>   &,                  // new route
+    const vec_t<Stop>   &,                  // new schedule
           MutableVehicle &,                 // vehicle to assign to
           bool strict = false);             // set if do not want re-routing
 
@@ -88,10 +88,9 @@ class RSAlgorithm {
   int nmat_;                                // number matched
   int nrej_;                                // number rejectd
 
-  std::vector<float> handling_times_;       // handling times container
+  vec_t<float> handling_times_;             // handling times container
 
-  std::unordered_map<CustId, SimlTime>      // delays container;
-    delay_;
+  dict<CustId, SimlTime> delay_;
 
   int retry_;                               // delay interval
   int timeout_;                             // timeout limit (ms)
@@ -105,8 +104,8 @@ class RSAlgorithm {
   bool done_;                               // get with done(), set with kill()
   int batch_time_;                          // get/set with batch_time()
 
-  std::vector<Customer> customers_;         // get with customers()
-  std::vector<Vehicle>  vehicles_;          // get with vehicles()
+  vec_t<Customer> customers_;               // get with customers()
+  vec_t<Vehicle>  vehicles_;                // get with vehicles()
 
   SqliteReturnCode rc;
   sqlite3_stmt* ssr_stmt;                   // select route
@@ -133,15 +132,15 @@ class RSAlgorithm {
   } SyncResult;
 
   SyncResult sync(                          // internal function
-    const std::vector<Wayp>   & new_rte,
-    const std::vector<Wayp>   & cur_rte,
+    const vec_t<Wayp>   & new_rte,
+    const vec_t<Wayp>   & cur_rte,
     const RteIdx              & idx_lvn,
-    const std::vector<Stop>   & new_sch,
-    const std::vector<Stop>   & cur_sch,
-    const std::vector<CustId> & cadd,
-    const std::vector<CustId> & cdel,
-          std::vector<Wayp>   & out_rte,
-          std::vector<Stop>   & out_sch);
+    const vec_t<Stop>   & new_sch,
+    const vec_t<Stop>   & cur_sch,
+    const vec_t<CustId> & cadd,
+    const vec_t<CustId> & cdel,
+          vec_t<Wayp>   & out_rte,
+          vec_t<Stop>   & out_sch);
 };
 
 }  // namespace cargo

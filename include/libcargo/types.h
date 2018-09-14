@@ -25,28 +25,13 @@
 #include <chrono>
 #include <limits>
 #include <unordered_map>
+#include <vector>
 #include <utility> /* std::pair */
 
 namespace cargo {
 
-/* We use many "logical" numerical types such as node IDs, edge IDs, trip IDs,
- * etc. Unfortunately these types can get "mingled" in the code. For example,
- * consider, where TripId and NodeId are int types:
- *     TripId tid;
- *     NodeId nid;
- *
- * The following assignment is allowed by C++ even though the two are logically
- * different:
- *     nid = tid;
- *     tid = nid;
- *
- * There are other similar issues in type conversion.
- *
- * Google or-tools has a nice template class in int_type.h to prevent these
- * kinds of issues. We can consider using their template IntType class in the
- * future. But for now, using typedefs to at least provide some semantic
- * difference is better than nothing. But we don't have static type-checking.
- */
+template <typename K, typename V> using dict  = std::unordered_map<K, V>;
+template <typename T>             using vec_t = std::vector<T>;
 
 // "NodeId" type-class
 typedef int NodeId;
@@ -79,7 +64,7 @@ typedef double DistDbl;
 
 /* "SimlTime" type class
  * One SimlTime is one atom of time. Simulation starts at SimlTime = 0.
- * All times (time windows, travel times) are expressed as SimlTime. */
+ * All times (time windows, travel times) are expressed in SimlTime. */
 typedef int SimlTime;
 typedef int SimlDur;
 typedef int ErlyTime;  // time window early
@@ -117,21 +102,21 @@ typedef size_t RteIdx;
 typedef size_t SchIdx;
 
 // Lookup nodes.
-typedef std::unordered_map<NodeId, Point> KVNodes;
+typedef dict<NodeId, Point> KVNodes;
 
 // Lookup edges.  The key-value store is "undirected"; that is, from-to and
 // to-from key combinations both exist in the store. Usage:
 //     KVEdges em_;
 //     em[from_id][to_id] = weight;
-typedef std::unordered_map<NodeId, std::unordered_map<NodeId, DistDbl>> KVEdges;
+typedef dict<NodeId, dict<NodeId, DistDbl>> KVEdges;
 
 // Filepath
 typedef std::string Filepath;
 
 // Chrono
-typedef std::chrono::duration<double, std::milli> dur_milli;
-typedef std::chrono::milliseconds milli;
-typedef std::chrono::high_resolution_clock hiclock;
+typedef std::chrono::milliseconds                                   milli;
+typedef std::chrono::duration<double, std::milli>                   dur_milli;
+typedef std::chrono::high_resolution_clock                          hiclock;
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> tick_t;
 
 // Infinity

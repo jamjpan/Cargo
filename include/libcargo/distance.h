@@ -54,7 +54,7 @@ inline DistInt shortest_path_dist( // use specific gtree
         const NodeId& u,
         const NodeId& v,
         GTree::G_Tree& gtree) {
-  std::vector<NodeId> seg = {};
+  vec_t<NodeId> seg = {};
   bool in_cache = false;
   { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
   in_cache = Cargo::spexist(u, v);

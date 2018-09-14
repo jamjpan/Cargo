@@ -88,7 +88,7 @@ size_t read_edges(const Filepath& path, KVEdges& M) {
 size_t read_problem(const Filepath& path, ProblemSet& probset) {
   std::ifstream ifs(path);
   if (!ifs.good()) throw std::runtime_error("problem path not found");
-  std::unordered_map<SimlTime, std::vector<Trip>> trips;
+  std::unordered_map<SimlTime, vec_t<Trip>> trips;
   std::string _;  // unused
   size_t m, n;
   size_t count_trips = 0;
@@ -136,7 +136,7 @@ void Logger::run() {
   }
 }
 
-void Logger::put_r_message(const std::vector<Wayp>& rte, const Vehicle& vehl) {
+void Logger::put_r_message(const vec_t<Wayp>& rte, const Vehicle& vehl) {
   std::string item =
       std::to_string(Cargo::now()) + " R " + std::to_string(vehl.id());
   for (RteIdx i = vehl.idx_last_visited_node(); i < rte.size(); ++i)
@@ -152,33 +152,33 @@ void Logger::put_v_message(const std::map<VehlId, NodeId>& curloc) {
   push(item);
 }
 
-void Logger::put_m_message(const std::vector<CustId>& cadd,
-                           const std::vector<CustId>& cdel, const VehlId& vid) {
+void Logger::put_m_message(const vec_t<CustId>& cadd,
+                           const vec_t<CustId>& cdel, const VehlId& vid) {
   std::string item = std::to_string(Cargo::now()) + " M " + std::to_string(vid);
   for (const CustId& id : cdel) item.append(" " + std::to_string(-id));
   for (const CustId& id : cadd) item.append(" " + std::to_string(id));
   push(item);
 }
 
-void Logger::put_a_message(const std::vector<VehlId>& arrived) {
+void Logger::put_a_message(const vec_t<VehlId>& arrived) {
   std::string item = std::to_string(Cargo::now()) + " A";
   for (const VehlId& id : arrived) item.append(" " + std::to_string(id));
   push(item);
 }
 
-void Logger::put_t_message(const std::vector<CustId>& timeout) {
+void Logger::put_t_message(const vec_t<CustId>& timeout) {
   std::string item = std::to_string(Cargo::now()) + " T";
   for (const CustId& id : timeout) item.append(" " + std::to_string(id));
   push(item);
 }
 
-void Logger::put_p_message(const std::vector<CustId>& picked) {
+void Logger::put_p_message(const vec_t<CustId>& picked) {
   std::string item = std::to_string(Cargo::now()) + " P";
   for (const CustId& id : picked) item.append(" " + std::to_string(id));
   push(item);
 }
 
-void Logger::put_d_message(const std::vector<CustId>& dropped) {
+void Logger::put_d_message(const vec_t<CustId>& dropped) {
   std::string item = std::to_string(Cargo::now()) + " D";
   for (const CustId& id : dropped) item.append(" " + std::to_string(id));
   push(item);

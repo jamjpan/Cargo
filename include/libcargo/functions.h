@@ -34,16 +34,12 @@
 namespace cargo {
 
 /* Print ---------------------------------------------------------------------*/
-void print_rte(const std::vector<Wayp> &);
-void print_sch(const std::vector<Stop> &);
-
-
-/* Prepare sqlite_stmt -------------------------------------------------------*/
-void prepare_stmt(SqliteQuery, sqlite3_stmt**);
+void print_rte(const vec_t<Wayp> &);
+void print_sch(const vec_t<Stop> &);
 
 
 /* Random customer -----------------------------------------------------------*/
-CustId randcust(const std::vector<Stop> &);
+CustId randcust(const vec_t<Stop> &);
 
 
 /* Pickup range --------------------------------------------------------------*/
@@ -52,66 +48,66 @@ DistInt pickup_range(const Customer &, const SimlTime &);
 
 /* Route operations ----------------------------------------------------------*/
 DistInt route_through(  // use specific g-tree
-  const std::vector<Stop> &,
-        std::vector<Wayp> &,
+  const vec_t<Stop> &,
+        vec_t<Wayp> &,
         GTree::G_Tree &
 );
 DistInt route_through(  // use global g-tree
-  const std::vector<Stop> &,
-        std::vector<Wayp> &
+  const vec_t<Stop> &,
+        vec_t<Wayp> &
 );
 bool chkpc(const Schedule &);
-bool chktw(const std::vector<Stop> &, const std::vector<Wayp> &);
+bool chktw(const vec_t<Stop> &, const vec_t<Wayp> &);
 
 
 /* Schedule operations -------------------------------------------------------*/
-void opdel(std::vector<Stop> &, const CustId &);
+void opdel(vec_t<Stop> &, const CustId &);
 
 // TODO: Having all of these is horrible. Clean this up.
 DistInt sop_insert(
-  const std::vector<Stop> &,
+  const vec_t<Stop> &,
   const Stop &,
   const Stop &,
         bool,
         bool,
-        std::vector<Stop> &,
-        std::vector<Wayp> &,
+        vec_t<Stop> &,
+        vec_t<Wayp> &,
         GTree::G_Tree &
 );
 DistInt sop_insert(
-  const std::vector<Stop> &,
+  const vec_t<Stop> &,
   const Stop &,
   const Stop &,
         bool,
         bool,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
+        vec_t<Stop> &,
+        vec_t<Wayp> &
 );
 DistInt sop_insert(
   const Vehicle &,
   const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &,
+        vec_t<Stop> &,
+        vec_t<Wayp> &,
         GTree::G_Tree &
 );
 DistInt sop_insert(
   const Vehicle &,
   const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
+        vec_t<Stop> &,
+        vec_t<Wayp> &
 );
 DistInt sop_insert(
   const std::shared_ptr<MutableVehicle> &,
   const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
+        vec_t<Stop> &,
+        vec_t<Wayp> &
 );
 DistInt sop_replace(
   const std::shared_ptr<MutableVehicle> &,
   const CustId &,
   const Customer &,
-        std::vector<Stop> &,
-        std::vector<Wayp> &
+        vec_t<Stop> &,
+        vec_t<Wayp> &
 );
 
 }  // namespace cargo

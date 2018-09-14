@@ -37,13 +37,13 @@
 namespace cargo {
 
 /* Print ---------------------------------------------------------------------*/
-void print_rte(const std::vector<Wayp>& rte) {
+void print_rte(const vec_t<Wayp>& rte) {
   for (const auto& wp : rte)
     std::cout << " (" << wp.first << "|" << wp.second << ")";
   std::cout << std::endl;
 }
 
-void print_sch(const std::vector<Stop>& sch) {
+void print_sch(const vec_t<Stop>& sch) {
   for (const auto& sp : sch)
     std::cout << " (owner=" << sp.owner() << ";loc=" << sp.loc() << ";e=" << sp.early()
               << ";late=" << sp.late() << ";type=" << (int)sp.type() << ")";
@@ -51,18 +51,9 @@ void print_sch(const std::vector<Stop>& sch) {
 }
 
 
-/* Prepare sqlite_stmt -------------------------------------------------------*/
-void prepare_stmt(SqliteQuery query, sqlite3_stmt** stmt) {
-  if (sqlite3_prepare_v2(Cargo::db(), query, -1, stmt, NULL) != SQLITE_OK) {
-    std::cout << "Prepare query failed: \n" << query << std::endl;
-    throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
-  }
-}
-
-
 /* Random customer -----------------------------------------------------------*/
-CustId randcust(const std::vector<Stop>& sch) {
-  std::vector<Stop> s = sch; // make a copy
+CustId randcust(const vec_t<Stop>& sch) {
+  vec_t<Stop> s = sch; // make a copy
   std::random_shuffle(s.begin(), s.end());  // randomize the order
   for (auto i = s.begin(); i != s.end()-1; ++i)
     if (i->type() != StopType::VehlOrig && i->type() != StopType::VehlDest)
@@ -81,7 +72,7 @@ DistInt pickup_range(const Customer& cust, const SimlTime& now) {
 
 
 /* Route operations ----------------------------------------------------------*/
-DistInt route_through(const std::vector<Stop>& sch, std::vector<Wayp>& rteout,
+DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
                       GTree::G_Tree& gtree) {
   DistInt cst = 0;
   rteout.clear();
@@ -90,7 +81,7 @@ DistInt route_through(const std::vector<Stop>& sch, std::vector<Wayp>& rteout,
     const NodeId& from = sch.at(i).loc();
     const NodeId& to = sch.at(i+1).loc();
 
-    std::vector<NodeId> seg {};
+    vec_t<NodeId> seg {};
     bool in_cache = false;
     { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
     in_cache = Cargo::spexist(from, to);
@@ -116,8 +107,8 @@ DistInt route_through(const std::vector<Stop>& sch, std::vector<Wayp>& rteout,
   return cst;
 }
 
-DistInt route_through(const std::vector<Stop> & sch,
-                            std::vector<Wayp> & rteout) {
+DistInt route_through(const vec_t<Stop> & sch,
+                            vec_t<Wayp> & rteout) {
   return route_through(sch, rteout, Cargo::gtree());
 }
 
@@ -198,7 +189,7 @@ bool chkpc(const Schedule& s) {
   return true;
 }
 
-bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
+bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   DEBUG(3, { std::cout << "chktw() got sch:"; print_sch(sch); });
   DEBUG(3, { std::cout << "chktw() got rte:"; print_rte(rte); });
 
@@ -240,8 +231,8 @@ bool chktw(const std::vector<Stop>& sch, const std::vector<Wayp>& rte) {
 
 
 /* Schedule operations -------------------------------------------------------*/
-void opdel(std::vector<Stop>& sch, const CustId& cust_id) {
-  std::vector<Stop> new_sch {};
+void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
+  vec_t<Stop> new_sch {};
   for (const Stop& a : sch)
     if (a.owner() != cust_id)
       new_sch.push_back(a);
@@ -252,16 +243,16 @@ void opdel(std::vector<Stop>& sch, const CustId& cust_id) {
   sch = new_sch;
 }
 
-DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
+DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
                        const Stop& dest, bool fix_start, bool fix_end,
-                       std::vector<Stop>& schout, std::vector<Wayp>& rteout,
+                       vec_t<Stop>& schout, vec_t<Wayp>& rteout,
                        GTree::G_Tree& gtree) {
   DistInt mincst = InfInt;
   schout.clear();
   rteout.clear();
 
-  std::vector<Stop> mutsch = sch;   // mutable schedule
-  std::vector<Wayp> mutrte;         // mutable route
+  vec_t<Stop> mutsch = sch;   // mutable schedule
+  vec_t<Wayp> mutrte;         // mutable route
 
   auto check = [&](DistInt cst) {
     if (cst < mincst) {
@@ -289,7 +280,7 @@ DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
   // - - - A B
   int inc = 1;
   bool rst = false;
-  std::vector<Stop>::iterator beg, end;
+  vec_t<Stop>::iterator beg, end;
   for (auto i = mutsch.begin() + fix_start; i != mutsch.end() - 1 - fix_end;
        ++i) {
     beg = (inc == 1) ? i : mutsch.end() - 1 - fix_end;
@@ -311,16 +302,16 @@ DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
   return mincst;
 }
 
-DistInt sop_insert(const std::vector<Stop>& sch, const Stop& orig,
+DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
                        const Stop& dest, bool fix_start, bool fix_end,
-                       std::vector<Stop>& schout,
-                       std::vector<Wayp>& rteout) {
+                       vec_t<Stop>& schout,
+                       vec_t<Wayp>& rteout) {
   return sop_insert(sch, orig, dest, fix_start, fix_end, schout, rteout,
                     Cargo::gtree());
 }
 
 DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
-                       std::vector<Stop>& schout, std::vector<Wayp>& rteout,
+                       vec_t<Stop>& schout, vec_t<Wayp>& rteout,
                        GTree::G_Tree& gtree) {
   // The distances to the nodes in the routes found by route_through need
   // to be corrected.  veh.schedule() passed here contains only un-visited
@@ -342,22 +333,22 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
 }
 
 DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
-                       std::vector<Stop>& schout,
-                       std::vector<Wayp>& rteout) {
+                       vec_t<Stop>& schout,
+                       vec_t<Wayp>& rteout) {
   return sop_insert(vehl, cust, schout, rteout, Cargo::gtree());
 }
 
 DistInt sop_insert(const std::shared_ptr<MutableVehicle>& mutvehl,
-                       const Customer& cust, std::vector<Stop>& schout,
-                       std::vector<Wayp>& rteout) {
+                       const Customer& cust, vec_t<Stop>& schout,
+                       vec_t<Wayp>& rteout) {
   return sop_insert(*mutvehl, cust, schout, rteout);
 }
 
 DistInt sop_replace(const std::shared_ptr<MutableVehicle>& mutvehl,
                     const CustId& rm, const Customer& cust,
-                    std::vector<Stop>& schout, std::vector<Wayp>& rteout) {
+                    vec_t<Stop>& schout, vec_t<Wayp>& rteout) {
   MutableVehicle mutcopy = *mutvehl;
-  std::vector<Stop> sch1 = mutcopy.schedule().data();
+  vec_t<Stop> sch1 = mutcopy.schedule().data();
   opdel(sch1, rm);
   mutcopy.set_sch(sch1);
   return sop_insert(mutcopy, cust, schout, rteout);

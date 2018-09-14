@@ -24,7 +24,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "types.h"
@@ -88,19 +87,19 @@ class Schedule {
   /* Constructors */
   Schedule() = default;
   Schedule(
-    VehlId,            // param1: id of owner
-    std::vector<Stop>  // param2: raw sequence of Stops
+    VehlId,      // param1: id of owner
+    vec_t<Stop>  // param2: raw sequence of Stops
   );
-  const VehlId            & owner()    const;  // return owner
-  const std::vector<Stop> & data()     const;  // return raw sequence of Stops
-  const Stop              & at(SchIdx) const;  // return particular Stop
-  const Stop              & front()    const;  // return first Stop
-        size_t              size()     const;  // return Schedule size
-        void                print()    const;  // print to standard out
+  const VehlId       & owner()    const;  // return owner
+  const vec_t<Stop>  & data()     const;  // return raw sequence of Stops
+  const Stop         & at(SchIdx) const;  // return particular Stop
+  const Stop         & front()    const;  // return first Stop
+        size_t         size()     const;  // return Schedule size
+        void           print()    const;  // print to standard out
 
  private:
   VehlId owner_;
-  std::vector<Stop> data_;
+  vec_t<Stop> data_;
 };
 
 /* Route is sequence of Waypoints for Vehicle to follow. ---------------------*/
@@ -109,21 +108,21 @@ class Route {
   /* Constructors */
   Route() = default;
   Route(
-    VehlId,            // param1: id of owner
-    std::vector<Wayp>  // param2: raw sequence of Waypoints
+    VehlId,      // param1: id of owner
+    vec_t<Wayp>  // param2: raw sequence of Waypoints
   );
-  const VehlId            & owner()         const;  // return owner
-  const std::vector<Wayp> & data()          const;  // return raw sequence
-  const NodeId            & node_at(RteIdx) const;  // return particular node
-  const DistInt           & dist_at(RteIdx) const;  // return distance to
-  const DistInt           & cost()          const;  // return total distance
-  const Wayp              & at(RteIdx)      const;  // return particular Wayp
-        size_t              size()          const;  // return Route size
-        void                print()         const;  // print to standard out
+  const VehlId       & owner()         const;  // return owner
+  const vec_t<Wayp>  & data()          const;  // return raw sequence
+  const NodeId       & node_at(RteIdx) const;  // return particular node
+  const DistInt      & dist_at(RteIdx) const;  // return distance to
+  const DistInt      & cost()          const;  // return total distance
+  const Wayp         & at(RteIdx)      const;  // return particular Wayp
+        size_t         size()          const;  // return Route size
+        void           print()         const;  // print to standard out
 
  private:
   VehlId owner_;
-  std::vector<Wayp> data_;
+  vec_t<Wayp> data_;
 };
 
 /* Base class for Customers and Vehicles. ------------------------------------*/
@@ -139,12 +138,12 @@ class Trip {
     LateTime,  // late time window bound (l_i)
     Load       // load (negative indicates vehicle capacity)
   );
-  const TripId            & id()    const;  // return id
-  const OrigId            & orig()  const;  // return origin id
-  const DestId            & dest()  const;  // return destination id
-  const ErlyTime          & early() const;  // return early bound
-  const LateTime          & late()  const;  // return late bound
-        Load                load()  const;  // return load (NOT current load)
+  const TripId       & id()    const;  // return id
+  const OrigId       & orig()  const;  // return origin id
+  const DestId       & dest()  const;  // return destination id
+  const ErlyTime     & early() const;  // return early bound
+  const LateTime     & late()  const;  // return late bound
+        Load           load()  const;  // return load (NOT current load)
 
  protected:
   TripId id_;
@@ -245,15 +244,15 @@ class MutableVehicle : public Vehicle {
   /* Constructors */
   MutableVehicle() = default;
 
-  void set_rte(const std::vector<Wayp> &);  // set raw route
-  void set_rte(const Route &);              // set Route
-  void set_sch(const std::vector<Stop> &);  // set raw schedule
-  void set_sch(const Schedule &);           // set Schedule
-  void set_nnd(const DistInt &);            // set distance to next node
-  void set_lvn(const RteIdx &);             // set last-visited node index
-  void reset_lvn();                         // set last-visited node index to 0
-  void incr_queued();                       // increase value of queued by 1
-  void decr_queued();                       // decrease value of queued by 1
+  void set_rte(const vec_t<Wayp> &);  // set raw route
+  void set_rte(const Route &);        // set Route
+  void set_sch(const vec_t<Stop> &);  // set raw schedule
+  void set_sch(const Schedule &);     // set Schedule
+  void set_nnd(const DistInt &);      // set distance to next node
+  void set_lvn(const RteIdx &);       // set last-visited node index
+  void reset_lvn();                   // set last-visited node index to 0
+  void incr_queued();                 // increase value of queued by 1
+  void decr_queued();                 // decrease value of queued by 1
 };
 typedef std::shared_ptr<MutableVehicle> MutableVehicleSptr;
 
@@ -264,20 +263,20 @@ class ProblemSet {
   /* Constructor */
   ProblemSet();
 
-  const std::unordered_map<ErlyTime, std::vector<Trip>> & trips() const;
+  const dict<ErlyTime, vec_t<Trip>> & trips() const;
     // return all trips
 
   std::string & name();          // get/set instance name
   std::string & road_network();  // get/set road network
 
   /* Trips are grouped by their early time (time of appearance) */
-  void set_trips(const std::unordered_map<ErlyTime, std::vector<Trip>> &);
+  void set_trips(const dict<ErlyTime, vec_t<Trip>> &);
     // store trips
 
  private:
   std::string name_;
   std::string road_network_;
-  std::unordered_map<SimlTime, std::vector<Trip>> trips_;
+  dict<SimlTime, vec_t<Trip>> trips_;
 };
 
 }  // namespace cargo

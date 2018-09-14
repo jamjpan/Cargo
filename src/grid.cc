@@ -76,7 +76,7 @@ MutableVehicleSptr Grid::select(const VehlId &vehl_id) {
 
 // Populate res with pointers to the underlying MutableVehicles we are
 // interested in, and return a reference to the vector.
-std::vector<MutableVehicleSptr>& Grid::within(const DistDbl& d,
+vec_t<MutableVehicleSptr>& Grid::within(const DistDbl& d,
                                               const NodeId& node) {
   res_.clear();
   int offset_x =
@@ -97,7 +97,7 @@ std::vector<MutableVehicleSptr>& Grid::within(const DistDbl& d,
   return res_;
 }
 
-std::vector<MutableVehicleSptr>& Grid::all() {
+vec_t<MutableVehicleSptr>& Grid::all() {
   res_.clear();
   for (auto& i : data_)
     for (auto& j : i)
@@ -107,8 +107,8 @@ std::vector<MutableVehicleSptr>& Grid::all() {
 
 void Grid::commit(
         MutableVehicleSptr & mutvehl,
-        const std::vector<Wayp>         & new_rte,
-        const std::vector<Stop>         & new_sch,
+        const vec_t<Wayp>         & new_rte,
+        const vec_t<Stop>         & new_sch,
         const DistInt                   & new_nnd) {
   mutvehl->set_rte(new_rte);
   mutvehl->set_sch(new_sch);

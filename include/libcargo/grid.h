@@ -47,14 +47,14 @@ class Grid {
 
   /* Return candidates within about DistDbl. It's "about", not "exact", because
    * returns all candidates in grid cells covered by DistDbl */
-  std::vector<MutableVehicleSptr>& within(const DistDbl &, const NodeId &);
+  vec_t<MutableVehicleSptr>& within(const DistDbl &, const NodeId &);
 
   /* Return all vehicles */
-  std::vector<MutableVehicleSptr>& all();
+  vec_t<MutableVehicleSptr>& all();
 
   /* Commit changes to a vehicle back to the grid */
-  void commit(MutableVehicleSptr &, const std::vector<Wayp> &,
-              const std::vector<Stop> &, const DistInt &);
+  void commit(MutableVehicleSptr &, const vec_t<Wayp> &,
+              const vec_t<Stop> &, const DistInt &);
 
   void clear();
 
@@ -62,8 +62,8 @@ class Grid {
   double x_dim_;
   double y_dim_;
   int n_;
-  std::vector<std::vector<MutableVehicleSptr>> data_;
-  std::vector<MutableVehicleSptr>
+  vec_t<vec_t<MutableVehicleSptr>> data_;
+  vec_t<MutableVehicleSptr>
       res_;  // store results of within_about here
 
   int hash(const Point &);

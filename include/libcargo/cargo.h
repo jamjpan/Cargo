@@ -25,7 +25,6 @@
 #include <map>
 #include <mutex>
 #include <random>
-#include <unordered_map>
 
 #include "classes.h"
 #include "file.h"
@@ -63,14 +62,14 @@ class Cargo {
   void start(RSAlgorithm &);                // start simulation
   int step(int &);                          // move the vehicles
 
-  static std::vector<NodeId>                // get from spcache
+  static vec_t<NodeId>                      // get from spcache
   spget(const NodeId& u, const NodeId& v) {
     std::string k = std::to_string(u)+"|"+std::to_string(v);
     return spcache_.get(k);
   }
 
   static void spput(                        // put into spcache
-  const NodeId& u, const NodeId& v, std::vector<NodeId>& path) {
+  const NodeId& u, const NodeId& v, vec_t<NodeId>& path) {
     std::string k = std::to_string(u)+"|"+std::to_string(v);
     spcache_.put(k, path);
   }
@@ -111,8 +110,8 @@ class Cargo {
   static sqlite3* db_;
   static Speed speed_;
   static SimlTime t_;                       // current sim time
-  static std::unordered_map<TripId, DistInt> trip_costs_;
-  static cache::lru_cache<std::string, std::vector<NodeId>> spcache_;
+  static dict<TripId, DistInt> trip_costs_;
+  static cache::lru_cache<std::string, vec_t<NodeId>> spcache_;
 
   /* Solution file */
   Filepath solution_file_;
@@ -123,8 +122,8 @@ class Cargo {
 
   /* Logger containers */
   std::map<VehlId, NodeId>  log_v_;
-  std::vector<CustId>       log_p_, log_d_, log_t_;
-  std::vector<VehlId>       log_a_;
+  vec_t<CustId>       log_p_, log_d_, log_t_;
+  vec_t<VehlId>       log_a_;
 
   /* Save Database */
   Filepath database_file_;

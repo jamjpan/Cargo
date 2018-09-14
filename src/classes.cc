@@ -61,14 +61,14 @@ const SimlTime  & Stop::visitedAt() const { return visitedAt_; }
 /* Schedule ------------------------------------------------------------------*/
 Schedule::Schedule(
   VehlId owner,
-  std::vector<Stop> data)
+  vec_t<Stop> data)
 {
   this->owner_ = owner;
   this->data_ = data;
 }
 
 const VehlId            & Schedule::owner()      const { return owner_; }
-const std::vector<Stop> & Schedule::data()       const { return data_; }
+const vec_t<Stop> & Schedule::data()       const { return data_; }
 const Stop              & Schedule::at(SchIdx i) const { return data_.at(i); }
 const Stop              & Schedule::front()      const { return data_.front(); }
       size_t              Schedule::size()       const { return data_.size(); }
@@ -83,14 +83,14 @@ void Schedule::print() const {
 /* Route ---------------------------------------------------------------------*/
 Route::Route(
   VehlId owner,
-  std::vector<Wayp> data)
+  vec_t<Wayp> data)
 {
   this->owner_ = owner;
   this->data_ = data;
 }
 
 const VehlId            & Route::owner()    const { return owner_; }
-const std::vector<Wayp> & Route::data()     const { return data_; }
+const vec_t<Wayp> & Route::data()     const { return data_; }
 const NodeId     & Route::node_at(RteIdx i) const { return data_.at(i).second; }
 const DistInt    & Route::dist_at(RteIdx i) const { return data_.at(i).first; }
 const DistInt    & Route::cost()            const { return data_.back().first; }
@@ -170,7 +170,7 @@ Vehicle::Vehicle(
   /* Initialize default route */
   Stop o(vid, oid, StopType::VehlOrig, et, lt, et);  // create origin
   Stop d(vid, did, StopType::VehlDest, et, lt);      // create destination
-  std::vector<Wayp> route_data{};                    // container for route
+  vec_t<Wayp> route_data{};                    // container for route
   route_through({o, d}, route_data, gtree);          // compute route
   Route rte(vid, route_data);                        // construct Route
 
@@ -253,7 +253,7 @@ MutableVehicle::MutableVehicle(  // copy constructor
   const Vehicle & veh) : Vehicle(veh)
 {}
 
-void MutableVehicle::set_rte(const std::vector<Wayp> & r)
+void MutableVehicle::set_rte(const vec_t<Wayp> & r)
 {
   Route route(this->id_, r);
   set_rte(route);
@@ -261,7 +261,7 @@ void MutableVehicle::set_rte(const std::vector<Wayp> & r)
 
 void MutableVehicle::set_rte(const Route & route) { this->route_ = route; }
 
-void MutableVehicle::set_sch(const std::vector<Stop> & s)
+void MutableVehicle::set_sch(const vec_t<Stop> & s)
 {
   Schedule schedule(this->id_, s);
   set_sch(schedule);
@@ -288,10 +288,10 @@ std::string & ProblemSet::road_network()    { return road_network_; }
 
 void ProblemSet::set_trips(
     const std::unordered_map<ErlyTime,
-    std::vector<Trip>> & trips)
+    vec_t<Trip>> & trips)
 { trips_ = trips; }
 
-const std::unordered_map<ErlyTime,std::vector<Trip>> & ProblemSet::trips() const
+const std::unordered_map<ErlyTime,vec_t<Trip>> & ProblemSet::trips() const
 { return trips_; }
 
 } // namespace cargo

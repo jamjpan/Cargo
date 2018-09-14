@@ -54,7 +54,7 @@ KVNodes Cargo::nodes_ = {};
 KVEdges Cargo::edges_ = {};
 
 /* Base trip costs (shortest-path dist from origin to dest) */
-std::unordered_map<TripId, DistInt> Cargo::trip_costs_ = {};
+dict<TripId, DistInt> Cargo::trip_costs_ = {};
 
 /* Bounding box (needed by grid index) */
 BoundingBox Cargo::bbox_ = {{}, {}};
@@ -76,7 +76,7 @@ std::mutex Cargo::ofmx;
 bool Cargo::static_mode = false;
 
 /* Shortest-paths cache: hash is stringified orig/dest pair */
-cache::lru_cache<std::string, std::vector<NodeId>>
+cache::lru_cache<std::string, vec_t<NodeId>>
 Cargo::spcache_(LRU_CACHE_SIZE);
 
 /* Cargo class constructor:
@@ -197,9 +197,9 @@ int Cargo::step(int& ndeact) {
     const SimlTime vlt = sqlite3_column_int(ssv_stmt,4); // late
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt, 8));
     const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt,11));
-    const std::vector<Wayp> rte(rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt, 8) / sizeof(Wayp));
-    const std::vector<Stop> sch(schbuf,schbuf+sqlite3_column_bytes(ssv_stmt,11) / sizeof(Stop));
-    std::vector<Stop> new_sch = sch;                     // mutable copy
+    const vec_t<Wayp> rte(rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt, 8) / sizeof(Wayp));
+    const vec_t<Stop> sch(schbuf,schbuf+sqlite3_column_bytes(ssv_stmt,11) / sizeof(Stop));
+    vec_t<Stop> new_sch = sch;                     // mutable copy
     RteIdx  lvn = sqlite3_column_int(ssv_stmt,9);        // last-visited node
     DistInt nnd = sqlite3_column_int(ssv_stmt,10);       // next-node dist
 
@@ -257,7 +257,7 @@ int Cargo::step(int& ndeact) {
           while (new_dest == stop.loc()) new_dest = random_node();  // random destination
           Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
           Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
-          std::vector<Wayp> new_rte;
+          vec_t<Wayp> new_rte;
           route_through({a, b}, new_rte);
           int new_nnd = new_rte.at(1).first;
           /* Add traveled distance to the waypoints in the new route */
@@ -280,7 +280,7 @@ int Cargo::step(int& ndeact) {
 
           /* Insert schedule */
           Stop next_loc(stop.owner(), new_rte.at(1).second, StopType::VehlOrig, stop.early(), -1);
-          std::vector<Stop> sch{next_loc, b};
+          vec_t<Stop> sch{next_loc, b};
           sqlite3_bind_blob(sch_stmt, 1,
             static_cast<void const*>(sch.data()),sch.size()*sizeof(Stop),SQLITE_TRANSIENT);
           sqlite3_bind_int(sch_stmt, 2, stop.owner());
@@ -355,7 +355,7 @@ int Cargo::step(int& ndeact) {
             log_a_.push_back(vid);
 
             /* Kill the rest of its route (for computing solution cost) */
-            std::vector<Wayp> new_rte(rte.begin(),rte.begin()+lvn);  // truncate
+            vec_t<Wayp> new_rte(rte.begin(),rte.begin()+lvn);  // truncate
             sqlite3_bind_blob(uro_stmt, 1,
               static_cast<void const*>(new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
             sqlite3_bind_int(uro_stmt, 2, lvn); // lvn
@@ -465,7 +465,7 @@ long int Cargo::total_route_cost() {
   /* Get all vehicle route costs */
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 0));
-    const std::vector<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
+    const vec_t<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
     cst += route.back().first;
   }
   if (rc != SQLITE_DONE) {
@@ -517,9 +517,9 @@ SimlDur Cargo::avg_trip_delay() {
   /* Get all orig, dest stops belonging to assigned customers
    * to find (dest.visitedAt - orig.visitedAt - base cost) */
   SimlDur tdelay = 0;
-  std::unordered_map<CustId, SimlTime> orig_t;
-  std::unordered_map<CustId, SimlTime> dest_t;
-  std::vector<CustId> keys;
+  dict<CustId, SimlTime> orig_t;
+  dict<CustId, SimlTime> dest_t;
+  vec_t<CustId> keys;
   std::string querystr = "select * from stops where type = "
       + std::to_string((int)StopType::CustOrig) + " and " // <-- origs
       + "exists (select id from customers "
@@ -650,8 +650,6 @@ void Cargo::start(RSAlgorithm& rsalg) {
       << std::setw(8) << rsalg.matches() << " ("
         << std::setw(6) << std::roundf((rsalg.matches()/(float)total_customers_*100)*100)/(float)100 << "%)"
       << std::endl;
-    if (t_ > 0 && t_ % 300 == 0)
-      print << "---------------------------------------------------------------------" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
     dur = std::round(dur_milli(t1 - t0).count());
@@ -816,12 +814,12 @@ void Cargo::initialize(const Options& opt) {
         while (trip_dest == -1 || trip_dest == trip.orig()) trip_dest = random_node();
         Stop a(trip.id(), trip.orig(), StopType::VehlOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip_dest  , StopType::VehlDest, trip.early(), trip.late());
-        std::vector<Wayp> rte;
+        vec_t<Wayp> rte;
         DistInt cost = route_through({a,b}, rte);
 
         /* Initialize vehicle schedule */
         Stop next_loc(trip.id(), rte.at(1).second, StopType::VehlOrig, trip.early(), trip.late());
-        std::vector<Stop> sch{next_loc,b};
+        vec_t<Stop> sch{next_loc,b};
 
         /* Insert to database */
         sqlite3_bind_int(insert_vehicle_stmt, 1, trip.id());
@@ -858,7 +856,7 @@ void Cargo::initialize(const Options& opt) {
         /* Compute initial route */
         Stop a(trip.id(), trip.orig(), StopType::CustOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip.dest(), StopType::CustDest, trip.early(), trip.late());
-        std::vector<Wayp> rte;
+        vec_t<Wayp> rte;
         DistInt cost = route_through({a, b}, rte);
 
         /* Record base cost */
