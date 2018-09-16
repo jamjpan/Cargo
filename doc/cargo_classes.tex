@@ -1,0 +1,199 @@
+%!TEX root=cargo_reference.tex
+\subsection{Classes}
+
+The following classes are defined in \code{include/libcargo/classes.h}:
+
+\subsubsection{Stop}
+
+A \code{Stop} represents a customer or vehicle origin or destination. It is
+the basic unit for \emph{schedules}. It is \textbf{immutable}.
+
+\hi{Constructor:} \code{Stop(...)} takes 6 parameters, 1 with default:
+\begin{itemize}
+    \item[] \code{TripId} -- corresponds to ID of the stop owner
+    \item[] \code{NodeId} -- corresponds to the location of the stop
+    \item[] \code{StopType} -- type of the stop
+    \item[] \code{ErlyTime} -- early time window bound
+    \item[] \code{LateTime} -- late time window bound
+    \item[] \code{SimlTime v=-1} -- when the stop was visited ($-1=$ not visited)
+\end{itemize}
+
+\hi{Example:}
+The following creates \code{Stop A\_o} for Customer A's origin.
+
+\code{Stop A\_o(A.id(), A.orig(), StopType::CustOrig, 0, 600);}
+
+\hi{Getters:}
+\begin{itemize}
+    \item[] \code{owner()} -- returns ID of the stop owner (\code{TripId})
+    \item[] \code{loc()} -- returns location of the stop (\code{NodeId})
+    \item[] \code{type()} -- returns type of the stop (\code{StopType})
+    \item[] \code{early()} -- returns early time window bound (\code{ErlyTime})
+    \item[] \code{late()} -- returns late time window bound (\code{LateTime})
+    \item[] \code{visitedAt()} -- returns when the stop was visited (\code{SimlTime})
+\end{itemize}
+
+\hi{Equality Comparator:}
+
+Two \code{Stop}s are equal if their owners and locations are equal.
+
+\subsubsection{Schedule}
+
+A \code{Schedule} is a sequence of stops that vehicles visit in order.
+Schedules are associated with a particular vehicle. YOU MUST ensure a vehicle's
+schedule and its route are synchronized (\emph{i.e.} all stops in the schedule
+are visited by the route).  Schedules are \textbf{immutable}. To change a
+vehicle's existing schedule, create a new one and commit it into the database
+using method \code{assign} (\code{rsalgorithm.h}).
+
+\hi{Constructor:} \code{Schedule(...)} takes 2 parameters:
+\begin{itemize}
+    \item[] \code{VehlId} -- corresponds to ID of the schedule owner
+    \item[] \code{vec\_t<Stop>} -- the raw sequence of \code{Stop}s
+\end{itemize}
+
+\hi{Example:}
+The following creates schedule \code{sch} for vehicle \code{I} traveling from
+its origin, then to pick up customer \code{A} at \code{A\_o}, then to
+drop off the customer at \code{A\_d}, then to arrive at \code{I\_d}.
+\code{\\ vec\_t<Stop> I\_sch \{I\_o, A\_o, A\_d, I\_d\}; \\ Schedule sch(I.id(), I\_sch);}
+
+\hi{Getters:}
+\begin{itemize}
+    \item[] \code{owner()} -- returns ID of the schedule owner (\code{VehlId})
+    \item[] \code{data()} -- returns raw sequence of stops (\code{vec\_t<Stop>})
+    \item[] \code{at(SchIdx)} -- returns stop at index \code{SchIdx} (\code{Stop})
+    \item[] \code{front()} -- returns first stop in the schedule (\code{Stop})
+    \item[] \code{size()} -- returns number of stops (\code{size\_t})
+    \item[] \code{print()} -- prints schedule to standard out (\code{void})
+\end{itemize}
+
+\subsubsection{Route}
+
+A \code{Route} is a sequence of waypoints that a vehicle travels along.  Routes
+are associated with a particular vehicle. Routes are \textbf{immutable}.  The
+function \code{route\_through(...)} (\code{functions.h}) creates a shortest
+route given a schedule.
+
+\hi{Constructor:} \code{Route(...)} takes 2 parameters:
+\begin{itemize}
+    \item[] \code{VehlId} -- corresponds to ID of the schedule owner
+    \item[] \code{vec\_t<Wayp>} -- the raw sequence of \code{Wayp}s
+\end{itemize}
+
+\hi{Example:} The following creates route \code{rte} using the schedule in the
+above example for vehicle \code{I}.
+\code{\\ vec\_t<Wayp> I\_rte; \\ route\_through(I\_sch, I\_rte); \\ Route rte(I.id(), I\_rte);}
+
+\hi{Getters:}
+\begin{itemize}
+    \item[] \code{owner()} -- returns ID of the route owner (\code{VehlId})
+    \item[] \code{data()} -- returns raw sequence of waypoints (\code{vec\_t<Wayp>})
+    \item[] \code{node\_at(RteIdx)} -- returns ID of node at index \code{RteIdx} (\code{NodeId})
+    \item[] \code{dist\_at(RteIdx)} -- returns distance to node at index (\code{DistInt})
+    \item[] \code{cost()} -- returns total distance remaining (\code{DistInt})
+    \item[] \code{at(RteIdx)} -- returns waypoint at index \code{RteIdx} (\code{Wayp})
+    \item[] \code{size()} -- returns number of waypoints (\code{size\_t})
+    \item[] \code{print()} -- prints schedule to standard out (\code{void})
+\end{itemize}
+
+\subsubsection{Trip}
+
+Class \code{Trip} is the base class representing customers and vehicles. It is
+\textbf{immutable}.
+
+\hi{Constructor:} \code{Trip(...)} takes 6 parameters:
+\begin{itemize}
+    \item[] \code{TripId} -- corresponds to ID of the trip
+    \item[] \code{OrigId} -- location of the trip origin
+    \item[] \code{DestId} -- location of the trip destination
+    \item[] \code{ErlyTime} -- early time window bound
+    \item[] \code{LateTime} -- late time window bound
+    \item[] \code{Load} -- load of the trip; negative indicates capacity
+\end{itemize}
+
+\hi{Getters:}
+\begin{itemize}
+    \item[] \code{id()} -- returns ID of the trip (\code{TripId})
+    \item[] \code{orig()} -- returns location of the origin (\code{OrigId})
+    \item[] \code{dest()} -- returns location of the destination (\code{DestId})
+    \item[] \code{early()} -- returns early time window bound (\code{ErlyTime})
+    \item[] \code{late()} -- returns late time window bound (\code{LateTime})
+    \item[] \code{load()} -- returns load of the trip (\code{Load})
+\end{itemize}
+
+\subsubsection{Customer}
+
+A \code{Customer} represents a ridesharing customer. Usually it is not
+constructed by the user. It is \textbf{immutable}.
+
+\hi{Constructor:} \code{Customer(...)} takes 8 parameters, with 1 default parameter:
+\begin{itemize}
+    \item[] \code{CustId} -- corresponds to ID of the customer
+    \item[] \code{OrigId} -- location of the origin
+    \item[] \code{DestId} -- location of the destination
+    \item[] \code{ErlyTime} -- early time window bound
+    \item[] \code{LateTime} -- late time window bound
+    \item[] \code{Load} -- load of the customer; should be positive
+    \item[] \code{CustStatus} -- customer status
+    \item[] \code{VehlId a=-1} -- assigned to which vehicle ($-1$= unassigned)
+\end{itemize}
+
+\hi{Getters:} In addition to getters for \code{Trip}, \code{Customer} has the
+following getters:
+\begin{itemize}
+    \item[] \code{status()} -- returns status of the customer (\code{CustStatus})
+    \item[] \code{assignedTo()} -- returns vehicle customer is assigned to (\code{VehlId})
+    \item[] \code{assigned()} -- returns true if customer is assigned (\code{bool})
+    \item[] \code{print()} -- prints customer to standard out (\code{void})
+\end{itemize}
+
+\hi{Equality Comparator:}
+
+Two \code{Customer}s are equal if their IDs are equal.
+
+\subsubsection{Vehicle}
+
+A \code{Vehicle} represents a ridesharing vehicle. Usually it is not
+constructed by the user. It is \textbf{immutable}.
+
+\hi{Constructor:} \code{Vehicle(...)} has two constructors. The first takes
+7 parameters:
+\begin{itemize}
+    \item[] \code{VehlId} -- corresponds to ID of the vehicle
+    \item[] \code{OrigId} -- location of the origin
+    \item[] \code{DestId} -- location of the destination
+    \item[] \code{ErlyTime} -- early time window bound
+    \item[] \code{LateTime} -- late time window bound
+    \item[] \code{Load} -- load of the vehicle; should be negative
+    \item[] \code{G\_Tree\&} -- which g-tree index to use for constructing
+        vehicle's default route
+\end{itemize}
+\hi{} The second constructor takes 12 parameters. The first 6 are the same
+as the top construct. The following 6 are:
+\begin{itemize}
+    \item[] \code{Load} -- number of customers queued to be served
+    \item[] \code{DistInt} -- distance to next node in its route
+    \item[] \code{Route} -- specific route for the vehicle
+    \item[] \code{Schedule} -- specific schedule for the vehicle
+    \item[] \code{RteIdx} -- index of vehicle's last-visited node in its route
+    \item[] \code{VehlStatus} -- vehicle status
+\end{itemize}
+
+\hi{Getters:} In addition to getters for \code{Trip}, \code{Vehicle} has the
+following getters:
+\begin{itemize}
+    \item[] \code{next\_node\_distance()} -- returns distance to next node in the route (\code{DistInt})
+    \item[] \code{route()} -- returns route (\code{Route})
+    \item[] \code{idx\_last\_visited\_node()} -- returns index of vehicle's last-visited node in its route (\code{RteIdx})
+    \item[] \code{last\_visited\_node()} -- returns last-visited node (\code{NodeId})
+    \item[] \code{status()} -- returns status (\code{VehlStatus})
+    \item[] \code{queued()} -- returns number of customers queued to be served (\code{Load})
+    \item[] \code{capacity()} -- returns maximum capacity (\code{Load})
+    \item[] \code{print()} -- prints vehicle to standard out (\code{void})
+\end{itemize}
+
+\hi{Equality Comparator:}
+
+Two \code{Vehicles}s are equal if their IDs are equal.
+

@@ -1,0 +1,93 @@
+%!TEX root=cargo_reference.tex
+\subsection{Types}
+
+The following types are defined in \code{include/libcargo/types.h}:
+\begin{itemize}[leftmargin=*]
+    \item[] Map: \code{dict<K,V>} \deq \code{std::unordered\_map<K,V>}
+    \item[] Vector: \code{vec\_t<T>} \deq \code{std::vector<T>}
+    \item[] ``NodeId'' type class: \code{NodeId} \deq \code{OrigId} \deq \code{DestId} \deq \code{int}
+    \item[] ``TripId'' type class: \code{TripId} \deq \code{VehlId} \deq \code{CustId} \deq \code{int}
+    \item[] Lon/Lat type class: \code{Lon} \deq \code{Lat} \deq \code{double}
+    \item[] Point: \code{struct Point\{Lon lng; Lat lat;\};}
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] Example: \code{Point x; x.lng = 114.2357; x.lat = 40.002; }
+        \end{itemize}
+    \item[] Bounds: \code{struct BoundingBox\{Point lower\_left; Point upper\_right;\};}
+    \item[] Distance type class:
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{DistInt} \deq \code{int}
+            \item[] \code{DistFlt} \deq \code{float}
+            \item[] \code{DistDbl} \deq \code{double}
+        \end{itemize}
+    \item[] Simulation Time type class: \code{SimlTime} \deq \code{SimlDur}
+        \deq \code{ErlyTime} \deq \code{LateTime} \deq \code{int}
+    \item[] \code{Speed} \deq \code{float}, meters per second
+    \item[] Stop Types: \code{enum class StopType\{}
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{CustOrig}
+            \item[] \code{CustDest}
+            \item[] \code{VehlOrig}
+            \item[] \code{VehlDest\}}
+            \item[] Example: \code{if (stop.type()==StopType::CustOrig) std::cout << "This is a pickup."}
+        \end{itemize}
+    \item[] Customer Statuses: \code{enum class CustStatus\{}
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{Waiting}
+            \item[] \code{Onboard}
+            \item[] \code{Arrived}
+            \item[] \code{Canceled}
+            \item[] Example: \code{if (customer.status()==CustStatus::Arrived) std::cout << "Customer has arrived."}
+        \end{itemize}
+    \item[] Vehicle Statuses: \code{enum class VehlStatus\{}
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{Waiting}
+            \item[] \code{Enroute}
+            \item[] \code{Arrived}
+            \item[] Example: \code{if (vehicle.status()==VehlStatus::Arrived) std::cout << "Vehicle has arrived."}
+        \end{itemize}
+    \item[] Load \code{Load} \deq \code{int} Negative indicates capacity.
+    \item[] Waypoint \code{Wapy} \deq \code{std::pair<DistInt, NodeId>}
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] Example: \code{vec\_t<Wayp> route;}
+        \end{itemize}
+    \item[] Route, Schedule index \code{RteIdx} \deq \code{SchIdx} \deq \code{size\_t}
+    \item[] Lookup tables:
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{KVNodes} \deq \code{dict<NodeId, Point>}
+            \item[] \code{KVEdges} \deq \code{dict<NodeId, dict<NodeId, DistDbl>>}
+            \item[] Example: \code{KVEdges em; em[from][to] = weight;}
+        \end{itemize}
+    \item[] Filepath \code{Filepath} \deq \code{std::string}
+    \item[] Chrono:
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{milli} \deq \code{std::chrono::milliseconds}
+            \item[] \code{dur\_milli} \deq \code{std::chrono::duration<double, std::milli>}
+            \item[] \code{hiclock} \deq \code{std::chrono::high\_resolution\_clock}
+            \item[] \code{tick\_t} \deq \code{std::chrono::time\_point<hiclock>}
+        \end{itemize}
+    \item[] Infinity:
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{InfInt} \deq \code{std::numeric\_limits<int>::max()}
+            \item[] \code{InfDbl} \deq \code{std::numeric\_limits<double>::infinity()}
+        \end{itemize}
+    \item[] Pi: \code{MathPi} \deq \code{3.141592653589793238462643383279502884L}
+    \item[] Sqlite:
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{SqliteReturnCode} \deq \code{int}
+            \item[] \code{SqliteErrorMessage} \deq \code{char*}
+            \item[] \code{SqliteQuery} \deq \code{const char*}
+        \end{itemize}
+
+
+\end{itemize}
+
