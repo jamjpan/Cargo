@@ -1,6 +1,12 @@
-\documentclass[11pt]{article}
+\documentclass[11pt,letterpaper]{article}
 
 \usepackage{caption}
+\usepackage{enumitem}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\deq}{\ensuremath{:=}}
+
+\setlist{itemsep=0pt}
 
 \title{libcargo: User Manual}
 \author{
@@ -13,11 +19,42 @@
 
 \tableofcontents
 
+\section{Prerequisites}
+
 \section{Getting Started}
+
+Download libcargo to your local computer (78.82 MB):
+\begin{verbatim}
+git clone https://github.com/jamjpan/Cargo.git
+...
+\end{verbatim}
 
 \section{Reference}
 
 \subsection{Types}
+
+The following types are defined in \code{include/libcargo/types.h}:
+\begin{itemize}[leftmargin=*]
+    \item[] Map: \code{dict<K,V>} \deq \code{std::unordered\_map<K,V>}
+    \item[] Vector: \code{vec\_t<T>} \deq \code{std::vector<T>}
+    \item[] ``NodeId'' type class: \code{NodeId} \deq \code{OrigId} \deq \code{DestId} \deq \code{int}
+    \item[] ``TripId'' type class: \code{TripId} \deq \code{VehlId} \deq \code{CustId} \deq \code{int}
+    \item[] Lon/Lat type class: \code{Lon} \deq \code{Lat} \deq \code{double}
+    \item[] Point: \code{struct Point\{Lon lng; Lat lat;\};}
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] Example: \code{Point x; x.lng = 114.2357; x.lat = 40.002; }
+        \end{itemize}
+    \item[] Bounds: \code{struct BoundingBox\{Point lower\_left; Point upper\_right;\};}
+    \item[] Distance type class:
+        \begin{itemize}
+            {\vspace{-4mm}}
+            \item[] \code{DistInt} \deq \code{int}
+            \item[] \code{DistFlt} \deq \code{float}
+            \item[] \code{DistDbl} \deq \code{double}
+        \end{itemize}
+
+\end{itemize}
 
 \subsection{Classes}
 
