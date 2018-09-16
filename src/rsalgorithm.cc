@@ -114,8 +114,10 @@ bool RSAlgorithm::assign(
 
   /* Check status */
   if (static_cast<VehlStatus>(sqlite3_column_int(sov_stmt, 7))
-          == VehlStatus::Arrived)
+          == VehlStatus::Arrived) {
+    this->nrej_++;
     return false;
+  }
 
   /* Get current schedule */
   const Stop* schbuf =
@@ -151,12 +153,14 @@ bool RSAlgorithm::assign(
       DEBUG(3, {
         print(MessageType::Error)
           << "assign() strict enabled; done." << std::endl; });
+      this->nrej_++;
       return false;
     }
     if (synced == CDEL_SYNC_FAIL) {
       DEBUG(3, {
         print(MessageType::Error) << "assign() failed due to cdel-sync."
         << std::endl; });
+      this->nrej_++;
       return false;
     }
     DEBUG(3, {
@@ -208,6 +212,7 @@ bool RSAlgorithm::assign(
         print(MessageType::Error)
           << "assign() re-route failed due to time window"
           << std::endl; });
+      this->nrej_++;
       return false;
     }
 
