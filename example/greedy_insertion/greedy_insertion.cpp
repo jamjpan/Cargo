@@ -62,17 +62,11 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     matched = true;
 
   /* Attempt commit to db */
-  if (matched) {
-    if (this->assign(
-      {cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
-      this->end_delay(cust.id());
-    } else {
-      this->nrej_++;
-      this->beg_delay(cust.id());
-    }
-  }
-  if (!matched)
-    this->beg_delay(cust.id());
+  if (matched)
+    this->assign_or_delay(                  // (rsalgorithm.h)
+        {cust.id()}, {}, best_rte, best_sch, *best_vehl);
+  else
+    this->beg_delay(cust.id());             // (rsalgorithm.h)
 
   this->end_ht();
 }

@@ -539,7 +539,6 @@ void TripVehicleGrouping::match() {
         }
       } else {
         for (size_t i = 0; i < cadd.size(); ++i) {
-          this->nrej_++;
           this->beg_delay(cadd.at(i));
         }
       }

@@ -95,10 +95,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
       this->kt_.at(best_vehl->id())->push();
       this->sync_kt(kt_.at(best_vehl->id()), best_vehl->schedule().data());
       this->end_delay(cust.id());
-    } else {
-      this->nrej_++;
+    } else
       this->beg_delay(cust.id());
-    }
   }
   if (!matched)
     this->beg_delay(cust.id());

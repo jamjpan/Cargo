@@ -19,7 +19,6 @@
 // SOFTWARE.
 #include <iostream>
 #include <queue>
-#include <vector>
 
 #include "libcargo.h"
 #include "nearest_neighbor.h"
@@ -45,7 +44,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     this->grid_.within(RANGE, cust.orig()); // (grid.h)
 
   /* Rank candidates (timeout) */
-  std::priority_queue<rank_cand, std::vector<rank_cand>, decltype(cmp)>
+  std::priority_queue<rank_cand, vec_t<rank_cand>, decltype(cmp)>
     my_q(cmp);                              // rank by nearest
   for (const MutableVehicleSptr& cand : this->candidates) {
     if (cand->queued() < cand->capacity()) {
@@ -70,17 +69,11 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   }
 
   /* Attempt commit to db */
-  if (matched) {
-    if (this->assign(                       // (rsalgorithm.h)
-      {cust.id()}, {}, rte, sch, *best_vehl)) {
-      this->end_delay(cust.id());           // (rsalgorithm.h)
-    } else {
-      this->nrej_++;                        // increment # rejected counter
-      this->beg_delay(cust.id());           // rsalgorithm.h
-    }
-  }
-  if (!matched)                             // add to delay
-    this->beg_delay(cust.id());
+  if (matched)
+    this->assign_or_delay(                  // (rsalgorithm.h)
+        {cust.id()}, {}, rte, sch, *best_vehl);
+  else
+    this->beg_delay(cust.id());             // (rsalgorithm.h)
 
   this->end_ht();                           // end timing
 }

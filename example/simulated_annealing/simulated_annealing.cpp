@@ -189,7 +189,6 @@ void SimulatedAnnealing::match() {
       }
     } else {
       for (size_t i = 0; i < custs_to_add.size(); ++i) {
-        this->nrej_++;
         this->beg_delay(custs_to_add.at(i));
       }
     }

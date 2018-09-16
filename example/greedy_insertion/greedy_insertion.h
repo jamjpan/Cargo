@@ -35,10 +35,10 @@ class GreedyInsertion : public RSAlgorithm {
   Grid grid_;
 
   /* Workspace variables */
-  std::vector<Stop> sch, best_sch;
-  std::vector<Wayp> rte, best_rte;
+  vec_t<Stop> sch, best_sch;
+  vec_t<Wayp> rte, best_rte;
   MutableVehicleSptr best_vehl;
-  std::vector<MutableVehicleSptr> candidates;
+  vec_t<MutableVehicleSptr> candidates;
   bool matched;
   tick_t timeout_0;
 

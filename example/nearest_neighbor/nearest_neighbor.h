@@ -37,10 +37,10 @@ class NearestNeighbor : public RSAlgorithm {
   Grid grid_;
 
   /* Workspace variables */
-  std::vector<Stop> sch;
-  std::vector<Wayp> rte;
+  vec_t<Stop> sch;
+  vec_t<Wayp> rte;
   MutableVehicleSptr best_vehl;
-  std::vector<MutableVehicleSptr> candidates;
+  vec_t<MutableVehicleSptr> candidates;
   bool matched;
   tick_t timeout_0;
 
