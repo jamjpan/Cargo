@@ -26,8 +26,6 @@
 
 using namespace cargo;
 
-template <typename K, typename V> using dict = std::unordered_map<K, V>;
-
 typedef int SharedTripId;
 typedef std::vector<Customer> SharedTrip;
 

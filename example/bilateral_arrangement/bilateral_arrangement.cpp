@@ -89,8 +89,8 @@ void BilateralArrangement::match() {
       std::vector<CustId> cdel = {};
       if (removed_cust != -1)
         cdel.push_back(removed_cust);
-        this->assign_or_delay(
-            {cust.id()}, cdel, best_rte, best_sch, *best_vehl);
+      this->assign_or_delay(
+          {cust.id()}, cdel, best_rte, best_sch, *best_vehl);
     } else
       this->beg_delay(cust.id());
 
