@@ -300,6 +300,25 @@ bool RSAlgorithm::assign(
   return true;
 }
 
+void RSAlgorithm::assign_or_delay(
+  const vec_t<CustId> & custs_to_add,
+  const vec_t<CustId> & custs_to_del,
+  const vec_t<Wayp>   & new_rte,
+  const vec_t<Stop>   & new_sch,
+        MutableVehicle      & vehl,
+        bool                strict) {
+    if (this->assign(
+            custs_to_add, custs_to_del, new_rte, new_sch, vehl, strict)) {
+      for (const CustId& cust_id : custs_to_add) {
+        this->end_delay(cust_id);
+      }
+    } else {
+      for (const CustId& cust_id : custs_to_add) {
+        this->beg_delay(cust_id);
+      }
+    }
+}
+
 bool RSAlgorithm::delay(const CustId& cust_id) {
   return (delay_.count(cust_id) && delay_.at(cust_id) >= Cargo::now() - retry_)
     ? true : false;
