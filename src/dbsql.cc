@@ -27,7 +27,7 @@
 #include "libcargo/types.h"
 #include "sqlite3/sqlite3.h"
 
-using namespace cargo;
+namespace cargo {
 
 //TODO DBExecutor class
 
@@ -37,4 +37,6 @@ void prepare_stmt(SqliteQuery query, sqlite3_stmt** stmt) {
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
 }
+
+}  // namespace cargo
 
