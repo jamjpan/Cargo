@@ -4,7 +4,7 @@ CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -Iinclude -o $@
 #-------------------------------------------------------------------------------
 OBJECTS = \
 		  include/libcargo.h \
-		  include/libcargo/grid.h \
+		  include/libcargo/classes.h \
 		  include/libcargo/debug.h \
 		  include/libcargo/distance.h \
 		  include/libcargo/message.h \
