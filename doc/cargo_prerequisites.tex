@@ -2,3 +2,16 @@
 \section{Prerequisites}
 \label{2. Prerequisites}
 
+The \code{libcargo} library depends on several third-party libraries. Make sure
+these are installed on your computer:
+\begin{itemize}
+    \item A POSIX threads implementation, such as \code{libpthread}
+    \item \code{librt}, included in most Linux systems
+    \item \code{libdl}, included in most Linux systems
+    \item METIS - Serial Graph Partitioning library\footnote{http://glaros.dtc.umn.edu/gkhome/metis/metis/overview}
+    \item GNU Standard C++ Library v3 (or equivalent?) (\code{libstdc++6-4.7?})
+\end{itemize}
+
+The library has been tested on Linux ONLY (Ubuntu 18, Fedora 25) and may or
+may not work on other systems.
+
