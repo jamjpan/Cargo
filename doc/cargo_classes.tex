@@ -197,3 +197,41 @@ following getters:
 
 Two \code{Vehicles}s are equal if their IDs are equal.
 
+\subsubsection{MutableVehicle}
+
+A \code{MutableVehicle} is a \code{Vehicle} that can be modified.
+
+\hi{Constructor:} \code{MutableVehicle(...)} is constructed via copy-constructor:
+\begin{itemize}
+    \item[] \code{Vehicle\&} -- create a \code{MutableVehicle} version of \code{Vehicle}
+\end{itemize}
+
+\hi{Methods:} In addition to getters for \code{Vehicle}, \code{MutableVehicle} has the
+following methods:
+\begin{itemize}
+    \item[] \code{set\_rte(const vec\_t<Wayp>\&)} -- set new route (\code{void})
+    \item[] \code{set\_rte(const Route\&)} -- set new route (\code{void})
+    \item[] \code{set\_sch(const vec\_t<Stop>\&)} -- set new schedule (\code{void})
+    \item[] \code{set\_sch(const Schedule\&)} -- set new schedule (\code{void})
+    \item[] \code{set\_nnd(const DistInt\&)} -- set next-node distance (\code{void})
+    \item[] \code{set\_lvn(const RteIdx\&)} -- set index of last-visited node in route (\code{void})
+    \item[] \code{reset\_lvn()} -- set index of last-visited node to 0 (\code{void})
+    \item[] \code{incr\_queued()} -- increase by 1 \# of customers queued to be served (\code{void})
+    \item[] \code{decr\_queued()} -- decrease by 1 \# of customers queued to be served (\code{void})
+\end{itemize}
+
+\subsubsection{ProblemSet}
+
+A \code{ProblemSet} represents a ridesharing problem instance. Usually it is
+not constructed by the user.
+
+\hi{Constructor:} \code{ProblemSet()} has an empty constructor.
+
+\hi{Methods:}
+\begin{itemize}
+\item[] \code{name()} -- returns name of the instance (\code{std::string\&})
+\item[] \code{road\_network()} -- returns name of road network (\code{std::string\&})
+\item[] \code{set\_trips(const dict<ErlyTime, vec\_t<Trip>>\&)} -- store trips (\code{void})
+\end{itemize}
+
+
