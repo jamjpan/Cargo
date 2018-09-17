@@ -40,3 +40,5 @@ example/kinetic_trees/kinetic_trees
 example/kinetic_trees/kinetic_trees.cpp.test
 example/no_algorithm/no_algorithm
 example/simulated_annealing/simulated_annealing
+example/grasp/grasp
+
