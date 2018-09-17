@@ -21,9 +21,6 @@
 
 using namespace cargo;
 
-typedef std::tuple<DistInt, MutableVehicleSptr,
-  std::vector<Stop>, std::vector<Wayp>> Assignment;
-
 class Multistart : public RSAlgorithm {
  public:
   Multistart();
