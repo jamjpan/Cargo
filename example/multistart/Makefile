@@ -6,13 +6,13 @@ LDL = -ldl
 METIS = -L/usr/local/lib -lmetis
 CARGO = -L../../lib -lcargo
 
-OBJS = grasp.o
+OBJS = multistart.o
 
 all: $(OBJS)
-	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o grasp
+	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o multistart
 
-grasp.o: ../../lib/libcargo.a grasp.h grasp.cpp
-	$(CXX) $(CFLAGS) grasp.cpp
+multistart.o: ../../lib/libcargo.a multistart.h multistart.cpp
+	$(CXX) $(CFLAGS) multistart.cpp
 
 clean:
-	rm *.o grasp
+	rm *.o multistart

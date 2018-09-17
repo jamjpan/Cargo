@@ -24,9 +24,9 @@ using namespace cargo;
 typedef std::tuple<DistInt, MutableVehicleSptr,
   std::vector<Stop>, std::vector<Wayp>> Assignment;
 
-class Grasp : public RSAlgorithm {
+class Multistart : public RSAlgorithm {
  public:
-  Grasp();
+  Multistart();
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);

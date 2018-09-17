@@ -23,7 +23,7 @@
 #include <tuple>
 #include <vector>
 
-#include "grasp.h"
+#include "multistart.h"
 #include "libcargo.h"
 
 using namespace cargo;
@@ -33,14 +33,14 @@ const int RANGE = 2000;
 const int MAX_RESTART = 10;
 const int MAX_ITER = 1000;
 
-Grasp::Grasp()
-    : RSAlgorithm("grasp", false), grid_(100), d(0,1) {
+Multistart::Multistart()
+    : RSAlgorithm("multistart", false), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   std::random_device rd;
   this->gen.seed(rd());
 }
 
-void Grasp::match() {
+void Multistart::match() {
   this->beg_ht();
   this->reset_workspace();
   for (const Customer& cust : customers())
@@ -48,7 +48,7 @@ void Grasp::match() {
 
   DistInt best_solcst = InfInt;
 
-  /* Difference between Grasp (GP) and Simulated Annealing (SA) is that GP does
+  /* Difference between Multistart (GP) and Simulated Annealing (SA) is that GP does
    * multi-starts at each "temperature" whereas SA refines a single solution. */
   for (int i = 0; i < MAX_RESTART; ++i) {
     /* Generate an initial random solution
@@ -198,21 +198,21 @@ void Grasp::match() {
   this->end_ht();
 }
 
-void Grasp::handle_vehicle(const Vehicle& vehl) {
+void Multistart::handle_vehicle(const Vehicle& vehl) {
   this->grid_.insert(vehl);
 }
 
-void Grasp::end() {
+void Multistart::end() {
   this->print_statistics();
 }
 
-void Grasp::listen(bool skip_assigned, bool skip_delayed) {
+void Multistart::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
   RSAlgorithm::listen(
     skip_assigned, skip_delayed);
 }
 
-void Grasp::reset_workspace() {
+void Multistart::reset_workspace() {
   this->sch = {};
   this->rte = {};
   this->candidates = {};
@@ -231,14 +231,14 @@ int main() {
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  option.path_to_solution = "grasp.sol";
-  option.path_to_dataout  = "grasp.dat";
+  option.path_to_solution = "multistart.sol";
+  option.path_to_dataout  = "multistart.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
   option.static_mode = false;
   Cargo cargo(option);
-  Grasp gp;
+  Multistart gp;
   cargo.start(gp);
 
   return 0;
