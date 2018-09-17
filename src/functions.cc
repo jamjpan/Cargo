@@ -45,8 +45,8 @@ void print_rte(const vec_t<Wayp>& rte) {
 
 void print_sch(const vec_t<Stop>& sch) {
   for (const auto& sp : sch)
-    std::cout << " (owner=" << sp.owner() << ";loc=" << sp.loc() << ";e=" << sp.early()
-              << ";late=" << sp.late() << ";type=" << (int)sp.type() << ")";
+    std::cout << " (" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
+              << "|" << sp.late() << "|" << (int)sp.type() << ")";
   std::cout << std::endl;
 }
 
