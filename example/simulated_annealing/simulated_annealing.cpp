@@ -155,7 +155,6 @@ void SimulatedAnnealing::match() {
       }
     } // end perturbation
     if (this->timeout(this->timeout_0)) {
-      print << "Timed out" << std::endl;
       break;
     }
   } // end temperature
