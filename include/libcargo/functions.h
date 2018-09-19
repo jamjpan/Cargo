@@ -62,6 +62,7 @@ bool chktw(const vec_t<Stop> &, const vec_t<Wayp> &);
 
 /* Schedule operations -------------------------------------------------------*/
 void opdel(vec_t<Stop> &, const CustId &);
+void opdel_any(vec_t<Stop> &, const CustId &);
 
 // TODO: Having all of these is horrible. Clean this up.
 DistInt sop_insert(

@@ -232,14 +232,19 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
 
 /* Schedule operations -------------------------------------------------------*/
 void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
+  vec_t<Stop> old_sch = sch;
+  opdel_any(sch, cust_id);
+  if (old_sch.size() - sch.size() != 2) {
+    std::cout << "opdel unknown error" << std::endl;
+    throw;
+  }
+}
+
+void opdel_any(vec_t<Stop>& sch, const CustId& cust_id) {
   vec_t<Stop> new_sch {};
   for (const Stop& a : sch)
     if (a.owner() != cust_id)
       new_sch.push_back(a);
-  if (sch.size() - new_sch.size() != 2) {
-    std::cout << "opdel unknown error" << std::endl;
-    throw;
-  }
   sch = new_sch;
 }
 
