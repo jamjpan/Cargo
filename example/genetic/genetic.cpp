@@ -124,6 +124,9 @@ void Genetic::match() {
     }
     pop = offspring_pop;
     // print << "Population set to new generation." << std::endl;
+    if (this->timeout(this->timeout_0)) {
+      break;
+    }
   }
 
   // print << "Finished breeding." << std::endl;
@@ -288,7 +291,6 @@ void Genetic::reset_workspace() {
   this->timeout_0 = hiclock::now();
   this->timeout_ = BATCH*1000;
   this->is_matched = {};
-  this->best_sol = {};
   this->commit_cadd = {};
   this->commit_rte = {};
   this->commit_sch = {};
