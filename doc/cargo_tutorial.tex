@@ -1,0 +1,64 @@
+%!TEX root=cargo.tex
+\section{Tutorial}
+
+A good way to learn how to use the library is to study examples. In this
+tutorial, I will walk you through the \code{NearestNeighbor} example found in
+\code{example/nearest\_neighbor}.
+
+First we will take a look at \code{nearest\_neighbor.h} file, reproduced below:
+\begin{verbatim}
+01 #include "libcargo.h"
+02
+03 using namespace cargo;
+04
+05 typedef std::tuple<DistDbl, MutableVehicleSptr> rank_cand;
+06
+07 class NearestNeighbor : public RSAlgorithm {
+08  public:
+09   NearestNeighbor();
+11
+12   /* My overrides */
+13   virtual void handle_customer(const Customer &);
+14   virtual void handle_vehicle(const Vehicle &);
+15   virtual void end();
+16   virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
+17
+18  private:
+19   Grid grid_;
+20
+21   /* Workspace variables */
+22   vec_t<Stop> sch;
+23   vec_t<Wayp> rte;
+24   MutableVehicleSptr best_vehl;
+25   vec_t<MutableVehicleSptr> candidates;
+26   bool matched;
+27   tick_t timeout_0;
+28
+29   void reset_workspace();
+30 };
+\end{verbatim}
+
+The library is included in line 01, then the namespace is used in line 03 to
+avoid appending the \code{cargo} prefix. Nearest neighbor depends on ranking
+vehicles by proximity to customer, so on line 05 a type is defined to attach
+a rank to each vehicle. The rank is \code{DistDbl} type, defined in
+\code{include/types.h}. Then, the vehicle is kept as a pointer
+\code{MutableVehicleSptr}; this type is defined in \code{include/classes.h}.
+
+Line 07 begins the \code{NearestNeighbor} class definition; it inherits from
+\code{RSAlgorithm} (\code{include/rsalgorithm.h}) in order to access the
+basic listening and matching functionality.
+
+Line 08 opens the public members. Line 09 declares the constructor. Lines
+12--16 declare the base functionality overrides that we will provide. The
+method signatures MUST match the base signatures in \code{rsalgorithm.h}.
+
+Line 16 declares the \code{listen} method. This method takes two paramters.
+The first parameter forces the method to not include customers that are already
+assigned, but not yet picked up, from the customers queue. The second
+parameter makes the method skip those customers that are not matched but have
+already been attempted within the past \code{retry} period. Set either to
+\code{false} to disable the functionality.
+
+
+

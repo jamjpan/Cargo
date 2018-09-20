@@ -35,10 +35,26 @@ const int MAX_GENERATIONS = 1000;
 const int MAX_CHROMOSOMES = 10;
 
 Genetic::Genetic()
-    : RSAlgorithm("genetic", false), grid_(100), d(0,1) {
+    : RSAlgorithm("genetic", true), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   std::random_device rd;
   this->gen.seed(rd());
+
+  // REPAIR TEST!?!?!?!?!
+  //Stop v1_o(1, 0, StopType::VehlOrig, 0, 1);
+  //Stop v1_d(1, 1, StopType::VehlDest, 0, 1);
+  //Stop v2_o(2, 0, StopType::VehlOrig, 0, 1);
+  //Stop v2_d(2, 1, StopType::VehlDest, 0, 1);
+  //Stop c3_o(3, 0, StopType::CustOrig, 0, 1);
+  //Stop c3_d(3, 1, StopType::CustDest, 0, 1);
+  //Stop c4_o(4, 0, StopType::CustOrig, 0, 1);
+  //Stop c4_d(4, 1, StopType::CustDest, 0, 1);
+
+  //Vehicle v1(1, 0, 1, 0, 1, 0, Cargo::gtree());
+  //Vehicle v2(2, 0, 1, 0, 1, 0, Cargo::gtree());
+
+
+
 }
 
 void Genetic::match() {
@@ -88,6 +104,16 @@ void Genetic::match() {
   // print << "Generated initial population." << std::endl;
   // print_population(pop);
 
+  // for (const auto& kv : pop) {
+  //   print << "Pop.";
+  //   for (const MutableVehicle& mutvehl : kv.second) {
+  //     print << "Vehicle " << mutvehl.id() << ": ";
+  //     print_sch(mutvehl.schedule().data());
+  //   }
+  //   print << std::endl;
+  // }
+  // throw;
+
   if (pop.empty()) {
     // print << "Empty population." << std::endl;
     return;
@@ -135,6 +161,17 @@ void Genetic::match() {
   Assignment best_a = extract_fit(pop);
 
   // print << "Extracted fittest." << std::endl;
+
+  // print << "Fit pop.\n";
+  // for (const MutableVehicle& mutvehl : best_a) {
+  //   print << "Vehicle " << mutvehl.id() << ": ";
+  //   auto& sch = mutvehl.schedule().data();
+  //   for (const auto& sp : sch)
+  //     print << " (" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
+  //           << "|" << sp.late() << "|" << (int)sp.type() << ")";
+  //   print << std::endl;
+  //   }
+  // print << std::endl;
 
   for (const MutableVehicle& mutvehl : best_a) {
     this->commit_cadd[mutvehl.id()] = {};
@@ -244,28 +281,52 @@ void Genetic::crossover(Assignment& A, Assignment& B) {
 }
 
 void Genetic::repair(Assignment& A) {
+  print << "repair() called" << std::endl;
   for (auto i = A.begin(); i != A.end(); ++i) {
+    print << "\tRepairing a vehicle " << i->id() << std::endl;
     for (const Stop& stop1 : i->schedule().data()) {
-      if (stop1.owner() == i->id())
+      print << "\tGot " << stop1.owner() << "(" << (int)stop1.type() << ")" << std::endl;
+      if (stop1.owner() == i->id()) {
+        print << "\tBelongs to vehicle; skipping." << std::endl;
         continue;
+      }
       /* Search schedules of each assignment */
       for (auto j = i+1; j != A.end(); ++j) {
-        auto sch = j->schedule().data();
+        print << "\tSearching schedule of vehicle " << j->id() << std::endl;
+        auto sch = j->schedule().data();  // made a copy
         if (std::find_if(sch.begin(), sch.end(), [&](const Stop& stop2) {
               return stop1.owner() == stop2.owner();
             }) != sch.end()) {
-          opdel(sch, stop1.owner());
+          print << "\tFound!" << std::endl;
+          for (const auto& sp : sch)
+            print << " (" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
+                  << "|" << sp.late() << "|" << (int)sp.type() << ")";
+          print << std::endl;
+          print << "\topdel_any() called" << std::endl;
+          opdel_any(sch, stop1.owner());
+          print << "\tAfter opdel_any():" << std::endl;
+          for (const auto& sp : sch)
+            print << " (" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
+                  << "|" << sp.late() << "|" << (int)sp.type() << ")";
+          print << std::endl;
           vec_t<Wayp> rte = {};
           route_through(sch, rte);
+          print << "\tSetting sch and rte" << std::endl;
           j->set_sch(sch);
           j->set_rte(rte);
           j->reset_lvn();
           j->decr_queued();
+          print << "\tDone." << std::endl;
           break;
+        } else {
+          print << "\tNot found." << std::endl;
         }
       }
+      print << "\tDone searchig all vehicles." << std::endl;
     }
+    print << "\tDone checking all stops." << std::endl;
   }
+  print << "Done repairing all vehicles." << std::endl;
 }
 
 void Genetic::print_population(const Population& pop) {
