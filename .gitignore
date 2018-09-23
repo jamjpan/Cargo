@@ -40,5 +40,7 @@ example/kinetic_trees/kinetic_trees
 example/kinetic_trees/kinetic_trees.cpp.test
 example/no_algorithm/no_algorithm
 example/simulated_annealing/simulated_annealing
+example/population_annealing_far/population_annealing_far
+example/population_annealing_near/population_annealing_near
 example/ignore
 

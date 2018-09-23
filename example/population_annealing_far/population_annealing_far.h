@@ -17,16 +17,17 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <memory>
+#include <unordered_map>
+#include <random>
+
 #include "libcargo.h"
 
 using namespace cargo;
 
-typedef vec_t<MutableVehicle> Assignment;
-typedef vec_t<std::pair<DistInt, Assignment>> Population;
-
-class Genetic : public RSAlgorithm {
+class PopulationAnnealingFar : public RSAlgorithm {
  public:
-  Genetic();
+  PopulationAnnealingFar();
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -37,27 +38,25 @@ class Genetic : public RSAlgorithm {
  private:
   Grid grid_;
 
+  int nclimbs_;
+  int ndrops_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
   /* Workspace variables */
-  vec_t<Stop> sch;
-  vec_t<Wayp> rte;
-  vec_t<MutableVehicleSptr> candidates;
+  std::vector<Stop> sch;
+  std::vector<Wayp> rte;
+  std::vector<MutableVehicleSptr> candidates;
   tick_t timeout_0;
   dict<CustId, bool> is_matched;
-  std::pair<DistInt, Assignment> best_sol;
-  dict<VehlId, std::vector<CustId>> commit_cadd;
-  dict<VehlId, std::vector<Wayp>> commit_rte;
-  dict<VehlId, std::vector<Stop>> commit_sch;
+  dict<CustId, VehlId> cand_used;
+  std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
+  std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
+  std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
+  std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
-  DistInt cost(const Assignment &);
-  Assignment extract_fit(Population &);
-  void crossover(Assignment &, Assignment &);
-  void repair(Assignment &);
 
-  void print_population(const Population &);
-  void print_solution(const std::pair<DistInt, Assignment> &);
+  bool hillclimb(int &);
 
   void reset_workspace();
 };

@@ -17,44 +17,49 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include<algorithm>
-#include <iostream>
-#include <queue>
-#include <tuple>
+#include <algorithm> /* std::shuffle */
+#include <chrono>
+#include <cmath> /* std::exp */
+#include <iostream> /* std::endl */
+#include <random>
+#include <unordered_map>
 #include <vector>
 
-#include "multistart.h"
 #include "libcargo.h"
+#include "population_annealing_far.h"
 
 using namespace cargo;
 
 const int BATCH = 30;
 const int RANGE = 2000;
-const int MAX_RESTART = 10;
-const int MAX_ITER = 1000;
+const int PERT  = 1000;
+const int T_MAX = 10;
+const int NSOL = 10;
 
-Multistart::Multistart()
-    : RSAlgorithm("multistart", false), grid_(100), d(0,1) {
+PopulationAnnealingFar::PopulationAnnealingFar()
+    : RSAlgorithm("population_annealing_far", false), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
+  this->nclimbs_ = 0;
+  this->ndrops_ = 0;
   std::random_device rd;
   this->gen.seed(rd());
 }
 
-void Multistart::match() {
+void PopulationAnnealingFar::match() {
+  if (customers().size() == 0)
+    return;
   this->beg_ht();
   this->reset_workspace();
-  for (const Customer& cust : customers())
+  for (const Customer& cust : customers()) {
     is_matched[cust.id()] = false;
+    cand_used[cust.id()] = -1;
+  }
 
   DistInt best_solcst = InfInt;
 
-  /* Difference between Multistart (GP) and Simulated Annealing (SA) is that GP does
-   * multi-starts at each "temperature" whereas SA refines a single solution. */
-  for (int i = 0; i < MAX_RESTART; ++i) {
-    /* Generate an initial random solution
-     * (same method as in SA) */
-    std::random_shuffle(customers().begin(), customers().end());
-    std::vector<std::tuple<Customer, MutableVehicle, DistInt>> sol = {};
+  /* Generate initial solutions */
+  for (int i = 0; i < NSOL; ++i) {
+    vec_t<std::tuple<Customer, MutableVehicle, DistInt>> sol = {};
     DistInt solcst = 0;
     Grid lcl_grid(this->grid_); // make a local copy
     for (const Customer& cust : customers()) {
@@ -63,7 +68,7 @@ void Multistart::match() {
       while (!this->candidates.empty() && initial == false) {
         MutableVehicleSptr& cand = this->candidates.back();
         candidates.pop_back();
-        if (cand->queued() < cand->capacity()) {
+        if (cand->queued() < cand->capacity() && cand_used.at(cust.id()) != cand->id() ) {
           DistInt cst = sop_insert(*cand, cust, sch, rte);
           if (chktw(sch, rte)) {
             cand->set_sch(sch);
@@ -74,6 +79,7 @@ void Multistart::match() {
               assignment(cust, *cand, cst);
             sol.push_back(assignment);
             solcst += cst;
+            cand_used[cust.id()] = cand->id();
             initial = true;
           }
         }
@@ -86,67 +92,89 @@ void Multistart::match() {
     if (sol.empty())
       return;
 
-    /* Local search (same as SA) */
+    /* Perturb the solution */
     std::uniform_int_distribution<> n(0, sol.size() - 1);
-    for (int i = 0; i < MAX_ITER; ++i) {
-      auto lcl_sol = sol;
-      auto cust_itr = lcl_sol.begin();
-      std::advance(cust_itr, n(this->gen));
-      Customer& cust = std::get<0>(*cust_itr);
+    for (int T = 0; T < T_MAX; ++T) {
+      for (int i = 0; i < PERT; ++i) {
+        auto lcl_sol = sol;
+        auto cust_itr = lcl_sol.begin();          // pick random customer
+        std::advance(cust_itr, n(this->gen));
+        Customer& cust = std::get<0>(*cust_itr);
 
-      auto candidates = lcl_grid.within(RANGE, cust.orig());
-      if (!candidates.empty()) {
-        std::uniform_int_distribution<> m(0, candidates.size() - 1);
-        auto vehl_itr = candidates.begin();
-        std::advance(vehl_itr, m(gen));
-        auto cand = *vehl_itr;
+        // print << "Perturbing " << cust.id() << " (" <<
+        //     std::get<1>(*cust_itr).id() << ")" << std::endl;
+        // print_sch(std::get<1>(*cust_itr).schedule().data());
 
-        bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
-        if (!is_same && cand->queued() < cand->capacity()) {
-          DistInt cst = sop_insert(*cand, cust, sch, rte);
-          if (chktw(sch, rte) && cst < std::get<2>(*cust_itr)) {
-            cand->set_rte(rte);
-            cand->set_sch(sch);
-            cand->reset_lvn();
-            cand->incr_queued();
+        auto candidates = lcl_grid.within(RANGE, cust.orig());
+        if (!candidates.empty()) {
+          std::uniform_int_distribution<> m(0, candidates.size() - 1);
+          auto vehl_itr = candidates.begin(); // pick random candidate
+          std::advance(vehl_itr, m(gen));
+          auto cand = *vehl_itr;
 
-            auto sptr = lcl_grid.select(std::get<1>(*cust_itr).id());
-            if (sptr == nullptr) {
-              print(MessageType::Error)
-                << "Could not find vehicle in local grid" << std::endl;
-              throw;
+          bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
+          if (!is_same && cand->queued() < cand->capacity()) {
+            DistInt cst = sop_insert(*cand, cust, sch, rte);
+            if (chktw(sch, rte)) {
+              bool climb = hillclimb(T);
+              bool accept = false;
+              if (cst < std::get<2>(*cust_itr)) {
+                accept = true;
+                this->ndrops_++;
+              } else if (climb) {
+                accept = true;
+                this->nclimbs_++;
+              }
+              if (accept) {
+                cand->set_rte(rte);
+                cand->set_sch(sch);
+                cand->reset_lvn();
+                cand->incr_queued();
+
+                // print << "Moving to " << cand->id() << std::endl;
+
+                auto sptr = lcl_grid.select(std::get<1>(*cust_itr).id());
+                if (sptr == nullptr) {
+                  print(MessageType::Error)
+                    << "Could not find vehicle in local grid" << std::endl;
+                  throw;
+                }
+                auto less_sch = sptr->schedule().data();
+                // print << "Removing from " << sptr->id() << std::endl;
+                opdel(less_sch, cust.id());
+                std::vector<Wayp> less_rte {};
+                route_through(less_sch, less_rte);
+                sptr->set_sch(less_sch);
+                sptr->set_rte(less_rte);
+                sptr->reset_lvn();
+                sptr->decr_queued();
+
+                /* Store the new solution */
+                std::get<1>(*cust_itr) = *cand; // modify sol with new cand
+                std::get<2>(*cust_itr) = cst;   // modify sol with new cost
+                DistInt lcl_solcst = cst;
+                for (auto &assignment : lcl_sol) {
+                  if (std::get<1>(assignment).id() == sptr->id())
+                    std::get<1>(assignment) = *sptr;  // modify old assignment
+                  else
+                    lcl_solcst += std::get<2>(assignment);
+                  if (std::get<1>(assignment).id() == cand->id())
+                    std::get<1>(assignment) = *cand;  // modify old assignment
+                }
+                sol = lcl_sol;
+                solcst = lcl_solcst;
+              }
             }
-            auto less_sch = sptr->schedule().data();
-            opdel(less_sch, cust.id());
-            std::vector<Wayp> less_rte {};
-            route_through(less_sch, less_rte);
-            sptr->set_sch(less_sch);
-            sptr->set_rte(less_rte);
-            sptr->reset_lvn();
-            sptr->decr_queued();
-
-            /* Store the new solution */
-            std::get<1>(*cust_itr) = *cand; // modify lcl_sol with new cand
-            std::get<2>(*cust_itr) = cst;   // modify lcl_sol with new cost
-            DistInt lcl_solcst = cst;
-            for (auto &assignment : lcl_sol) {
-              if (std::get<1>(assignment).id() == sptr->id())
-                std::get<1>(assignment) = *sptr;  // modify old assignment
-              else
-                lcl_solcst += std::get<2>(assignment);
-              if (std::get<1>(assignment).id() == cand->id())
-                std::get<1>(assignment) = *cand;  // modify old assignment
-            }
-            sol = lcl_sol;
-            solcst = lcl_solcst;
-            // sol should be modified now!!!???
           }
         }
+        if (this->timeout(this->timeout_0)) {
+          break;
+        }
+      } // end perturbation
+      if (this->timeout(this->timeout_0)) {
+        break;
       }
-    } // end perturbation
-    if (this->timeout(this->timeout_0)) {
-      break;
-    }
+    } // end temperature
 
     /* AT THIS POINT, sol has finished local search. Accept it as best_sol
      * if it beats the others. */
@@ -155,7 +183,7 @@ void Multistart::match() {
       best_sol = sol;
       best_solcst = solcst;
     }
-  } // end restarts
+  } // end all solutions
 
   /* Commit the solution */
   for (const auto& assignment : this->best_sol) {
@@ -198,27 +226,35 @@ void Multistart::match() {
   this->end_ht();
 }
 
-void Multistart::handle_vehicle(const Vehicle& vehl) {
+void PopulationAnnealingFar::handle_vehicle(const Vehicle& vehl) {
   this->grid_.insert(vehl);
 }
 
-void Multistart::end() {
+void PopulationAnnealingFar::end() {
+  print(MessageType::Info)
+    << "climbs: " << nclimbs_ << '\n'
+    << "descents: " << ndrops_ << std::endl;
   this->print_statistics();
 }
 
-void Multistart::listen(bool skip_assigned, bool skip_delayed) {
+void PopulationAnnealingFar::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
   RSAlgorithm::listen(
     skip_assigned, skip_delayed);
 }
 
-void Multistart::reset_workspace() {
+bool PopulationAnnealingFar::hillclimb(int& T) {
+  return this->d(this->gen) <= std::exp((-1)*T/1.0) ? true : false;
+}
+
+void PopulationAnnealingFar::reset_workspace() {
   this->sch = {};
   this->rte = {};
   this->candidates = {};
   this->timeout_0 = hiclock::now();
   this->timeout_ = BATCH*1000;
   this->is_matched = {};
+  this->cand_used = {};
   this->best_sol = {};
   this->commit_cadd = {};
   this->commit_rte = {};
@@ -231,15 +267,15 @@ int main() {
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  option.path_to_solution = "multistart.sol";
-  option.path_to_dataout  = "multistart.dat";
+  option.path_to_solution = "population_annealing_far.sol";
+  option.path_to_dataout  = "population_annealing_far.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
   option.static_mode = false;
   Cargo cargo(option);
-  Multistart gp;
-  cargo.start(gp);
+  PopulationAnnealingFar paf;
+  cargo.start(paf);
 
   return 0;
 }

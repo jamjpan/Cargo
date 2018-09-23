@@ -32,8 +32,8 @@
 
 using namespace cargo;
 
-const int BATCH    = 30;
-const int RANGE    = 2000; // meters
+const int BATCH=30;
+const int RANGE=2000; // meters
 const int TOP_CUST = 30;  // customers per vehicle for rv-graph
 const int TRIP_MAX = 15000;  // maximum number of trips per batch
 
@@ -50,6 +50,7 @@ TripVehicleGrouping::TripVehicleGrouping()
 }
 
 void TripVehicleGrouping::match() {
+  print << "Match called." << std::endl;
   this->beg_ht();
   this->reset_workspace();
   this->timeout_rv_0 = hiclock::now();
@@ -58,7 +59,7 @@ void TripVehicleGrouping::match() {
 
   /* Generate rv-graph */
   { std::vector<Customer> lcl_cust = customers();
-  // print << "generating rv-graph..." << std::endl;
+  print << "generating rv-graph..." << std::endl;
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
          rv_cst, rv_sch, rv_rte, matchable_custs)
   { /* Each thread gets a local gtree and a local grid to perform
@@ -70,20 +71,20 @@ void TripVehicleGrouping::match() {
     #pragma omp critical
     { matchable_custs.push_back(ptcust->id()); }
     const Customer& cust_a = *ptcust;
-    // print << "Working on cust " << ptcust->id() << std::endl;
+    print << "Working on cust " << ptcust->id() << std::endl;
 
     /* Build rv edges
      * ----------------- */
-    // print << "building rv-edges..." << std::endl;
+    print << "building rv-edges..." << std::endl;
     auto cands = lcl_grid.within(RANGE, cust_a.orig());
     for (const auto& cand : cands) {
-      // print << "  checking vehl " << cand->id() << std::endl;
+      print << "  checking vehl " << cand->id() << std::endl;
       if (cand->queued() < cand->capacity()) {
         DistInt cstout = 0;
         std::vector<Stop> schout;
         std::vector<Wayp> rteout;
         if (travel(*cand, {cust_a}, cstout, schout, rteout, lcl_gtre)) {
-          // print << "  accept" << std::endl;
+          print << "  accept" << std::endl;
           #pragma omp critical
           { rv_cst[*cand][cust_a] = cstout;
             rv_sch[*cand][cust_a] = schout;
@@ -100,7 +101,7 @@ void TripVehicleGrouping::match() {
        print << "No candidates." << std::endl;
      }
     if (this->timeout(this->timeout_rv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -339,7 +340,11 @@ void TripVehicleGrouping::match() {
             }
           }  // end if shtrip.size() == k
         }  // end inner for
-        // if (timed_out) break;
+        if (this->timeout(this->timeout_rtv_0)) {
+          // print << "Timed out" << std::endl;
+          // break;
+          #pragma omp cancel for
+        }
       } // end outer for
       k++;
     } // end while
@@ -532,7 +537,7 @@ void TripVehicleGrouping::match() {
       std::vector<CustId> cadd {};
       for (const Customer& cust : trip_.at(colmap[i].second))
         cadd.push_back(cust.id());
-      if (assign(cadd, {}, new_rte, new_sch, sync_vehl)) {
+      if (this->assign(cadd, {}, new_rte, new_sch, sync_vehl, false/*true*/)) {
         for (const auto& cust : trip_.at(colmap[i].second)) {
           is_matched.at(cust.id()) = true;
           this->end_delay(cust.id());
@@ -636,9 +641,9 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  option.path_to_solution = "trip_vehicle_grouping.sol";
-  option.path_to_dataout  = "trip_vehicle_grouping.dat";
+  option.path_to_problem  = "../../data/benchmark/rs-md-14.instance";
+  option.path_to_solution = "A4-7_nvehls-14_trip_vehicle_grouping.sol";
+  option.path_to_dataout  = "A4-7_nvehls-14_trip_vehicle_grouping.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;

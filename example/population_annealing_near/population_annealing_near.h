@@ -17,13 +17,17 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <memory>
+#include <unordered_map>
+#include <random>
+
 #include "libcargo.h"
 
 using namespace cargo;
 
-class Multistart : public RSAlgorithm {
+class PopulationAnnealingNear : public RSAlgorithm {
  public:
-  Multistart();
+  PopulationAnnealingNear();
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -34,6 +38,8 @@ class Multistart : public RSAlgorithm {
  private:
   Grid grid_;
 
+  int nclimbs_;
+  int ndrops_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
@@ -43,10 +49,14 @@ class Multistart : public RSAlgorithm {
   std::vector<MutableVehicleSptr> candidates;
   tick_t timeout_0;
   std::unordered_map<CustId, bool> is_matched;
+  dict<CustId, VehlId> cand_used;
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
+
+
+  bool hillclimb(int &);
 
   void reset_workspace();
 };
