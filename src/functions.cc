@@ -229,6 +229,17 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   return true;
 }
 
+bool chkcap(const Load& queued, const Load& capacity, const vec_t<Stop>& sch) {
+  int q = queued;
+  for (const Stop& stop : sch) {
+    if (stop.type() == StopType::CustOrig) q += 1;  // TODO: Replace 1 with customer's Load
+    if (stop.type() == StopType::CustDest) q -= 1;
+    if (q > capacity)
+      return false;
+  }
+  return true;
+}
+
 
 /* Schedule operations -------------------------------------------------------*/
 void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
