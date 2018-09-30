@@ -19,6 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -213,16 +214,34 @@ const DistInt    & Vehicle::next_node_distance()    const
 
 const Route      & Vehicle::route()                 const { return route_; }
 const Schedule   & Vehicle::schedule()              const { return schedule_; }
-const RteIdx     & Vehicle::idx_last_visited_node() const
-{ return idx_last_visited_node_; }
-
-const NodeId     & Vehicle::last_visited_node()     const
-{ return route_.node_at(idx_last_visited_node_); }
-
+const RteIdx     & Vehicle::idx_last_visited_node() const { return idx_last_visited_node_; }
+const NodeId     & Vehicle::last_visited_node()     const { return route_.node_at(idx_last_visited_node_); }
 const VehlStatus & Vehicle::status()                const { return status_; }
-      DistInt      Vehicle::traveled()              const { return this->route_.dist_at(this->idx_last_visited_node_ + 1); }
       Load         Vehicle::queued()                const { return queued_; }
       Load         Vehicle::capacity()              const { return -load_; }
+      DistInt      Vehicle::remaining()             const { return this->route().cost() - this->traveled(); }
+
+DistInt Vehicle::traveled() const
+{
+  DistInt traveled = this->route_.dist_at(this->idx_last_visited_node_);
+  NodeId lvn = this->route_.node_at(this->idx_last_visited_node_);
+  NodeId next = this->route_.node_at(this->idx_last_visited_node_+1);
+  DistInt base = Cargo::edgew(lvn, next);
+  return traveled + (base - this->next_node_distance_);
+}
+
+DistInt Vehicle::next_stop_distance() const
+{
+  auto itr = std::find_if(this->route_.data().begin(),
+                          this->route_.data().end(), [&](const Wayp& wp) {
+    return wp.second == schedule().front().loc();
+  });
+  if (itr == this->route_.data().end()) {
+    std::cout << "Next stop not found in route!" << std::endl;
+    throw;
+  }
+  return itr->first;
+}
 
 void Vehicle::print() const
 {
