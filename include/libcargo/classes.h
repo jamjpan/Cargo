@@ -218,6 +218,7 @@ class Vehicle : public Trip {
   const RteIdx     & idx_last_visited_node() const;  // index to last-visit node
   const NodeId     & last_visited_node()     const;  // return last-visit node
   const VehlStatus & status()                const;  // return status
+        DistInt      traveled()              const;  // return distance traveled
         Load         queued()                const;  // return number queued
         Load         capacity()              const;  // return BASE capacity
   void print()                               const;  // print to standard out

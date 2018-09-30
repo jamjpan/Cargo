@@ -220,6 +220,7 @@ const NodeId     & Vehicle::last_visited_node()     const
 { return route_.node_at(idx_last_visited_node_); }
 
 const VehlStatus & Vehicle::status()                const { return status_; }
+      DistInt      Vehicle::traveled()              const { return this->route_.dist_at(this->idx_last_visited_node_ + 1); }
       Load         Vehicle::queued()                const { return queued_; }
       Load         Vehicle::capacity()              const { return -load_; }
 
