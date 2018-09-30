@@ -347,7 +347,7 @@ void RSAlgorithm::end_ht() {
 
 bool RSAlgorithm::timeout(tick_t& start) {
   if (Cargo::static_mode)
-    return false;
+    this->timeout_ = 60000;  // set timeout to 1 minute
   auto end = hiclock::now();
   int dur = std::round(dur_milli(end-start).count());
   return (dur >= timeout_ || this->done()) ? true : false;
