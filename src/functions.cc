@@ -85,10 +85,13 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
     bool in_cache = false;
     { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
     in_cache = Cargo::spexist(from, to);
-    if (in_cache)
+    if (in_cache) {
       seg = Cargo::spget(from, to);
+      std::cout << "CACHE HIT" << std::endl;
+    }
     } // Lock released
     if(!in_cache) {
+      std::cout << "CACHE MISS" << std::endl;
       try { gtree.find_path(from, to, seg); }
       catch (...) {
         std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
@@ -229,13 +232,17 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   return true;
 }
 
-bool chkcap(const Load& queued, const Load& capacity, const vec_t<Stop>& sch) {
-  int q = queued;
+bool chkcap(const Load& capacity, const vec_t<Stop>& sch) {
+  int q = capacity;  // REMAINING capacity
   for (const Stop& stop : sch) {
-    if (stop.type() == StopType::CustOrig) q += 1;  // TODO: Replace 1 with customer's Load
-    if (stop.type() == StopType::CustDest) q -= 1;
-    if (q > capacity)
+    if (stop.type() == StopType::CustOrig) q -= 1;  // TODO: Replace 1 with customer's Load
+    if (stop.type() == StopType::CustDest) q += 1;
+    if (q < 0) {
+      DEBUG(3, { std::cout << "chkcap failed (" << capacity << "): ";
+        print_sch(sch);
+      });
       return false;
+    }
   }
   return true;
 }
@@ -336,7 +343,7 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   // The distances to other stops in the augmented schedule passed to
   // route_through will be relative to this first stop. The already-traveled
   // distance (the head) should be added.
-  DistInt head = vehl.route().dist_at(vehl.idx_last_visited_node() + 1);
+  DistInt head = vehl.traveled();
 
   Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());

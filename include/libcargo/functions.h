@@ -58,7 +58,7 @@ DistInt route_through(  // use global g-tree
 );
 bool chkpc(const Schedule &);
 bool chktw(const vec_t<Stop> &, const vec_t<Wayp> &);
-bool chkcap(const Load &, const Load &, const vec_t<Stop> &);
+bool chkcap(const Load &, const vec_t<Stop> &);
 
 
 /* Schedule operations -------------------------------------------------------*/
