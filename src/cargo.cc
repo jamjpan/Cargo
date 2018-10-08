@@ -195,6 +195,7 @@ int Cargo::step(int& ndeact) {
     const VehlId vid   = sqlite3_column_int(ssv_stmt,0); // id
     const SimlTime vet = sqlite3_column_int(ssv_stmt,3); // early
     const SimlTime vlt = sqlite3_column_int(ssv_stmt,4); // late
+    const Load load    = sqlite3_column_int(ssv_stmt,5); // load
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(ssv_stmt, 8));
     const Stop* schbuf = static_cast<const Stop*>(sqlite3_column_blob(ssv_stmt,11));
     const vec_t<Wayp> rte(rtebuf,rtebuf+sqlite3_column_bytes(ssv_stmt, 8) / sizeof(Wayp));
@@ -209,6 +210,7 @@ int Cargo::step(int& ndeact) {
             << " early: " << vet << "\n"
             << " late:  " << vlt << "\n"
             << " nnd:   " << nnd << "\n"
+            << " load:  " << load << "\n"
             << " lvn:   " << lvn << "\n"; });
       //       << " sched: "; print_sch(sch);
       // print << " route: "; print_rte(rte); });
