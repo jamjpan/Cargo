@@ -230,19 +230,6 @@ DistInt Vehicle::traveled() const
   return traveled + (base - this->next_node_distance_);
 }
 
-DistInt Vehicle::next_stop_distance() const
-{
-  auto itr = std::find_if(this->route_.data().begin(),
-                          this->route_.data().end(), [&](const Wayp& wp) {
-    return wp.second == schedule().front().loc();
-  });
-  if (itr == this->route_.data().end()) {
-    std::cout << "Next stop not found in route!" << std::endl;
-    throw;
-  }
-  return itr->first;
-}
-
 void Vehicle::print() const
 {
   std::cout
