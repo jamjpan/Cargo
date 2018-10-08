@@ -346,10 +346,9 @@ void RSAlgorithm::end_ht() {
 }
 
 bool RSAlgorithm::timeout(tick_t& start) {
-  if (Cargo::static_mode)
-    this->timeout_ = 60000;  // set timeout to 1 minute
   auto end = hiclock::now();
   int dur = std::round(dur_milli(end-start).count());
+  print << "Timeout called (" << dur << " > " << timeout_ << "?)" << std::endl;
   return (dur >= timeout_ || this->done()) ? true : false;
 }
 
@@ -661,6 +660,11 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
 
   int ncusts = 0;
   this->select_waiting_customers(skip_assigned, skip_delayed);
+  // Set default timeout
+  this->timeout_ = (Cargo::static_mode
+        ? std::ceil((float)300000/this->customers_.size())
+        : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
+  // Handle customers
   for (const auto& customer : this->customers_) {
     this->handle_customer(customer);
     ncusts++;
@@ -671,9 +675,6 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   // Stop timing --------------------------------
   if (Cargo::static_mode)
     Cargo::ofmx.unlock();
-
-  // Set default timeout
-  this->timeout_ = std::ceil((float)batch_time_/ncusts*(1000.0));
 
   // Don't sleep if time exceeds batch time
   int dur = std::round(dur_milli(batch_1-batch_0).count());
