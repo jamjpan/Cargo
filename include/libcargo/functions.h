@@ -43,7 +43,7 @@ CustId randcust(const vec_t<Stop> &);
 
 
 /* Pickup range --------------------------------------------------------------*/
-DistInt pickup_range(const Customer &, const SimlTime &);
+DistInt pickup_range(const Customer &);
 
 
 /* Route operations ----------------------------------------------------------*/

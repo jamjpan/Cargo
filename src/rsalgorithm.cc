@@ -348,7 +348,7 @@ void RSAlgorithm::end_ht() {
 bool RSAlgorithm::timeout(tick_t& start) {
   auto end = hiclock::now();
   int dur = std::round(dur_milli(end-start).count());
-  print << "Timeout called (" << dur << " > " << timeout_ << "?)" << std::endl;
+  // print << "Timeout called (" << dur << " > " << timeout_ << "?)" << std::endl;
   return (dur >= timeout_ || this->done()) ? true : false;
 }
 
@@ -652,6 +652,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
     Cargo::ofmx.lock();
 
   // Start timing -------------------------------
+  // print << "Start timing." << std::endl;
   this->batch_0 = hiclock::now();
 
   this->select_matchable_vehicles();
@@ -664,6 +665,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   this->timeout_ = (Cargo::static_mode
         ? std::ceil((float)300000/this->customers_.size())
         : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
+  // print << "Set timeout to " << this->timeout_ << std::endl;
   // Handle customers
   for (const auto& customer : this->customers_) {
     this->handle_customer(customer);
@@ -673,6 +675,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   this->match();
   this->batch_1 = hiclock::now();
   // Stop timing --------------------------------
+  // print << "Done timing." << std::endl;
   if (Cargo::static_mode)
     Cargo::ofmx.unlock();
 
@@ -692,7 +695,10 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
     //     << this->vehicles_.size() << " vehls and "
     //     << this->customers_.size() << " custs " << "in " << dur << " ms"
     //     << std::endl;
-    std::this_thread::sleep_for(milli(this->batch_time_ * 1000 - dur));
+    if (Cargo::static_mode)
+        std::this_thread::sleep_for(milli(this->batch_time_ * 1000));
+    else
+        std::this_thread::sleep_for(milli(this->batch_time_ * 1000 - dur));
   }
 }
 

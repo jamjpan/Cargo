@@ -65,9 +65,11 @@ CustId randcust(const vec_t<Stop>& sch) {
 
 
 /* Pickup range --------------------------------------------------------------*/
-DistInt pickup_range(const Customer& cust, const SimlTime& now) {
-  DistInt dist = Cargo::basecost(cust.id());
-  return (cust.late()-(dist/Cargo::vspeed())-now)*Cargo::vspeed();
+// TODO: This function assumes the same vehicle speed for all vehicles. In the
+// future, change it to accept specific speeds.
+DistInt pickup_range(const Customer& cust) {
+  return Cargo::vspeed() * cust.late() - Cargo::basecost(cust.id()) -
+         Cargo::vspeed() * Cargo::now();
 }
 
 
@@ -87,11 +89,11 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
     in_cache = Cargo::spexist(from, to);
     if (in_cache) {
       seg = Cargo::spget(from, to);
-      std::cout << "CACHE HIT" << std::endl;
+      // std::cout << "CACHE HIT" << std::endl;
     }
     } // Lock released
     if(!in_cache) {
-      std::cout << "CACHE MISS" << std::endl;
+      // std::cout << "CACHE MISS" << std::endl;
       try { gtree.find_path(from, to, seg); }
       catch (...) {
         std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
