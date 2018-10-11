@@ -45,6 +45,7 @@ TreeNode::TreeNode(NodeId orig, NodeId dest) {
 //                    ShortestPath *shortestPath) {
 TreeNode::TreeNode(TreeNode *parent, NodeId loc, bool start, long insert_uid,
                     double limit, bool pickupRemoved, double totalSlackTime) {
+  // std::cout << "Construct TreeNode(" << loc << ") limit: " << limit << std::endl;
   this->parent = parent;
   this->loc = loc;
   this->dest = (parent != nullptr? parent->dest : -1);
@@ -131,7 +132,7 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, bool start,
 
   if (start || pickupRemoved) {
     if (parent->rootTime + time > limit) {
-      //std::cout << "safeConstructNode fail: (" << parent->rootTime << "+" << time << " > " << limit << ")" << std::endl;
+      // std::cout << "safeConstructNode fail: (" << parent->rootTime << "+" << time << " > " << limit << ")" << std::endl;
       return NULL;
     } else {
       //return new TreeNode(parent, vert, start, insert_uid, limit, pickupRemoved,
@@ -148,7 +149,7 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, bool start,
     double pairTime = time + parent->absoluteTime - n->absoluteTime;
 
     if (pairTime > limit) {
-      //std::cout << "safeConstructNode fail: (" << pairTime << " > " << limit << ")" << std::endl;
+      // std::cout << "safeConstructNode fail: (" << pairTime << " > " << limit << ")" << std::endl;
       return NULL;
     } else {
       //return new TreeNode(parent, vert, start, insert_uid, limit, pickupRemoved,
@@ -208,7 +209,10 @@ double TreeNode ::bestTime() {
   } else { // <-- no children; we are at a leaf node
     bestChild = -1;
     //return 0;
-    return shortest_path_dist(this->loc, this->dest);
+    if (this->dest == -1)
+      return 0;
+    else
+      return shortest_path_dist(this->loc, this->dest);
 
   }
 }
@@ -227,7 +231,7 @@ int TreeNode ::getNumberNodes() {
 // should delete
 bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
                           std::vector<TreeNode *> *doInsertPtr) {
-    //std::cout << "copyNodes into " << this->loc << std::endl;
+  // std::cout << "copyNodes into " << this->loc << std::endl;
   // recursively copy nodes from other trees if requested
   if (sourcePtr != nullptr) {
       std::vector<TreeNode *> source = *sourcePtr;
@@ -244,13 +248,13 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
           children.pop_back();
           delete myCopy;
           fail = true;
-          //std::cout << "child has no feasible branches" << std::endl;
+          // std::cout << "child has no feasible branches" << std::endl;
         }
       } else {
         // child is not feasible, delete
         delete myCopy;
         fail = true;
-        //std::cout << "myCopy->feasible() returned false" << std::endl;
+        // std::cout << "myCopy->feasible() returned false" << std::endl;
       }
     }
 
@@ -279,11 +283,11 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
         if (children.empty() || checkSlack(insertCopy) || true) {
           if (!(insertCopy->copyNodes(&children, nullptr))) {
             fail = true;
-            //std::cout << "copy other branches failed" << std::endl;
+            // std::cout << "copy other branches failed" << std::endl;
           }
         } else {
           fail = true;
-          //std::cout << "never reaches here" << std::endl;
+          // std::cout << "never reaches here" << std::endl;
         }
 
         if (!fail && doInsert.size() >= 2) {
@@ -296,7 +300,7 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
 
           if (!insertCopy->copyNodes(nullptr, &doInsertClone)) {
             fail = true;
-            //std::cout << "doinsertclone fail" << std::endl;
+            // std::cout << "doinsertclone fail" << std::endl;
           }
         }
 
@@ -328,7 +332,7 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
         // if our inserted copy is not feasible, no other path will be feasible
         //  since we have to insert the same node to our children.. assuming
         //  shortest paths are shortest
-        //std::cout << "insertcopy fail" << std::endl;
+        // std::cout << "insertcopy fail" << std::endl;
         return false;
       }
     }
@@ -484,15 +488,17 @@ NodeId TreeTaxiPath::next() {
 //double TreeTaxiPath ::value(vertex *curr, vertex *source, vertex *dest) {
 double TreeTaxiPath ::value(NodeId source, NodeId dest,
                             DistInt pickup_rng, DistInt max_travel) {
-  //std::cout << "value(" << loc << "," << source << "," << dest << ")" << std::endl;
+  // std::cout << "value(" /*<< loc << ","*/<< source << "," << dest << ")" << std::endl;
   flag = true;
 
   // root->loc = loc;
 
   //TreeNode *pick = new TreeNode(NULL, source, true, nextPair++,
   //                              pickupConstraint, false, 0, shortestPathC);
-  TreeNode *pick =
-      new TreeNode(nullptr, source, true, nextPair++, pickup_rng, false, 0);
+  // TreeNode *pick =
+  //    new TreeNode(nullptr, source, true, nextPair++, pickup_rng, false, 0);
+  TreeNode *pick =  // <<-- the `limit` parameter should be latest possible pickup time, converted to distance? just use max_travel for now
+      new TreeNode(nullptr, source, true, nextPair++, max_travel, false, 0);
   //TreeNode *drop = new TreeNode(
   //    NULL, dest, false, pick->insert_uid,
   //    serviceConstraint * shortestPathC->shortestDistance(source, dest), false,
@@ -512,7 +518,6 @@ double TreeTaxiPath ::value(NodeId source, NodeId dest,
   delete drop;
 
   // update node values to reflect insertion
-  // TODO add veh dest
   double time = rootTemp->bestTime();
   rootTemp->calculateTotalSlackTime();
 
@@ -542,8 +547,11 @@ void TreeTaxiPath ::push() {
  * A call to TreeTaxiPath::step() will move the root to its best child,
  * deleting adjacent childs. Returns true if the best child is a cust dropoff */
 bool TreeTaxiPath ::step(/*bool move*/) {
+  // std::cout << "step called on " << root->loc << std::endl;
   int rootBestChild = root->getBestChild();
+  // std::cout << "\tbest child: " << rootBestChild << std::endl;
 
+  // std::cout << "\tremoving other children... (" << root->children.size() << ")" << std::endl;
   for (int i = root->children.size() - 1; i >= 0; i--) {
     if (i != rootBestChild) {
       delete root->children[i];

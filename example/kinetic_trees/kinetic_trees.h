@@ -48,8 +48,8 @@ class KineticTrees : public RSAlgorithm {
   cargo::Grid grid_;
 
   /* Workspace variables */
-  std::vector<Stop> best_sch;
-  std::vector<Wayp> best_rte;
+  std::vector<Stop> sch, best_sch;
+  std::vector<Wayp> rte, best_rte;
   MutableVehicleSptr best_vehl;
   std::vector<MutableVehicleSptr> candidates;
   bool matched;

@@ -1,5 +1,5 @@
 CXX = g++
-CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -I../../include -o $@
+CFLAGS = -Wall -Wextra -std=c++11 -O0 -g -c -I../../include -o $@
 LFLAGS = -Wall
 PTHREAD = -pthread -lrt
 LDL = -ldl

@@ -25,15 +25,14 @@
 
 using namespace cargo;
 
-const int BATCH = 1;                        // batch time, seconds
-const int RANGE = 2000;                     // meters
+const int BATCH = 30;                       // batch time, seconds
 
 auto cmp = [](rank_cand left, rank_cand right) {
   return std::get<0>(left) > std::get<0>(right);
 };
 
 NearestNeighbor::NearestNeighbor()
-    : RSAlgorithm("nearest_neighbor"), grid_(100) {
+    : RSAlgorithm("nearest_neighbor", true), grid_(100) {
   this->batch_time() = BATCH;               // (rsalgorithm.h)
 }
 
@@ -41,22 +40,25 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   this->beg_ht();                           // begin timing (rsalgorithm.h)
   this->reset_workspace();                  // reset workspace variables
   this->candidates =                        // collect candidates
-    this->grid_.within(RANGE, cust.orig()); // (grid.h)
+    this->grid_.within(pickup_range(cust), cust.orig()); // (functions.h, grid.h)
 
   /* Rank candidates (timeout) */
   std::priority_queue<rank_cand, vec_t<rank_cand>, decltype(cmp)>
     my_q(cmp);                              // rank by nearest
   for (const MutableVehicleSptr& cand : this->candidates) {
-    if (cand->queued() < cand->capacity()) {
+    // Speed-up heuristics:
+    //   1) Try only if vehicle has capacity at this point in time
+    //   2) Try only if vehicle's current schedule len < 8 customer stops
+    // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
       DistDbl cst = haversine(cand->last_visited_node(), cust.orig());
       rank_cand rc = {cst, cand};
-      my_q.push(rc);                        // O(log(|my_q|))
-    }
-    if(this->timeout(this->timeout_0))
+      my_q.push(rc);
+    // }
+    if(this->timeout(this->timeout_0))      // (rsalgorithm.h)
       break;
   }
 
-  /* Accept nearest valid (timeout) */
+  /* Accept nearest valid */
   while (!my_q.empty() && !matched) {
     rank_cand rc = my_q.top();              // access order by nearest
     my_q.pop();                             // remove from queue
@@ -112,7 +114,7 @@ int main() {
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);                      // (cargo.h)
   NearestNeighbor nn;
   cargo.start(nn);

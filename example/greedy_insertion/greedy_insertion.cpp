@@ -17,7 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <iostream> /* std::endl */
+#include <iostream>
 #include <queue>
 #include <tuple>
 #include <vector>
@@ -27,31 +27,62 @@
 
 using namespace cargo;
 
-const int BATCH = 1;
-const int RANGE = 2000;
+const int BATCH = 30;
 
 GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion", false), grid_(100) {
+    : RSAlgorithm("greedy_insertion", true), grid_(100) {
   this->batch_time() = BATCH;
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
+  print << "Handling cust " << cust.id() << std::endl;
   this->beg_ht();
   this->reset_workspace();
-  this->candidates =
-    this->grid_.within(RANGE, cust.orig());
+  this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
 
   DistInt best_cst = InfInt;
 
+  float ss = 0;
+  for (const auto& cand : this->candidates)
+    ss += cand->schedule().data().size()-2;
+
+  print << "\tGot " << this->candidates.size()
+        << " candidates (range=" << pickup_range(cust) << ", s.avg=" << ss/this->candidates.size() << ")" << std::endl;
+
   for (const MutableVehicleSptr& cand : this->candidates) {
-    if (cand->queued() < cand->capacity()) {
-      DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+    // Speed-up heuristics:
+    //   1) Try only if vehicle has capacity at this point in time
+    //   2) Try only if vehicle's current schedule len < 8 customer stops
+    if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+      DistInt new_cst = sop_insert(*cand, cust, sch, rte); // TODO consider having sop_insert return the detour cost?
+      DistInt cst = new_cst - cand->route().cost() + cand->next_node_distance();
+      if (cst < 0) {
+        print(MessageType::Error) << "Got negative detour!" << std::endl;
+        print << cand->id() << std::endl;
+        print << cst << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
+        print << "Current schedule: ";
+        for (const Stop& sp : cand->schedule().data())
+          print << sp.loc() << " ";
+        print << std::endl;
+        print << "nnd: " << cand->next_node_distance() << std::endl;
+        print << "New schedule: ";
+        for (const Stop& sp : sch)
+          print << sp.loc() << " ";
+        print << std::endl;
+        throw;
+      }
+      // print << "\t\tVehl " << cand->id() << ": " << cst << std::endl;
       if (cst < best_cst) {
-        if (chktw(sch, rte)) {
+        if (chkcap(cand->capacity(), sch)
+         && chktw(sch, rte)) {
           best_vehl = cand;
           best_sch  = sch;
           best_rte  = rte;
           best_cst  = cst;
+          // print << "sch: ";
+          // for (const Stop& a : best_sch)
+          //   print << a.loc() << " ";
+          // print << std::endl;
         }
       }
     }
@@ -62,11 +93,13 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     matched = true;
 
   /* Attempt commit to db */
-  if (matched)
-    this->assign_or_delay(                  // (rsalgorithm.h)
+  if (matched) {
+    print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
+    this->assign_or_delay(
         {cust.id()}, {}, best_rte, best_sch, *best_vehl);
-  else
-    this->beg_delay(cust.id());             // (rsalgorithm.h)
+  } else {
+    this->beg_delay(cust.id());
+  }
 
   this->end_ht();
 }
@@ -81,8 +114,7 @@ void GreedyInsertion::end() {
 
 void GreedyInsertion::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
-  RSAlgorithm::listen(
-    skip_assigned, skip_delayed);
+  RSAlgorithm::listen(skip_assigned, skip_delayed);
 }
 
 void GreedyInsertion::reset_workspace() {
@@ -105,7 +137,7 @@ int main() {
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   GreedyInsertion gr;
   cargo.start(gr);
