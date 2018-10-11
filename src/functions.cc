@@ -79,9 +79,19 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
   DistInt cst = 0;
   rteout.clear();
   rteout.push_back({0, sch.front().loc()});
+
+  // if ((sch.front().loc() == sch.back().loc()) && sch.size() == 2) {
+  //   rteout.push_back({cst, sch.back().loc()});
+  // }
+
   for (SchIdx i = 0; i < sch.size()-1; ++i) {
     const NodeId& from = sch.at(i).loc();
     const NodeId& to = sch.at(i+1).loc();
+
+    if (from == to) {
+      rteout.push_back({cst, to});
+      continue;
+    }
 
     vec_t<NodeId> seg {};
     bool in_cache = false;
@@ -349,8 +359,20 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
 
   Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
-  DistInt mincst = sop_insert(vehl.schedule().data(), cust_o, cust_d, true,
-                                  true, schout, rteout, gtree);
+
+  DistInt mincst = 0;
+
+  // If vehl is a taxi, it's last stop is NOT fixed.
+  if (vehl.late() == -1) {
+    vec_t<Stop> schin = vehl.schedule().data();
+    schin.pop_back();  // remove the fake destination
+    mincst = sop_insert(schin, cust_o, cust_d, true, false, schout, rteout, gtree);
+    Stop last = schout.back();
+    Stop fake_dest(last.owner(), last.loc(), StopType::VehlDest, last.early(), -1, -1);
+    schout.push_back(fake_dest);  // add a fake destination
+  } else {
+    mincst = sop_insert(vehl.schedule().data(), cust_o, cust_d, true, true, schout, rteout, gtree);
+  }
   // Add head to the new nodes in the route
   for (auto& wp : rteout) wp.first += head;
   rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));

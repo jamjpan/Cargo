@@ -211,9 +211,9 @@ int Cargo::step(int& ndeact) {
             << " late:  " << vlt << "\n"
             << " nnd:   " << nnd << "\n"
             << " load:  " << load << "\n"
-            << " lvn:   " << lvn << "\n"; });
-      //       << " sched: "; print_sch(sch);
-      // print << " route: "; print_rte(rte); });
+            << " lvn:   " << lvn << "\n"
+            << " sched: "; print_sch(sch);
+      print << " route: "; print_rte(rte); });
 
     bool active = true;  // all vehicles selected by ssv_stmt are active
     int nstops = 0;
@@ -232,6 +232,7 @@ int Cargo::step(int& ndeact) {
        * schedule[1+nstops] to get the next node.) O(|schedule|) */
       while (active && rte.at(lvn).second == sch.at(1+nstops).loc()) {
         const Stop& stop = sch.at(1+nstops);
+        print << "Vehicle " << vid << " is stopped at " << stop.loc() << " (" << (int)stop.type() << ")" << std::endl;
         nstops++;
 
         /* Ridesharing vehicle arrives at destination; OR
@@ -252,16 +253,19 @@ int Cargo::step(int& ndeact) {
           /* Log arrival */
           log_a_.push_back(vid);
 
-        /* Permanent taxi arrived at "destination"
-         * (essentially recreate the taxi) */
+        /* Permanent taxi arrived at its "destination"
+         * (reset the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
-          NodeId new_dest = stop.loc();
-          while (new_dest == stop.loc()) new_dest = random_node();  // random destination
-          Stop a(stop.owner(), stop.loc(), StopType::VehlOrig, stop.early(), -1);
-          Stop b(stop.owner(), new_dest,   StopType::VehlDest, stop.early(), -1);
+          std::cout << "taxi " << vid << " arrived at destination." << std::endl;
+          // while (new_dest == stop.loc())
+          //   new_dest = random_node();  // random destination
+          Stop a(vid, stop.loc(), StopType::VehlOrig, stop.early(), -1);
+          Stop b(vid, stop.loc(), StopType::VehlDest, stop.early(), -1);
+          vec_t<Stop> sch{a, b};
           vec_t<Wayp> new_rte;
-          route_through({a, b}, new_rte);
-          int new_nnd = new_rte.at(1).first;
+          route_through(sch, new_rte);
+          // int new_nnd = new_rte.at(1).first;
+          int new_nnd = 0;
           /* Add traveled distance to the waypoints in the new route */
           for (auto& wp : new_rte)
             wp.first += rte.back().first;
@@ -271,9 +275,9 @@ int Cargo::step(int& ndeact) {
             static_cast<void const*>(new_rte.data()),new_rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
           sqlite3_bind_int(uro_stmt, 2, 0);        // lvn
           sqlite3_bind_int(uro_stmt, 3, new_nnd);  // nnd
-          sqlite3_bind_int(uro_stmt, 4, stop.owner());
+          sqlite3_bind_int(uro_stmt, 4, vid);
           if (sqlite3_step(uro_stmt) != SQLITE_DONE) {
-            print(MessageType::Error) << "Failure at route " << stop.owner() << "\n";
+            print(MessageType::Error) << "Failure at route " << vid << "\n";
             print(MessageType::Error) << "Failed (insert route). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           }
@@ -281,13 +285,11 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(uro_stmt);
 
           /* Insert schedule */
-          Stop next_loc(stop.owner(), new_rte.at(1).second, StopType::VehlOrig, stop.early(), -1);
-          vec_t<Stop> sch{next_loc, b};
           sqlite3_bind_blob(sch_stmt, 1,
             static_cast<void const*>(sch.data()),sch.size()*sizeof(Stop),SQLITE_TRANSIENT);
-          sqlite3_bind_int(sch_stmt, 2, stop.owner());
+          sqlite3_bind_int(sch_stmt, 2, vid);
           if (sqlite3_step(sch_stmt) != SQLITE_DONE) {
-            print(MessageType::Error) << "Failure at schedule " << stop.owner() << "\n";
+            print(MessageType::Error) << "Failure at schedule " << vid << "\n";
             print(MessageType::Error) << "Failed (insert schedule). Reason:\n";
             throw std::runtime_error(sqlite3_errmsg(db_));
           }
@@ -405,11 +407,13 @@ int Cargo::step(int& ndeact) {
 
     /* Adjust active vehicles */
     if (active) {
+      std::cout << "Adjust " << vid << std::endl;
       /* Update schedule:
        * Remove the just-visited stops, and set the first stop in the schedule
        * to be the next node. */
       if (nstops > 0) new_sch.erase(new_sch.begin()+1, new_sch.begin()+1+nstops);
       new_sch[0] = Stop(vid, rte.at(lvn+1).second, StopType::VehlOrig, vet, vlt, t_);
+      print_sch(new_sch);
 
       /* Commit the schedule, lvn, and nnd after motion */
       sqlite3_bind_blob(usc_stmt, 1,
@@ -811,17 +815,28 @@ void Cargo::initialize(const Options& opt) {
           throw std::runtime_error("bad vehicle");
         }
 
-        /* Compute initial route */
+        /* Compute initial route
+         * (taxis have no initial route) */
         NodeId trip_dest = trip.dest();
-        while (trip_dest == -1 || trip_dest == trip.orig()) trip_dest = random_node();
+        // while (trip_dest == -1 || trip_dest == trip.orig())
+        //   trip_dest = random_node();
+        if (trip_dest == -1)
+          trip_dest = trip.orig();
         Stop a(trip.id(), trip.orig(), StopType::VehlOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip_dest  , StopType::VehlDest, trip.early(), trip.late());
         vec_t<Wayp> rte;
         DistInt cost = route_through({a,b}, rte);
 
         /* Initialize vehicle schedule */
-        Stop next_loc(trip.id(), rte.at(1).second, StopType::VehlOrig, trip.early(), trip.late());
-        vec_t<Stop> sch{next_loc,b};
+        vec_t<Stop> sch;
+        if (trip.late() != -1) {
+          Stop next_loc(trip.id(), rte.at(1).second, StopType::VehlOrig, trip.early(), trip.late());
+          sch.push_back(next_loc);
+          sch.push_back(b);
+        } else {
+          sch.push_back(a);
+          sch.push_back(b);
+        }
 
         /* Insert to database */
         sqlite3_bind_int(insert_vehicle_stmt, 1, trip.id());
@@ -835,7 +850,10 @@ void Cargo::initialize(const Options& opt) {
         sqlite3_bind_blob(insert_vehicle_stmt, 9,
           static_cast<void const*>(rte.data()),rte.size()*sizeof(Wayp),SQLITE_TRANSIENT);
         sqlite3_bind_int(insert_vehicle_stmt,10, 0);
-        sqlite3_bind_int(insert_vehicle_stmt,11, rte.at(1).first);
+        if (trip.late() != -1)
+          sqlite3_bind_int(insert_vehicle_stmt,11, rte.at(1).first);
+        else
+          sqlite3_bind_int(insert_vehicle_stmt,11, 0);
         sqlite3_bind_blob(insert_vehicle_stmt,12,
           static_cast<void const*>(sch.data()),sch.size()*sizeof(Stop),SQLITE_TRANSIENT);
         if (sqlite3_step(insert_vehicle_stmt) != SQLITE_DONE) {

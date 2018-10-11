@@ -79,6 +79,8 @@ size_t read_edges(const Filepath& path, KVEdges& M) {
   while (ifs >> oid >> did >> weight) {
     M[oid][did] = weight;
     M[did][oid] = weight;
+    M[oid][oid] = 0;
+    M[did][did] = 0;
     count_edges++;
   }
   ifs.close();
