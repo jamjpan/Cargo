@@ -21,6 +21,7 @@
 *.pdf
 *.synctex.gz
 *.toc
+*.txt
 readme.sh
 temp.html
 private/
