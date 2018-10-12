@@ -232,7 +232,7 @@ int Cargo::step(int& ndeact) {
        * schedule[1+nstops] to get the next node.) O(|schedule|) */
       while (active && rte.at(lvn).second == sch.at(1+nstops).loc()) {
         const Stop& stop = sch.at(1+nstops);
-        print << "Vehicle " << vid << " is stopped at " << stop.loc() << " (" << (int)stop.type() << ")" << std::endl;
+        // print << "Vehicle " << vid << " is stopped at " << stop.loc() << " (" << (int)stop.type() << ")" << std::endl;
         nstops++;
 
         /* Ridesharing vehicle arrives at destination; OR
@@ -256,7 +256,7 @@ int Cargo::step(int& ndeact) {
         /* Permanent taxi arrived at its "destination"
          * (reset the taxi) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
-          std::cout << "taxi " << vid << " arrived at destination." << std::endl;
+          // std::cout << "taxi " << vid << " arrived at destination." << std::endl;
           // while (new_dest == stop.loc())
           //   new_dest = random_node();  // random destination
           Stop a(vid, stop.loc(), StopType::VehlOrig, stop.early(), -1);
@@ -407,13 +407,13 @@ int Cargo::step(int& ndeact) {
 
     /* Adjust active vehicles */
     if (active) {
-      std::cout << "Adjust " << vid << std::endl;
+      // std::cout << "Adjust " << vid << std::endl;
       /* Update schedule:
        * Remove the just-visited stops, and set the first stop in the schedule
        * to be the next node. */
       if (nstops > 0) new_sch.erase(new_sch.begin()+1, new_sch.begin()+1+nstops);
       new_sch[0] = Stop(vid, rte.at(lvn+1).second, StopType::VehlOrig, vet, vlt, t_);
-      print_sch(new_sch);
+      // print_sch(new_sch);
 
       /* Commit the schedule, lvn, and nnd after motion */
       sqlite3_bind_blob(usc_stmt, 1,
