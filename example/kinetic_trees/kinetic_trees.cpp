@@ -64,9 +64,11 @@ void KineticTrees::handle_customer(const Customer& cust) {
 
   for (const MutableVehicleSptr& cand : this->candidates) {
     // Speed-up heuristics:
+    // (If all these are off, I get out of memory (16gb))
     //   1) Try only if vehicle has capacity at this point in time
     //   2) Try only if vehicle's current schedule len < 8 customer stops
     // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+    if (cand->schedule().data().size() < 10) {
       print << "\t\tTrying " << cand->id() << std::endl;
       for (const auto& sp : cand->schedule().data())
         print << "\t\t\t(" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
@@ -114,7 +116,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
           this->kt_.at(cand->id())->cancel();
         }
       }
-    // }
+    }
     if (this->timeout(this->timeout_0))
       break;
   }
