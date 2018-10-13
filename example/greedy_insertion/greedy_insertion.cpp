@@ -53,7 +53,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     // Speed-up heuristics:
     //   1) Try only if vehicle has capacity at this point in time
     //   2) Try only if vehicle's current schedule len < 8 customer stops
-    if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+    // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+    if (cand->schedule().data().size() < 10) {
       DistInt new_cst = sop_insert(*cand, cust, sch, rte); // TODO consider having sop_insert return the detour cost?
       DistInt cst = new_cst - cand->route().cost() + cand->next_node_distance();
       if (cst < 0) {

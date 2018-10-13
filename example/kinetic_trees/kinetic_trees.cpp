@@ -295,7 +295,7 @@ int main() {
   option.static_mode = true;
   Cargo cargo(option);
   KineticTrees kt;
-   cargo.start(kt);
+  cargo.start(kt);
 
   return 0;
 }

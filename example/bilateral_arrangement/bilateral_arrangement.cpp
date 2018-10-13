@@ -28,8 +28,7 @@
 
 using namespace cargo;
 
-const int BATCH = 1;
-const int RANGE = 2000;
+const int BATCH = 30;
 
 BilateralArrangement::BilateralArrangement()
     : RSAlgorithm("bilateral_arrangement", false), grid_(100) {
@@ -47,7 +46,7 @@ void BilateralArrangement::match() {
     this->beg_ht();
     this->reset_workspace();
     this->candidates =
-      this->grid_.within(RANGE, cust.orig());
+      this->grid_.within(pickup_range(cust), cust.orig());
 
     DistInt best_cst = InfInt;
 
@@ -135,7 +134,7 @@ int main() {
   option.time_multiplier  = 1;
   option.vehicle_speed    = 20;
   option.matching_period  = 60;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   BilateralArrangement ba;
   cargo.start(ba);
