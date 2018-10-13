@@ -51,10 +51,14 @@ void BilateralArrangement::match() {
     DistInt best_cst = InfInt;
 
     for (const MutableVehicleSptr& cand : this->candidates) {
-      if (cand->queued() < cand->capacity()) {
+      // Speed-up heuristics:
+      //   1) Try only if vehicle has capacity at this point in time
+      //   2) Try only if vehicle's current schedule len < 8 customer stops
+      // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+      if (cand->schedule().data().size() < 10) {
         DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
         if (cst < best_cst) {
-          // No timewindow check
+          // No constraints check
           best_vehl = cand;
           best_sch  = sch;
           best_rte  = rte;
@@ -65,14 +69,17 @@ void BilateralArrangement::match() {
         break;
     }
     if (best_vehl != nullptr) {
-      if (chktw(best_sch, best_rte)) {
+      // Do constraints check
+      if (chkcap(best_vehl->capacity(), best_sch)
+       && chktw(best_sch, best_rte)) {
         matched = true;
       } else {
         CustId remove_me = randcust(best_vehl->schedule().data());
         if (remove_me != -1) {
           old_sch = best_vehl->schedule().data();
           sop_replace(best_vehl, remove_me, cust, best_sch, best_rte);
-          if (chktw(best_sch, best_rte)) {
+          if (chkcap(best_vehl->capacity(), best_sch)
+           && chktw(best_sch, best_rte)) {
             nswapped_++;
             matched = true;
             removed_cust = remove_me;
