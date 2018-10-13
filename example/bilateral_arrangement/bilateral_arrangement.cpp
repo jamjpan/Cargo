@@ -31,7 +31,7 @@ using namespace cargo;
 const int BATCH = 30;
 
 BilateralArrangement::BilateralArrangement()
-    : RSAlgorithm("bilateral_arrangement", false), grid_(100) {
+    : RSAlgorithm("bilateral_arrangement", true), grid_(100) {
   this->batch_time() = BATCH;
   this->nswapped_ = 0;
 }
