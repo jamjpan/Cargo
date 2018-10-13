@@ -41,12 +41,16 @@ void BilateralArrangement::match() {
   std::random_shuffle(customers().begin(), customers().end());
 
   while (!customers().empty()) {
+    print << "Handling cust " << cust.id() << std::endl;
     Customer cust = customers().back();
     customers().pop_back();
     this->beg_ht();
     this->reset_workspace();
     this->candidates =
       this->grid_.within(pickup_range(cust), cust.orig());
+
+    print << "\tGot " << this->candidates.size()
+          << " candidates (range=" << pickup_range(cust) << ", s.avg=" << ss/this->candidates.size() << ")" << std::endl;
 
     DistInt best_cost = InfInt;
 
@@ -58,6 +62,21 @@ void BilateralArrangement::match() {
       if (cand->schedule().data().size() < 10) {
         DistInt cost =
           sop_insert(*cand, cust, sch, rte) - cand->route().cost() + cand->next_node_distance();
+        if (cost < 0) {
+          print(MessageType::Error) << "Got negative detour!" << std::endl;
+          print << cand->id() << std::endl;
+          print << cost << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
+          print << "Current schedule: ";
+          for (const Stop& sp : cand->schedule().data())
+            print << sp.loc() << " ";
+          print << std::endl;
+          print << "nnd: " << cand->next_node_distance() << std::endl;
+          print << "New schedule: ";
+          for (const Stop& sp : sch)
+            print << sp.loc() << " ";
+          print << std::endl;
+          throw;
+        }
         if (cost < best_cost) {
           // No constraints check
           best_vehl = cand;
@@ -75,24 +94,30 @@ void BilateralArrangement::match() {
        && chktw(best_sch, best_rte)) {
         matched = true;
       } else {
+        print << "\tBest vehl " << best_vehl->id() << " infeasible! Trying replace..." << std::endl;
         CustId remove_me = randcust(best_vehl->schedule().data());
         if (remove_me != -1) {
           old_sch = best_vehl->schedule().data();
           sop_replace(best_vehl, remove_me, cust, best_sch, best_rte);
           if (chkcap(best_vehl->capacity(), best_sch)
            && chktw(best_sch, best_rte)) {
+            print << "\t\tSucceeded replaced cust " << remove_me << std::endl;
             nswapped_++;
             matched = true;
             removed_cust = remove_me;
           } else {
+            print << "\t\tStill not passing constraints after replace cust " << remove_me << std::endl;
             best_vehl->set_sch(old_sch);
           }
+        } else {
+          print << "\tCould not replace! (remove_me == -1)" << std::endl;
         }
       }
     }
 
     /* Attempt commit to db */
     if (matched) {
+      print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
       std::vector<CustId> cdel = {};
       if (removed_cust != -1)
         cdel.push_back(removed_cust);
