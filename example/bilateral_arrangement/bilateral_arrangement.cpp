@@ -48,7 +48,7 @@ void BilateralArrangement::match() {
     this->candidates =
       this->grid_.within(pickup_range(cust), cust.orig());
 
-    DistInt best_cst = InfInt;
+    DistInt best_cost = InfInt;
 
     for (const MutableVehicleSptr& cand : this->candidates) {
       // Speed-up heuristics:
@@ -56,13 +56,14 @@ void BilateralArrangement::match() {
       //   2) Try only if vehicle's current schedule len < 8 customer stops
       // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
       if (cand->schedule().data().size() < 10) {
-        DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-        if (cst < best_cst) {
+        DistInt cost =
+          sop_insert(*cand, cust, sch, rte) - cand->route().cost() + cand->next_node_distance();
+        if (cost < best_cost) {
           // No constraints check
           best_vehl = cand;
           best_sch  = sch;
           best_rte  = rte;
-          best_cst  = cst;
+          best_cost  = cost;
         }
       }
       if (this->timeout(this->timeout_0))
