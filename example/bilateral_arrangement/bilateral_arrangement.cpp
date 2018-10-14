@@ -49,7 +49,7 @@ void BilateralArrangement::match() {
     this->candidates =
       this->grid_.within(pickup_range(cust), cust.orig());
 
-    print << "\tGot " << this->candidates.size() << std::endl;
+    print << "\tGot " << this->candidates.size() << " candidates" << std::endl;
 
     DistInt best_cost = InfInt;
 
@@ -105,7 +105,7 @@ void BilateralArrangement::match() {
             matched = true;
             removed_cust = remove_me;
           } else {
-            print << "\t\tStill not passing constraints after replace cust " << remove_me << std::endl;
+            print << "\t\tStill not feasible after replace cust " << remove_me << std::endl;
             best_vehl->set_sch(old_sch);
           }
         } else {

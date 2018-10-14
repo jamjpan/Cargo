@@ -266,6 +266,9 @@ void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
   opdel_any(sch, cust_id);
   if (old_sch.size() - sch.size() != 2) {
     std::cout << "opdel unknown error" << std::endl;
+    std::cout << "Schedule: ";
+    print_sch(old_sch);
+    std::cout << "To remove: " << cust_id << std::endl;
     throw;
   }
 }
@@ -368,7 +371,7 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
     schin.pop_back();  // remove the fake destination
     mincst = sop_insert(schin, cust_o, cust_d, true, false, schout, rteout, gtree);
     Stop last = schout.back();
-    Stop fake_dest(last.owner(), last.loc(), StopType::VehlDest, last.early(), -1, -1);
+    Stop fake_dest(vehl.id(), last.loc(), StopType::VehlDest, last.early(), -1, -1);
     schout.push_back(fake_dest);  // add a fake destination
   } else {
     mincst = sop_insert(vehl.schedule().data(), cust_o, cust_d, true, true, schout, rteout, gtree);

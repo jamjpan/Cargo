@@ -254,7 +254,7 @@ int Cargo::step(int& ndeact) {
           log_a_.push_back(vid);
 
         /* Permanent taxi arrived at its "destination"
-         * (reset the taxi) */
+         * (wait, do nothing) */
         } else if (stop.type() == StopType::VehlDest && stop.late() == -1) {
           // std::cout << "taxi " << vid << " arrived at destination." << std::endl;
           // while (new_dest == stop.loc())
@@ -297,6 +297,7 @@ int Cargo::step(int& ndeact) {
           sqlite3_reset(sch_stmt);
 
           active = false; // stop the loop
+          nrows--;  // don't count this as a stepped vehicle
 
         /* Vehicle arrives at a pickup */
         } else if (stop.type() == StopType::CustOrig) {
