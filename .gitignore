@@ -44,4 +44,6 @@ example/simulated_annealing/simulated_annealing
 example/population_annealing_far/population_annealing_far
 example/population_annealing_near/population_annealing_near
 example/ignore
+example/grasp/grasp
+
 
