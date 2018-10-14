@@ -37,12 +37,12 @@ BilateralArrangement::BilateralArrangement()
 }
 
 void BilateralArrangement::match() {
-  /* BilateralArrangement is a random algorithm due to this shuffle. */
-  std::random_shuffle(customers().begin(), customers().end());
+  // std::random_shuffle(customers().begin(), customers().end());
 
-  while (!customers().empty()) {
-    Customer cust = customers().back();
-    customers().pop_back();
+  // while (!customers().empty()) {
+  //   Customer cust = customers().back();
+  //   customers().pop_back();
+  for (const Customer cust : this->customers()) {
     print << "Handling cust " << cust.id() << std::endl;
     this->beg_ht();
     this->reset_workspace();
