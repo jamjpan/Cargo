@@ -41,16 +41,15 @@ void BilateralArrangement::match() {
   std::random_shuffle(customers().begin(), customers().end());
 
   while (!customers().empty()) {
-    print << "Handling cust " << cust.id() << std::endl;
     Customer cust = customers().back();
     customers().pop_back();
+    print << "Handling cust " << cust.id() << std::endl;
     this->beg_ht();
     this->reset_workspace();
     this->candidates =
       this->grid_.within(pickup_range(cust), cust.orig());
 
-    print << "\tGot " << this->candidates.size()
-          << " candidates (range=" << pickup_range(cust) << ", s.avg=" << ss/this->candidates.size() << ")" << std::endl;
+    print << "\tGot " << this->candidates.size() << std::endl;
 
     DistInt best_cost = InfInt;
 
@@ -60,8 +59,8 @@ void BilateralArrangement::match() {
       //   2) Try only if vehicle's current schedule len < 8 customer stops
       // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
       if (cand->schedule().data().size() < 10) {
-        DistInt cost =
-          sop_insert(*cand, cust, sch, rte) - cand->route().cost() + cand->next_node_distance();
+        DistInt new_cst = sop_insert(*cand, cust, sch, rte);
+        DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
         if (cost < 0) {
           print(MessageType::Error) << "Got negative detour!" << std::endl;
           print << cand->id() << std::endl;
