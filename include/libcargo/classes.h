@@ -158,6 +158,7 @@ class Trip {
 class Customer : public Trip {
  public:
   /* Constructor */
+  Customer() = default;
   Customer(
     CustId,        // id of the Customer
     OrigId,        // id of origin (NodeId)
