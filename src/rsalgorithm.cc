@@ -666,18 +666,19 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
 
   int ncusts = 0;
   this->select_waiting_customers(skip_assigned, skip_delayed);
-  // Set default timeout
-  this->timeout_ = (Cargo::static_mode
-        ? std::ceil((float)300000/this->customers_.size())
-        : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
-  // print << "Set timeout to " << this->timeout_ << std::endl;
-  // Handle customers
-  for (const auto& customer : this->customers_) {
-    this->handle_customer(customer);
-    ncusts++;
+  if (this->customers_.size() > 0) {
+    // Set default timeout
+    this->timeout_ = (Cargo::static_mode
+          ? std::ceil((float)300000/this->customers_.size())
+          : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
+    // print << "Set timeout to " << this->timeout_ << std::endl;
+    for (const auto& customer : this->customers_) {
+      this->handle_customer(customer);
+      ncusts++;
+    }
+    this->match();
   }
 
-  this->match();
   this->batch_1 = hiclock::now();
   // Stop timing --------------------------------
   // print << "Done timing." << std::endl;
