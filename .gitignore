@@ -28,6 +28,7 @@ private/
 build/
 lib/
 data/benchmark/temp
+data/benchmark/old
 tool/gtreebuilder/gtreebuilder
 tool/rspgen/rspgen
 tool/rspgen/script.sh
