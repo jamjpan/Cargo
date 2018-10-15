@@ -38,14 +38,10 @@ class BilateralArrangement : public RSAlgorithm {
   Grid grid_;
   int nswapped_;
 
+  dict<Customer, vec_t<MutableVehicleSptr>> candidates_list_by_cust;
+
   /* Workspace variables */
-  std::vector<Stop> sch, best_sch, old_sch;
-  std::vector<Wayp> rte, best_rte;
-  MutableVehicleSptr best_vehl;
-  std::vector<MutableVehicleSptr> candidates;
-  bool matched;
   tick_t timeout_0;
-  CustId removed_cust;
 
   void reset_workspace();
 };

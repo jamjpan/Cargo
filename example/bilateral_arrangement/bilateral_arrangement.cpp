@@ -37,64 +37,87 @@ BilateralArrangement::BilateralArrangement()
 }
 
 void BilateralArrangement::match() {
-  // std::random_shuffle(customers().begin(), customers().end());
+  this->beg_ht();
+  this->reset_workspace();
 
-  // while (!customers().empty()) {
-  //   Customer cust = customers().back();
-  //   customers().pop_back();
-  for (const Customer cust : this->customers()) {
-    print << "Handling cust " << cust.id() << std::endl;
-    this->beg_ht();
-    this->reset_workspace();
-    this->candidates =
+  // Retrieve list of valid candidates per customer
+  { print << "Initializing candidates" << std::endl;
+  vec_t<Stop> sch;
+  vec_t<Wayp> rte;
+  for (const Customer& cust : this->customers()) {
+    this->candidates_list_by_cust[cust] = {};
+    vec_t<MutableVehicleSptr> candidates =
       this->grid_.within(pickup_range(cust), cust.orig());
-
-    print << "\tGot " << this->candidates.size() << " candidates" << std::endl;
-
-    DistInt best_cost = InfInt;
-
-    for (const MutableVehicleSptr& cand : this->candidates) {
+    print << "\t" << cust.id() << " (" << candidates.size() << ")" << std::endl;
+    for (const MutableVehicleSptr& cand : candidates) {
       // Speed-up heuristics:
       //   1) Try only if vehicle has capacity at this point in time
       //   2) Try only if vehicle's current schedule len < 8 customer stops
       // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
       if (cand->schedule().data().size() < 10) {
-        DistInt new_cst = sop_insert(*cand, cust, sch, rte);
-        DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
-        if (cost < 0) {
-          print(MessageType::Error) << "Got negative detour!" << std::endl;
-          print << cand->id() << std::endl;
-          print << cost << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
-          print << "Current schedule: ";
-          for (const Stop& sp : cand->schedule().data())
-            print << sp.loc() << " ";
-          print << std::endl;
-          print << "nnd: " << cand->next_node_distance() << std::endl;
-          print << "New schedule: ";
-          for (const Stop& sp : sch)
-            print << sp.loc() << " ";
-          print << std::endl;
-          throw;
+        sop_insert(*cand, cust, sch, rte);
+        if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
+          this->candidates_list_by_cust[cust].push_back(cand);
         }
-        if (cost < best_cost) {
-          // Quality heuristic:
-          //   If cand has 0 customers, do constraints check now to avoid replace
-          //   procedure later.
-          if ((cand->queued() = 0 && chkcap(best_vehl->capacity(), best_sch)
-           && chktw(best_sch, best_rte)) || cand->queued() > 0) {
-            best_vehl = cand;
-            best_sch  = sch;
-            best_rte  = rte;
-            best_cost  = cost;
-          }
+      }
+    }
+  }}
+
+  // std::random_shuffle(customers().begin(), customers().end());
+
+  // Preserve access order same as GR, KT, NN
+  std::reverse(this->customers().begin(), this->customers().end());
+
+  print << "Assigning customers (" << this->customers().size() << ")" << std::endl;
+  while (!this->customers().empty()) {
+    Customer cust = this->customers().back();
+    this->customers().pop_back();
+    print << "Handling cust " << cust.id() << std::endl;
+    vec_t<MutableVehicleSptr> candidates = candidates_list_by_cust.at(cust);
+
+    print << "\tGot " << candidates.size() << " candidates" << std::endl;
+
+    DistInt best_cost = InfInt;
+
+    vec_t<Stop> best_sch;
+    vec_t<Wayp> best_rte;
+    MutableVehicleSptr best_vehl;
+    bool matched = false;
+    for (const MutableVehicleSptr& cand : candidates) {
+      vec_t<Stop> sch;
+      vec_t<Wayp> rte;
+      DistInt new_cst = sop_insert(*cand, cust, sch, rte);
+      DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
+      if (cost < 0) {
+        print(MessageType::Error) << "Got negative detour!" << std::endl;
+        print << cand->id() << std::endl;
+        print << cost << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
+        print << "Current schedule: ";
+        for (const Stop& sp : cand->schedule().data())
+          print << sp.loc() << " ";
+        print << std::endl;
+        print << "nnd: " << cand->next_node_distance() << std::endl;
+        print << "New schedule: ";
+        for (const Stop& sp : sch)
+          print << sp.loc() << " ";
+        print << std::endl;
+        throw;
+      }
+      if (cost < best_cost) {
+        best_vehl = cand;
+        best_sch  = sch;
+        best_rte  = rte;
+        best_cost = cost;
       }
       if (this->timeout(this->timeout_0))
         break;
     }
+
+    CustId removed_cust = -1;
+    vec_t<Stop> old_sch;
     if (best_vehl != nullptr) {
       // Do constraints check
-      if (chkcap(best_vehl->capacity(), best_sch)
-       && chktw(best_sch, best_rte)) {
+      if (chkcap(best_vehl->capacity(), best_sch) && chktw(best_sch, best_rte)) {
         matched = true;
       } else {
         print << "\tBest vehl " << best_vehl->id() << " infeasible! Trying replace..." << std::endl;
@@ -129,8 +152,10 @@ void BilateralArrangement::match() {
     } else
       this->beg_delay(cust.id());
 
-    this->end_ht();
+    if (this->timeout(this->timeout_0))
+      break;
   }
+  this->end_ht();
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -149,13 +174,8 @@ void BilateralArrangement::listen(bool skip_assigned, bool skip_delayed) {
 }
 
 void BilateralArrangement::reset_workspace() {
-  this->sch = this->best_sch = this->old_sch = {};
-  this->rte = this->best_rte = {};
-  this->candidates = {};
-  this->matched = false;
-  this->best_vehl = nullptr;
   this->timeout_0 = hiclock::now();
-  this->removed_cust = -1;
+  this->candidates_list_by_cust = {};
 }
 
 int main() {
@@ -164,11 +184,11 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance.rew";
   option.path_to_solution = "bilateral_arrangement.sol";
   option.path_to_dataout  = "bilateral_arrangement.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.static_mode = true;
   Cargo cargo(option);
