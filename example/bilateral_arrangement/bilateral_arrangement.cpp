@@ -77,12 +77,16 @@ void BilateralArrangement::match() {
           throw;
         }
         if (cost < best_cost) {
-          // No constraints check
-          best_vehl = cand;
-          best_sch  = sch;
-          best_rte  = rte;
-          best_cost  = cost;
-        }
+          // Quality heuristic:
+          //   If cand has 0 customers, do constraints check now to avoid replace
+          //   procedure later.
+          if ((cand->queued() = 0 && chkcap(best_vehl->capacity(), best_sch)
+           && chktw(best_sch, best_rte)) || cand->queued() > 0) {
+            best_vehl = cand;
+            best_sch  = sch;
+            best_rte  = rte;
+            best_cost  = cost;
+          }
       }
       if (this->timeout(this->timeout_0))
         break;
