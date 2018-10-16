@@ -56,7 +56,8 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
     // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
     if (cand->schedule().data().size() < 10) {
       DistInt new_cst = sop_insert(*cand, cust, sch, rte); // TODO consider having sop_insert return the detour cost?
-      DistInt cst = new_cst - cand->route().cost() + cand->next_node_distance();
+      // DistInt cst = new_cst - cand->route().cost() + cand->next_node_distance();
+      DistInt cst = new_cst - cand->route().cost();
       if (cst < 0) {
         print(MessageType::Error) << "Got negative detour!" << std::endl;
         print << cand->id() << std::endl;
@@ -136,7 +137,7 @@ int main() {
   option.path_to_solution = "greedy_insertion.sol";
   option.path_to_dataout  = "greedy_insertion.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.static_mode = true;
   Cargo cargo(option);
