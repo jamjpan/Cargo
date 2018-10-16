@@ -112,7 +112,7 @@ int main() {
   option.path_to_solution = "nearest_neighbor.sol";
   option.path_to_dataout  = "nearest_neighbor.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.static_mode = true;
   Cargo cargo(option);                      // (cargo.h)

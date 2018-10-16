@@ -25,8 +25,6 @@
 
 using namespace cargo;
 
-typedef std::pair<DistInt, CustId> rank_cust;
-
 class GRASP : public RSAlgorithm {
  public:
   GRASP();
@@ -52,16 +50,37 @@ class GRASP : public RSAlgorithm {
   DistInt best_solcst;
   dict<CustId, bool> is_matched;
   dict<MutableVehicleSptr, vec_t<Customer>> candidates_list;
+  dict<Customer, vec_t<MutableVehicleSptr>> candidates_list_by_cust;
 
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
+  void initialize_by_vehl(dict<MutableVehicleSptr, vec_t<Customer>> &, vec_t<CustId> &);
+  void initialize_by_cust(dict<MutableVehicleSptr, vec_t<Customer>> &, vec_t<CustId> &);
 
-  bool hillclimb(int &);
+  MutableVehicleSptr replace(
+    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
+    const vec_t<Customer> &,  // unassigned
+    DistInt &,                // amount of improvement
+    vec_t<Stop> &,            // schedule after replace
+    vec_t<Wayp> &,            // route after replace
+    CustId &,                 // replaced customer (previously assigned)
+    CustId &);                // replace by
 
-  DistInt max_rank(const vec_t<rank_cust> &);
+  std::pair<MutableVehicleSptr, MutableVehicleSptr> swap(
+    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
+    DistInt &,                // amount of improvement
+    vec_t<Stop> &,            // schedule1 after swap
+    vec_t<Wayp> &,            // route1 after swap
+    vec_t<Stop> &,            // schedule2 after swap
+    vec_t<Wayp> &,            // route2 after swap
+    CustId &,                 // swapped to 1
+    CustId &);                // swapped to 2
+
+  DistInt max_rank(const vec_t<std::pair<DistInt, Customer>> &);
+  DistInt max_rank(const vec_t<std::pair<DistInt, MutableVehicleSptr>> &);
 
   void reset_workspace();
 };
