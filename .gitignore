@@ -22,6 +22,9 @@
 *.synctex.gz
 *.toc
 *.txt
+*.log
+*.log1
+*.log2
 readme.sh
 temp.html
 private/
