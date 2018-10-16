@@ -135,10 +135,22 @@ bool chkpc(const Schedule& s) {
     return false;
   }
 
+  // A vehicle origin that is not this vehicle cannot appear at 0
+  if (s.data().begin()->type() == StopType::VehlOrig &&
+      s.data().begin()->owner() != s.owner()) {
+    DEBUG(3, { std::cout << "chk_prec() first stop is not this VehlOrig" << std::endl; });
+    return false;
+  }
+
+  return chkpc(s.data());
+}
+
+bool chkpc(const vec_t<Stop>& sch) {
+
   // Second-to-last stop cannot be any origin if schedule size > 2
-  if (s.data().size() > 2 &&
-      (std::prev(s.data().end(), 2)->type() == StopType::CustOrig ||
-       std::prev(s.data().end(), 2)->type() == StopType::VehlOrig)) {
+  if (sch.size() > 2 &&
+      (std::prev(sch.end(), 2)->type() == StopType::CustOrig ||
+       std::prev(sch.end(), 2)->type() == StopType::VehlOrig)) {
     DEBUG(3, { std::cout << "chk_prec() 2nd-last stop is an origin" << std::endl; });
     return false;
   }
@@ -146,22 +158,15 @@ bool chkpc(const Schedule& s) {
   // In the worst case, this algorithm walks the schedule for each stop in
   // order to find the paired requests. The complexity is O(|schedule|^2).
   bool paired;
-  for (auto i = s.data().begin(); i != s.data().end(); ++i) {
+  for (auto i = sch.begin(); i != sch.end(); ++i) {
     // Any vehicle origin cannot appear in the schedule, aside from at 0
-    if (i > s.data().begin() && i->type() == StopType::VehlOrig) {
-      DEBUG(3, { std::cout << "chk_prec() first stop is not a VehlOrig" << std::endl; });
-      return false;
-    }
-
-    // A vehicle origin that is not this vehicle cannot appear at 0
-    if (i == s.data().begin() && i->type() == StopType::VehlOrig &&
-        i->owner() != s.owner()) {
-      DEBUG(3, { std::cout << "chk_prec() first stop is not this VehlOrig" << std::endl; });
+    if (i > sch.begin() && i->type() == StopType::VehlOrig) {
+      DEBUG(3, { std::cout << "chk_prec() VehlOrig in interior" << std::endl; });
       return false;
     }
 
     paired = false;
-    for (auto j = s.data().begin(); j != s.data().end() && !paired; ++j) {
+    for (auto j = sch.begin(); j != sch.end() && !paired; ++j) {
       if (i == j) continue;
       if (i->owner() == j->owner()) {
         if (i->type() == StopType::CustOrig &&
