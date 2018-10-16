@@ -208,12 +208,19 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   DEBUG(3, { std::cout << "chktw() got sch:"; print_sch(sch); });
   DEBUG(3, { std::cout << "chktw() got rte:"; print_rte(rte); });
 
+  DistInt remaining_distance = (rte.back().first - rte.front().first);
+  float remaining_time = remaining_distance/(float)Cargo::vspeed();
+  float arrival_time = remaining_time + Cargo::now();
+
   // Check the end point first
   if (sch.back().late() != -1 &&
-      sch.back().late() < rte.back().first / (float)Cargo::vspeed()) {
+      sch.back().late() < arrival_time) {
     DEBUG(3, { std::cout << "chktw() found "
-      << "sch.back().late()["      << sch.back().late() << "] < "
-      << "rte.back().first/speed[" << rte.back().first / (float)Cargo::vspeed() << "]"
+      << "sch.back().late(): " << sch.back().late()
+      << "; remaining_distance: " << remaining_distance
+      << "; remaining_time: " << remaining_time
+      << "; current_time: " << Cargo::now()
+      << "; arrival_time: " << arrival_time
       << std::endl;
     });
     return false;
@@ -231,11 +238,15 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
         throw;
       }
     }
-    if (i->late() != -1 &&
-        i->late() < j->first / (float)Cargo::vspeed()) {
+    float eta = (j->first-rte.front().first)/(float)Cargo::vspeed() + Cargo::now();
+    if (i->late() != -1 && i->late() < eta) {
       DEBUG(3, { std::cout << "chktw() found "
-        << "i->late()["      << i->late() << "] < "
-        << "j->first/speed[" << j->first / (float)Cargo::vspeed() << "]"
+        << "i->late(): " << i->late()
+        << "; j->first: " << j->first
+        << "; rte.front().first: " << rte.front().first
+        << "; speed: " << Cargo::vspeed()
+        << "; current time: " << Cargo::now()
+        << "; eta: " << eta
         << std::endl;
       });
       return false;
@@ -357,8 +368,8 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   // (because of step()).  route_through will give this stop a distance of 0.
   // The distances to other stops in the augmented schedule passed to
   // route_through will be relative to this first stop. The already-traveled
-  // distance (the head) should be added.
-  DistInt head = vehl.traveled();
+  // distance TO THIS FIRST STOP (the next node) should be added.
+  DistInt head = vehl.route().data().at(vehl.idx_last_visited_node()+1).first;
 
   Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
@@ -376,9 +387,32 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   } else {
     mincst = sop_insert(vehl.schedule().data(), cust_o, cust_d, true, true, schout, rteout, gtree);
   }
+
+  DEBUG(3, {
+    std::cout << "Before insert: " << std::endl;
+    print_rte(vehl.route().data());
+    std::cout << "After insert:" << std::endl;
+    print_rte(rteout);
+    std::cout << "head: " << head << std::endl;
+  });
+
   // Add head to the new nodes in the route
-  for (auto& wp : rteout) wp.first += head;
+  for (auto& wp : rteout)
+    wp.first += head;
+
+  DEBUG(3, {
+    std::cout << "After adding head: " << std::endl;
+    print_rte(rteout);
+  });
+
   rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
+
+  DEBUG(3, {
+    std::cout << "After adding curloc:" << std::endl;
+    print_rte(rteout);
+    std::cout << "Returning cost: " << mincst+head << std::endl;
+  });
+
   return mincst+head;
 }
 

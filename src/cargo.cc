@@ -152,9 +152,12 @@ const std::string & Cargo::road_network() { return probset_.road_network(); }
  * route and speed. Handle accordingly if vehicle moves to next node and if
  * next node is a stop of some type. */
 int Cargo::step(int& ndeact) {
-  /* "Stop" the simulation once all the customers have appeared
-   * (no matches can be made anymore) */
-  if (!full_sim_ && t_ > tmin_) speed_ = 1000000;  // sufficiently big
+  /* Hack "stop" the simulation once all the customers have appeared
+   * (no matches can be made anymore)
+   * UPDATE: this hack is HORRIBLE, it totally messes up the trip delay
+   * calculation because all events end up happening at the last second
+   * */
+  // if (!full_sim_ && t_ > tmin_) speed_ = 1000000;  // sufficiently big
 
   /* Reset counters */
   int nrows = 0;  // number of vehicles moved to new nodes
@@ -505,9 +508,11 @@ SimlDur Cargo::avg_pickup_delay() {
   sqlite3_stmt* stmt;
   sqlite3_prepare_v2(db_, querystr.c_str(), -1, &stmt, NULL);
   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    const CustId owner = sqlite3_column_int(stmt, 0);
     const SimlTime early = sqlite3_column_int(stmt, 3);
     const SimlTime visitedAt = sqlite3_column_int(stmt, 5);
     pdelay += (visitedAt - early);
+    print << "Cust " << owner << " picked up at: " << visitedAt << "; early: " << early << "; delay: " << visitedAt - early << std::endl;
     count++;
   }
   if (rc != SQLITE_DONE) {
@@ -563,9 +568,15 @@ SimlDur Cargo::avg_trip_delay() {
   sqlite3_reset(stmt);
   sqlite3_finalize(stmt);
 
-  for (const CustId& cust_id : keys)
-    tdelay += ((dest_t.at(cust_id) - orig_t.at(cust_id)))
-              - trip_costs_.at(cust_id)/speed_;
+  for (const CustId& cust_id : keys) {
+    int delay = (dest_t.at(cust_id) - orig_t.at(cust_id)) - (trip_costs_.at(cust_id)/original_speed_);
+    std::cout << "Cust " << cust_id << " arrived at o: " << orig_t.at(cust_id)
+              << "; d: " << dest_t.at(cust_id)
+              << "; base: " << trip_costs_.at(cust_id)
+              << "; speed: " << original_speed_
+              << "; delay: " << delay << std::endl;
+    tdelay += delay;
+  }
 
   return keys.size() == 0 ? -1 : tdelay/keys.size(); // int
 }
@@ -660,6 +671,8 @@ void Cargo::start(RSAlgorithm& rsalg) {
 
     t1 = std::chrono::high_resolution_clock::now();
     dur = std::round(dur_milli(t1 - t0).count());
+    if (t_ > tmin_)
+      sleep_interval_ = dur;  // hack TODO: get rid of full_sim option
     if (dur > sleep_interval_)
       print(MessageType::Warning)
         << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
@@ -738,6 +751,7 @@ void Cargo::initialize(const Options& opt) {
   matp_ = opt.matching_period;
   sleep_interval_ = std::round((float)1000 / opt.time_multiplier);
   speed_ = opt.vehicle_speed;
+  original_speed_ = opt.vehicle_speed; // hack
   full_sim_ = opt.full_sim;
 
   print << "Creating in-memory database..." << std::endl;

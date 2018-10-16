@@ -113,6 +113,8 @@ class Cargo {
   static dict<TripId, DistInt> trip_costs_;
   static cache::lru_cache<std::string, vec_t<NodeId>> spcache_;
 
+  Speed original_speed_; // hack
+
   /* Solution file */
   Filepath solution_file_;
   Filepath dataout_file_;
