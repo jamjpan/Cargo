@@ -115,7 +115,12 @@ void GRASP::match() {
 
   // 3. Rearrange two stops from a random vehicle.
   print << "\tRearrange" << std::endl;
-  DistInt rearrage_improvement = 0;
+  DistInt rearrange_improvement = 0;
+  vec_t<Stop> rearrange_sch;
+  vec_t<Wayp> rearrange_rte;
+  MutableVehicleSptr cand_for_rearrange = this->rearrange(
+      solution, rearrange_improvement, rearrange_sch, rearrange_rte);
+  print << "\t\tRearrange improvement: " << rearrange_improvement << std::endl;
 
   /* Commit the solution */
   // for (const auto& assignment : this->best_sol) {
@@ -431,6 +436,43 @@ std::pair<MutableVehicleSptr, MutableVehicleSptr> GRASP::swap(
       print << "\t\tSwap " << a->id() << ", " << b->id() << " not feasible." << std::endl;
   }
   return {cand1, cand2};
+}
+
+MutableVehicleSptr GRASP::rearrange(
+    const dict<MutableVehicleSptr, vec_t<Customer>>& solution,
+    DistInt& improvement,
+    vec_t<Stop>& sch,
+    vec_t<Wayp>& rte) {
+  // Select random vehicle from the solution
+  std::uniform_int_distribution<> p(0, solution.size() - 1);
+  auto j = solution.begin();
+  std::advance(j, p(gen));
+
+  MutableVehicleSptr cand = j->first;
+
+  if (cand->schedule().size() < 4) {
+    improvement = 0;
+    print << "\t\tRearrange not feasible (schedule < 4 stops)" << std::endl;
+  } else {
+    // Select random stop
+    std::uniform_int_distribution<> n(1, cand->schedule().size() - 2);
+    sch = cand->schedule().data();
+    auto i = sch.begin();
+    std::advance(i, n(gen));
+    std::iter_swap(i,i+1);
+    if (!chkpc(sch)) {
+      print << "\t\tRearrange not feasible (new schedule fails precedence)" << std::endl;
+    } else {
+      route_through(sch, rte);
+      improvement = rte.back().first - cand->route().cost();
+      if (improvement > 0 && chkcap(cand->capacity(), sch)
+       && chktw(sch, rte)) {
+      } else {
+        print << "\t\tRearrange not improving or not feasible" << std::endl;
+      }
+    }
+  }
+  return cand;
 }
 
 DistInt GRASP::max_rank(const vec_t<std::pair<DistInt, Customer>>& rank) {

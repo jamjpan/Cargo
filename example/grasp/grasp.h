@@ -79,6 +79,13 @@ class GRASP : public RSAlgorithm {
     CustId &,                 // swapped to 1
     CustId &);                // swapped to 2
 
+  MutableVehicleSptr rearrange(
+    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
+    DistInt &,                // amount of improvement
+    vec_t<Stop> &,            // schedule after rearrange
+    vec_t<Wayp> &);           // route after rearrange
+
+
   DistInt max_rank(const vec_t<std::pair<DistInt, Customer>> &);
   DistInt max_rank(const vec_t<std::pair<DistInt, MutableVehicleSptr>> &);
 
