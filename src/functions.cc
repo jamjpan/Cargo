@@ -394,9 +394,9 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   }
 
   DEBUG(3, {
-    std::cout << "Before insert: " << std::endl;
+    std::cout << "Before insert " << cust.id() << " into " << vehl.id() << ": " << std::endl;
     print_rte(vehl.route().data());
-    std::cout << "After insert:" << std::endl;
+    std::cout << "After insert " << cust.id() << " into " << vehl.id() << ":" << std::endl;
     print_rte(rteout);
     std::cout << "head: " << head << std::endl;
   });
@@ -410,11 +410,11 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
     print_rte(rteout);
   });
 
-  rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
+  // rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
 
   DEBUG(3, {
-    std::cout << "After adding curloc:" << std::endl;
-    print_rte(rteout);
+    // std::cout << "After adding curloc:" << std::endl;
+    // print_rte(rteout);
     std::cout << "Returning cost: " << mincst+head << std::endl;
   });
 
