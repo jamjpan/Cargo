@@ -87,7 +87,8 @@ void BilateralArrangement::match() {
       vec_t<Stop> sch;
       vec_t<Wayp> rte;
       DistInt new_cst = sop_insert(*cand, cust, sch, rte);
-      DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
+      // DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
+      DistInt cost = new_cst - cand->route().cost();
       if (cost < 0) {
         print(MessageType::Error) << "Got negative detour!" << std::endl;
         print << cand->id() << std::endl;
