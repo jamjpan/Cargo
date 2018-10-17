@@ -31,7 +31,6 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int RANGE = 2000;
 const int PERT  = 1000;
 const int T_MAX = 10;
 
@@ -56,12 +55,13 @@ void SimulatedAnnealing::match() {
   Grid lcl_grid(this->grid_); // make a local copy
   for (const Customer& cust : customers()) {
     bool initial = false;
-    this->candidates = lcl_grid.within(RANGE, cust.orig());
+    this->candidates =
+      lcl_grid.within(pickup_range(cust), cust.orig());
     while (!this->candidates.empty() && initial == false) {
       MutableVehicleSptr& cand = this->candidates.back();
       candidates.pop_back();
       if (cand->queued() < cand->capacity()) {
-        DistInt cst = sop_insert(*cand, cust, sch, rte);
+        DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
         if (chktw(sch, rte)) {
           cand->set_sch(sch);
           cand->set_rte(rte);
@@ -103,7 +103,7 @@ void SimulatedAnnealing::match() {
 
         bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
         if (!is_same && cand->queued() < cand->capacity()) {
-          DistInt cst = sop_insert(*cand, cust, sch, rte);
+          DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
           if (chktw(sch, rte)) {
             bool climb = hillclimb(T);
             bool accept = false;
@@ -243,9 +243,9 @@ int main() {
   option.path_to_solution = "simulated_annealing.sol";
   option.path_to_dataout  = "simulated_annealing.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   SimulatedAnnealing sa;
   cargo.start(sa);
