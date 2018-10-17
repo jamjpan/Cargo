@@ -129,8 +129,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
     DistInt head = best_vehl->route().dist_at(best_vehl->idx_last_visited_node() + 1);
     for (auto& wp : best_rte)
       wp.first += head;
-    best_rte.insert(best_rte.begin(),
-          best_vehl->route().at(best_vehl->idx_last_visited_node()));
+    // best_rte.insert(best_rte.begin(),
+    //       best_vehl->route().at(best_vehl->idx_last_visited_node()));
     if (this->assign(
       {cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       print << "\tAssigned." << std::endl;
