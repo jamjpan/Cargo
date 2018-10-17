@@ -17,13 +17,9 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <algorithm> /* std::shuffle */
-#include <chrono>
-#include <cmath> /* std::exp */
-#include <iostream> /* std::endl */
+#include <algorithm>
+#include <iostream>
 #include <random>
-#include <map>
-#include <unordered_map>
 #include <vector>
 
 #include "libcargo.h"
@@ -32,8 +28,6 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int PERT  = 1000;
-const int T_MAX = 10;
 
 GRASP::GRASP()
     : RSAlgorithm("grasp", true), grid_(100), d(0,1) {
@@ -48,60 +42,52 @@ void GRASP::match() {
   for (const Customer& cust : this->customers())
     this->is_matched[cust.id()] = false;
 
-  // PRE-Initialize: use candidates filtering to find
-  // which customers certain vehicles are candidates for.
-  Grid lcl_grid(this->grid_);  // local copy to store local changes
-  this->candidates_list.clear();
-  this->candidates_list_by_cust.clear();
-  for (const Customer& cust : this->customers()) {
-    vec_t<MutableVehicleSptr> candidates = lcl_grid.within(pickup_range(cust), cust.orig());
-    candidates_list_by_cust[cust] = candidates;
-    for (const MutableVehicleSptr& mv : candidates) {
-      if (this->candidates_list.count(mv) == 0)
-        this->candidates_list[mv] = {};
-      this->candidates_list.at(mv).push_back(cust);
-    }
-  }
+  // EVERYTHING below here needs to be wrapped up in a loop
 
   /* Generate an initial solution
    * ---------------------------- */
   print << "Initializing solution" << std::endl;
-  vec_t<CustId> assigned = {};
-  dict<MutableVehicleSptr, vec_t<Customer>> solution = {};
-  initialize_by_vehl(solution, assigned);
-  // initialize_by_cust(solution, assigned);
-  // AT THIS POINT, vehicles in lcl_grid are different from grid_ because
-  // candidates have different routes/schedules now. */
-  print << "Solution initialized (" << assigned.size() << ")" << std::endl;
+  Grid lcl_grid(this->grid_);                               // local grid
+  vec_t<Customer> lcl_custs = this->customers();            // local customers
+  dict<VehlId, vec_t<Customer>> lcl_sol = {};               // local solution
+  dict<VehlId, vec_t<Customer>> lcl_removed = {};           // removed assignments
+  dict<MutableVehicleSptr, vec_t<Customer>> lcl_cands = {}; // local cands table
 
-  // Get unassigned
-  vec_t<Customer> unassigned = {};
-  for (const Customer& cust : this->customers()) {
-    bool isAssigned = (std::find(assigned.begin(), assigned.end(), cust.id()) != assigned.end());
-    if (!isAssigned)
-      unassigned.push_back(cust);
+  for (const Customer& cust : lcl_custs) {
+    vec_t<MutableVehicleSptr> cands = lcl_grid.within(pickup_range(cust), cust.orig());
+    for (const MutableVehicleSptr& cand : cands) {
+      if (lcl_cands.count(cand) == 0) lcl_cands[cand] = {};
+      lcl_cands.at(cand).push_back(cust);
+    }
   }
+
+  initialize(lcl_custs, lcl_cands, lcl_sol);
+
+  // Vehicles in lcl_grid are now modified with new routes and schedules
+  // corresponding to the assignments in lcl_sol
+  print << "Sol initialized (" << lcl_sol.size() << ")" << std::endl;
+
+
+  /* Commit Solution
+   * --------------- */
 
   /* Improve
    * ------- */
   print << "Improving..." << std::endl;
+
   // 1. Replace an assigned with an unassigned from some random vehicle.
   print << "\tReplace" << std::endl;
   DistInt replace_improvement = 0;
-  if (unassigned.size() > 0) {
-    vec_t<Stop> replace_sch;
-    vec_t<Wayp> replace_rte;
-    CustId replace_me = -1;
-    CustId replace_by = -1;
-    MutableVehicleSptr cand_for_replace =
-        this->replace(solution, unassigned, replace_improvement, replace_sch,
-                      replace_rte, replace_me, replace_by);
-    print << "\t\tVehl " << cand_for_replace->id() << " replace " << replace_me
-          << " with " << replace_by << " gets " << replace_improvement
-          << std::endl;
-  } else {
-    print << "\tNo unassigned, cannot replace." << std::endl;
-  }
+  vec_t<Stop> replace_sch;
+  vec_t<Wayp> replace_rte;
+  CustId replace_me = -1;
+  CustId replace_by = -1;
+  MutableVehicleSptr cand_for_replace =
+      this->replace(solution, unassigned, replace_improvement, replace_sch,
+                    replace_rte, replace_me, replace_by);
+  print << "\t\tVehl " << cand_for_replace->id() << " replace " << replace_me
+        << " with " << replace_by << " gets " << replace_improvement
+        << std::endl;
 
   // 2. Swap assignments from two random vehicles.
   print << "\tSwap" << std::endl;
@@ -121,6 +107,26 @@ void GRASP::match() {
   MutableVehicleSptr cand_for_rearrange = this->rearrange(
       solution, rearrange_improvement, rearrange_sch, rearrange_rte);
   print << "\t\tRearrange improvement: " << rearrange_improvement << std::endl;
+
+  int max_improvement = std::max(replace_improvement, std::max(swap_improvement, rearrange_improvement));
+  if (max_improvement > 0) {
+    if (replace_improvement == max_improvement) {
+    vec_t<Stop> replace_sch;
+    vec_t<Wayp> replace_rte;
+    CustId replace_me = -1;
+    CustId replace_by = -1;
+      cand_for_replace->set_sch(replace_sch);
+      cand_for_replace->set_rte(replace_rte);
+      unassigned.erase(std::remove_if(unassigned.begin(), unassigned.end(), [&](const Customer& cust){ return cust.id() == replace_me; }), unassigned.end());
+      //unassigned.push_back(replace_me);
+
+
+    } else if (swap_improvement == max_improvement) {
+
+    } else if (rearrange_improvement == max_improvement) {
+
+    }
+  }
 
   /* Commit the solution */
   // for (const auto& assignment : this->best_sol) {
@@ -177,17 +183,16 @@ void GRASP::listen(bool skip_assigned, bool skip_delayed) {
     skip_assigned, skip_delayed);
 }
 
-void GRASP::initialize_by_vehl(
-    dict<MutableVehicleSptr, vec_t<Customer>>& solution,
-    vec_t<CustId>& assigned) {
+void GRASP::initialize(vec_t<Customer>& lcl_custs,
+                       dict<MutableVehicleSptr, vec_t<Customer>>& lcl_cands,
+                       dict<VehlId, vec_t<Customer>>& lcl_sol) {
   // Loop through the vehicles; for each vehicle, list all the
   // new route costs of inserting each customer into the vehicle.
-  for (auto& kv : this->candidates_list) {
+  for (auto& kv : lcl_cands) {
     // Extract key-value pair
     MutableVehicleSptr     cand  = kv.first;  // points to mv in lcl_grid
     const vec_t<Customer>& custs = kv.second;
-    print << "\tSelect vehl " << cand->id()
-          << " (" << custs.size() << " custs)" << std::endl;
+    print << "\tSelect vehl " << cand->id() << " (" << custs.size() << " custs)" << std::endl;
 
     // Initialize rank list, sch, rte containers
     vec_t<std::pair<DistInt, Customer>> init_rank;
@@ -196,18 +201,13 @@ void GRASP::initialize_by_vehl(
 
     // Initially rank each candidate customer
     for (const Customer& cust : custs) {
-      // print << "\t\tRanking cust " << cust.id() << std::endl;
-      bool isAssigned = (std::find(assigned.begin(), assigned.end(), cust.id()) != assigned.end());
-      if (!isAssigned) {
-        vec_t<Stop> sch;
-        vec_t<Wayp> rte;
-        DistInt cost =
-          sop_insert(*cand, cust, sch, rte) - cand->route().cost() + cand->next_node_distance();
-        init_rank.push_back({cost, cust});
-        new_sch[cust.id()] = sch;
-        new_rte[cust.id()] = rte;
-        // print << "\t\t\tRanked (" << cost << ")" << std::endl;
-      }
+      vec_t<Stop> sch;
+      vec_t<Wayp> rte;
+      DistInt cost =
+        sop_insert(*cand, cust, sch, rte) - cand->route().cost(); // + cand->next_node_distance();
+      init_rank.push_back({cost, cust});
+      new_sch[cust.id()] = sch;
+      new_rte[cust.id()] = rte;
     }
     if (init_rank.size() == 0) {
       print << "\tNo ranks; skip" << std::endl;
@@ -258,77 +258,13 @@ void GRASP::initialize_by_vehl(
           vec_t<Stop> sch;
           vec_t<Wayp> rte;
           DistInt cost =
-            sop_insert(*cand, cust, sch, rte) - cand->route().cost() + cand->next_node_distance();
+            sop_insert(*cand, cust, sch, rte) - cand->route().cost(); // + cand->next_node_distance();
           init_rank.push_back({cost, cust});
           new_sch[cust.id()] = sch;
           new_rte[cust.id()] = rte;
           // print << "\t\t\tRanked (" << cost << ")" << std::endl;
         }
       }
-    }
-  }
-}
-
-void GRASP::initialize_by_cust(  // <-- not exactly correct
-    dict<MutableVehicleSptr, vec_t<Customer>>& solution,
-    vec_t<CustId>& assigned) {
-  // Loop through the customers. For each customer, rank the vehicles.
-  // Then select one vehicle.
-  for (const Customer& cust : this->customers()) {
-    vec_t<MutableVehicleSptr>& candidates = candidates_list_by_cust.at(cust);
-    print << "\tSelect cust " << cust.id()
-          << " (" << candidates.size() << " cands)" << std::endl;
-
-    // Initialize rank list, sch, rte containers
-    vec_t<std::pair<DistInt, MutableVehicleSptr>> rank;
-    dict<VehlId, vec_t<Stop>>           new_sch;
-    dict<VehlId, vec_t<Wayp>>           new_rte;
-
-    // Rank each candidate vehicle
-    for (const MutableVehicleSptr& cand : candidates) {
-      // print << "\t\tRanking vehl " << cand->id() << std::endl;
-      vec_t<Stop> sch;
-      vec_t<Wayp> rte;
-      DistInt cost =
-        sop_insert(*cand, cust, sch, rte) - cand->route().cost() + cand->next_node_distance();
-      rank.push_back({cost, cand});
-      new_sch[cand->id()] = sch;
-      new_rte[cand->id()] = rte;
-      // print << "\t\t\tRanked (" << cost << ")" << std::endl;
-    }
-    if (rank.size() == 0) {
-      // print << "\tNo ranks; skip" << std::endl;
-      continue;
-    }
-
-    // Select and assign one ranked vehicle
-    // print << "\tSelecting candidate to assign..." << std::endl;
-    DistInt max = max_rank(rank);
-    std::uniform_int_distribution<>  n(0, rank.size() - 1);
-    std::uniform_real_distribution<> m(0, 1);
-    size_t it = 0;
-    if (rank.size() > 1) {
-      while (true) {
-        it = n(this->gen);
-        float threshold = m(this->gen);
-        float rankratio = 1-(float)rank.at(it).first/max;  // smaller ranks are better
-        if (rankratio == 0 || rankratio > threshold)
-          break;
-      }
-    }
-    MutableVehicleSptr cand = rank.at(it).second;
-    bool pass_cap = chkcap(cand->capacity(), new_sch.at(cand->id()));
-    bool pass_tw  = chktw(new_sch.at(cand->id()), new_rte.at(cand->id()));
-    if (pass_cap && pass_tw) {
-      cand->set_sch(new_sch.at(cand->id()));
-      cand->set_rte(new_rte.at(cand->id()));
-      cand->reset_lvn();
-      cand->incr_queued();
-      if (solution.count(cand) == 0)
-        solution[cand] = {};
-      solution.at(cand).push_back(cust);
-      assigned.push_back(cust.id());
-      print << "\tAssigned " << cust.id() << " to " << cand->id() << std::endl;
     }
   }
 }
@@ -341,6 +277,12 @@ MutableVehicleSptr GRASP::replace(
     vec_t<Wayp>& replace_rte,
     CustId& replaced_cust,
     CustId& now_assigned_cust) {
+  if (unassigned.size() == 0) {
+    print << "\t\tNothing to replace" << std::endl;
+    improvement = 0;
+    return nullptr;
+  }
+
   // Select random vehicle from the solution
   std::uniform_int_distribution<> p(0, solution.size() - 1);
   auto j = solution.begin();

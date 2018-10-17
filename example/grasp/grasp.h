@@ -49,16 +49,15 @@ class GRASP : public RSAlgorithm {
 
   DistInt best_solcst;
   dict<CustId, bool> is_matched;
-  dict<MutableVehicleSptr, vec_t<Customer>> candidates_list;
-  dict<Customer, vec_t<MutableVehicleSptr>> candidates_list_by_cust;
 
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
-  void initialize_by_vehl(dict<MutableVehicleSptr, vec_t<Customer>> &, vec_t<CustId> &);
-  void initialize_by_cust(dict<MutableVehicleSptr, vec_t<Customer>> &, vec_t<CustId> &);
+  void initialize(vec_t<Customer> &,
+                  dict<MutableVehicleSptr, vec_t<Customer>> &,
+                  dict<VehlId, vec_t<Customer>> &);
 
   MutableVehicleSptr replace(
     const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
