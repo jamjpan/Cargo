@@ -94,7 +94,7 @@ void SimulatedAnnealing::match() {
       std::advance(cust_itr, n(this->gen));
       Customer& cust = std::get<0>(*cust_itr);
 
-      auto candidates = lcl_grid.within(RANGE, cust.orig());
+      auto candidates = lcl_grid.within(pickup_range(cust), cust.orig());
       if (!candidates.empty()) {
         std::uniform_int_distribution<> m(0, candidates.size() - 1);
         auto vehl_itr = candidates.begin(); // pick random candidate
