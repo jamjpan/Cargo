@@ -681,7 +681,8 @@ void Cargo::start(RSAlgorithm& rsalg) {
 
     if (static_mode) {
       ofmx.unlock();
-      std::this_thread::sleep_for(milli(100)); // timing hack
+      if (t_ < tmin_)
+        std::this_thread::sleep_for(milli(100)); // timing hack
     }
 
     /* Increment the time step */

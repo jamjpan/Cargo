@@ -290,7 +290,7 @@ int main() {
   option.path_to_solution = "kinetic_trees.sol";
   option.path_to_dataout  = "kinetic_trees.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.static_mode = true;
   Cargo cargo(option);
