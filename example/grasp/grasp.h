@@ -18,12 +18,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <memory>
+#include <tuple>
 #include <unordered_map>
 #include <random>
 
 #include "libcargo.h"
 
 using namespace cargo;
+
+// A Solution is a table keyed by vehicle containing new assignment data
+typedef dict<MutableVehicleSptr, std::tuple<
+        vec_t<Customer>,  // to assign
+        vec_t<Customer>,  // to remove
+        vec_t<Wayp>,      // route
+        vec_t<Stop>>      // schedule
+    > Solution;
 
 class GRASP : public RSAlgorithm {
  public:
@@ -55,13 +64,22 @@ class GRASP : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
+  Solution initialize();
+  Customer roulette_select(const dict<Customer, int> &);
+
+  void print_sol(const Solution &);
+
+
+  ///////////////////////////////////////////////////////////////////////////
+
   void initialize(vec_t<Customer> &,
                   dict<MutableVehicleSptr, vec_t<Customer>> &,
                   dict<VehlId, vec_t<Customer>> &);
 
   MutableVehicleSptr replace(
-    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
-    const vec_t<Customer> &,  // unassigned
+    const dict<VehlId, vec_t<Customer>> &,  // solution
+    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // candidates
+    const vec_t<Customer> &,  // customers
     DistInt &,                // amount of improvement
     vec_t<Stop> &,            // schedule after replace
     vec_t<Wayp> &,            // route after replace

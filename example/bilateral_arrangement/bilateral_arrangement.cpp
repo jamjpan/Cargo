@@ -105,10 +105,15 @@ void BilateralArrangement::match() {
         throw;
       }
       if (cost < best_cost) {
-        best_vehl = cand;
-        best_sch  = sch;
-        best_rte  = rte;
-        best_cost = cost;
+        // Quality heuristic: if candidate has no customers currently, then
+        // immediately check if the constraints pass. This way we don't waste
+        // trying "replace" with this vehicle because there's nothing to replace.
+        if ((cand->queued() == 0 && chktw(sch, rte)) || cand->queued() > 0) {
+          best_vehl = cand;
+          best_sch  = sch;
+          best_rte  = rte;
+          best_cost = cost;
+        }
       }
       if (this->timeout(this->timeout_0))
         break;
