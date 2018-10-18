@@ -52,6 +52,7 @@ void SimulatedAnnealing::match() {
   DistInt best_solcst = 0;
 
   /* Generate an initial solution */
+  print << "Initializing solution" << std::endl;
   Grid lcl_grid(this->grid_); // make a local copy
   for (const Customer& cust : customers()) {
     bool initial = false;
@@ -60,9 +61,13 @@ void SimulatedAnnealing::match() {
     while (!this->candidates.empty() && initial == false) {
       MutableVehicleSptr& cand = this->candidates.back();
       candidates.pop_back();
-      if (cand->queued() < cand->capacity()) {
+      // Speed-up heuristics:
+      //   1) Try only if vehicle has capacity at this point in time
+      //   2) Try only if vehicle's current schedule len < 8 customer stops
+      // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+      if (cand->schedule().data().size() < 10) {
         DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-        if (chktw(sch, rte)) {
+        if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
           cand->set_sch(sch);
           cand->set_rte(rte);
           cand->reset_lvn();
@@ -72,6 +77,7 @@ void SimulatedAnnealing::match() {
           this->best_sol.push_back(assignment);
           best_solcst += cst;
           initial = true;
+          print << "Initial match " << cust.id() << " with " << cand->id() << std::endl;
         }
       }
     }
@@ -93,6 +99,7 @@ void SimulatedAnnealing::match() {
       auto cust_itr = sol.begin();          // pick random customer
       std::advance(cust_itr, n(this->gen));
       Customer& cust = std::get<0>(*cust_itr);
+      print << "Perturbing " << cust.id() << std::endl;
 
       auto candidates = lcl_grid.within(pickup_range(cust), cust.orig());
       if (!candidates.empty()) {
@@ -102,9 +109,9 @@ void SimulatedAnnealing::match() {
         auto cand = *vehl_itr;
 
         bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
-        if (!is_same && cand->queued() < cand->capacity()) {
+        if (!is_same && cand->schedule().data().size() < 10) {
           DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-          if (chktw(sch, rte)) {
+          if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
             bool climb = hillclimb(T);
             bool accept = false;
             if (cst < std::get<2>(*cust_itr)) {
@@ -149,6 +156,7 @@ void SimulatedAnnealing::match() {
               }
               best_sol = sol;
               best_solcst = solcst;
+              print << "\tMoved " << cust.id() << " to " << cand->id() << std::endl;
             }
           }
         }
@@ -179,8 +187,10 @@ void SimulatedAnnealing::match() {
     auto cand = MutableVehicle(*std::find_if(vehicles().begin(), vehicles().end(),
             [&](const Vehicle& a){ return a.id() == cand_id; }));
     std::vector<CustId> custs_to_add = {};
-    for (const auto& cust : custs)
+    for (const auto& cust : custs) {
       custs_to_add.push_back(cust.id());
+      print << "Matched " << cust.id() << " with " << cand_id << std::endl;
+    }
     if (assign(custs_to_add, {}, commit_rte.at(cand_id), commit_sch.at(cand_id), cand)) {
       for (const auto& cust_id : custs_to_add) {
         is_matched.at(cust_id) = true;
