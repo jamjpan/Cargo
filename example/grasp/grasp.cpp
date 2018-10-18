@@ -28,7 +28,7 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 1;
+const int MAX_ITER = 3;
 
 GRASP::GRASP()
     : RSAlgorithm("grasp", true), grid_(100), d(0,1) {
@@ -37,7 +37,7 @@ GRASP::GRASP()
   this->gen.seed(rd());
 }
 
-Solution GRASP::initialize() {
+Solution GRASP::initialize(Grid& local_grid) {
   Solution sol_0 = {};
 
   vec_t<Customer> local_customers = this->customers();
@@ -47,7 +47,7 @@ Solution GRASP::initialize() {
   print << "\tBuilding candidates list" << std::endl;
   dict<VehlId, vec_t<Customer>> candidates_list = {};
   for (const Customer& cust : this->customers()) {
-    vec_t<MutableVehicleSptr> cands = this->grid_.within(pickup_range(cust), cust.orig());
+    vec_t<MutableVehicleSptr> cands = local_grid.within(pickup_range(cust), cust.orig());
     for (MutableVehicleSptr& cand : cands) {
       if (candidates_list.count(cand->id()) == 0) {
         candidates_list[cand->id()] = {};
@@ -56,6 +56,7 @@ Solution GRASP::initialize() {
       candidates_list.at(cand->id()).push_back(cust);
     }
   }
+  print << "\tDone candidates list" << std::endl;
 
   auto rng = std::default_random_engine {};
   std::shuffle(std::begin(local_vehicles), std::end(local_vehicles), rng);
@@ -72,7 +73,7 @@ Solution GRASP::initialize() {
     dict<Customer, vec_t<Stop>> schedule = {};
     dict<Customer, vec_t<Wayp>> route = {};
 
-    while (true) {
+    while (!candidates_list.at(cand->id()).empty()) {
       // 2. (Re)-compute fitness
       print << "\t\t\t(Re)-computing fitness" << std::endl;
       for (const Customer& cust : candidates_list.at(cand->id())) {
@@ -82,12 +83,11 @@ Solution GRASP::initialize() {
         fitness[cust] = score;
         schedule[cust] = sch;
         route[cust] = rte;
-        print << "\t\t\tCust " << cust.id() << ": " << score << std::endl;
+        print << "\t\t\t\tCust " << cust.id() << ": " << score << std::endl;
       }
 
-      print << "\t\t\tRolling the roulette wheel" << std::endl;
-
       // 3. Roulette-select one customer to add to the vehicle
+      print << "\t\t\tRolling the roulette wheel" << std::endl;
       Customer cust_to_add = roulette_select(fitness);
       vec_t<Stop> sch = schedule.at(cust_to_add);
       vec_t<Wayp> rte = route.at(cust_to_add);
@@ -97,24 +97,32 @@ Solution GRASP::initialize() {
         cand->set_rte(rte);
         cand->reset_lvn();
         cand->incr_queued();
+        if (sol_0.count(cand) == 0)
+          sol_0[cand] = {{}, {}};
+        ((sol_0.at(cand)).first).push_back(cust_to_add);
         print << "\t\t\tAdded cust " << cust_to_add.id() << std::endl;
-        // Remove the customer from candidates list, local_customers
+        // Clean up customer from stores
         for (auto& kv : candidates_list) {
           vec_t<Customer>& custs = kv.second;
-          custs.erase(std::find(custs.begin(), custs.end(), cust_to_add));
+          auto i = std::find(custs.begin(), custs.end(), cust_to_add);
+          if (i != custs.end())
+            custs.erase(i);
         }
         local_customers.erase(std::find(local_customers.begin(), local_customers.end(), cust_to_add));
+        fitness.erase(cust_to_add);
+        schedule.erase(cust_to_add);
+        route.erase(cust_to_add);
       } else {
         print << "\t\t\tInvalid." << std::endl;
-        break;  // this vehicle is now done
+        vec_t<Customer>& possibles = candidates_list.at(cand->id());
+        possibles.erase(std::find(possibles.begin(), possibles.end(), cust_to_add));
+        fitness.erase(cust_to_add);
+        schedule.erase(cust_to_add);
+        route.erase(cust_to_add);
       }
-      // 4. Stop if no more candidates
-      if (candidates_list.at(cand->id()).empty())
-        break;
     }
   }
-
-  print << "\tDone." << std::endl;
+  print << "\tDone assignment" << std::endl;
   return sol_0;
 }
 
@@ -145,20 +153,50 @@ Customer GRASP::roulette_select(const dict<Customer, int>& fitness) {
   return i->first;
 }
 
+void GRASP::commit(const Solution& sol) {
+  for (const auto& kv : sol) {
+    MutableVehicleSptr cand = kv.first;
+    vec_t<CustId> cadd = {};
+    vec_t<CustId> cdel = {};
+    for (const Customer& cust : (kv.second).first) {
+      cadd.push_back(cust.id());
+      print << "Matched " << cust.id() << " with " << cand->id() << std::endl;
+    }
+    for (const Customer& cust : (kv.second).second)
+      cdel.push_back(cust.id());
+    this->assign(cadd, cdel, cand->route().data(), cand->schedule().data(),
+                 *cand, false /*true*/);
+  }
+}
+
+DistInt GRASP::solcost(const Solution& sol) {
+  vec_t<CustId> assigned = {};
+  DistInt sum = 0;
+  for (const auto& kv : sol) {
+    sum += (kv.first)->route().cost();
+    for (const Customer& cust : (kv.second).first)
+      assigned.push_back(cust.id());
+  }
+  for (const Customer& cust : this->customers())
+    if (std::find(assigned.begin(), assigned.end(), cust.id()) == assigned.end())
+      sum += Cargo::basecost(cust.id());
+  return sum;
+}
+
 void GRASP::print_sol(const Solution& sol) {
   for (const auto& kv : sol) {
     print << "Vehl " << kv.first->id() << std::endl;
     print << "\tAssigned to ";
-    for (const Customer& cust : std::get<0>(kv.second))
+    for (const Customer& cust : (kv.second).first)
       print << cust.id() << " ";
     print << std::endl;
     print << "\tUnassigned from ";
-    for (const Customer& cust : std::get<1>(kv.second))
+    for (const Customer& cust : (kv.second).second)
       print << cust.id() << " ";
     print << std::endl;
     print << "\tRoute: (omitted)" << std::endl;
     print << "\tSchedule: ";
-    for (const Stop& stop : std::get<3>(kv.second))
+    for (const Stop& stop : (kv.first)->schedule().data())
       print << stop.loc() << " ";
     print << std::endl;
   }
@@ -169,19 +207,27 @@ void GRASP::match() {
   this->timeout_0 = hiclock::now();
 
   Solution best = {};
+  DistInt cost = InfInt;
   for (int iter_count = 0; iter_count < MAX_ITER; ++iter_count) {
-    print << "Intializing sol_0" << std::endl;
-    Solution sol_0 = this->initialize();
+    print << "Initializing sol_0" << std::endl;
+    Grid local_grid = this->grid_;
+    Solution sol_0 = this->initialize(local_grid);
+    print << "Done initialize" << std::endl;
     print_sol(sol_0);
+    print << "Searching for improvement" << std::endl;
     // - Solution sol_1 = replace(sol_0, ...);
     // - Solution sol_2 = swap(sol_0, ...);
     // - Solution sol_3 = rearrange(sol_0, ...);
     // - Solution sol_f = get_best(sol_replace, sol_swap, sol_rearrange);
-    // - if (cost_of(sol_f) < cost_of(best)) {
-    // -   best = sol_f;
-    // - }
+    print << "Done improvement" << std::endl;
+    Solution sol_f = sol_0;  // for testing
+    DistInt cost_f = this->solcost(sol_f);
+    if (cost_f < cost) {
+      best = sol_f;
+      cost = cost_f;
+    }
   }
-  // - Commit best_sol;
+  this->commit(best);
   this->end_ht();
 }
 
