@@ -35,7 +35,7 @@ const int PERT  = 1000;
 const int T_MAX = 10;
 
 SimulatedAnnealing::SimulatedAnnealing()
-    : RSAlgorithm("simulated_annealing", false), grid_(100), d(0,1) {
+    : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
   this->ndrops_ = 0;
