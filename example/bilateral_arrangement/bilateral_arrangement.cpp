@@ -127,7 +127,8 @@ void BilateralArrangement::match() {
           old_sch = best_vehl->schedule().data();
           sop_replace(best_vehl, remove_me, cust, best_sch, best_rte);
           if (chkcap(best_vehl->capacity(), best_sch)
-           && chktw(best_sch, best_rte)) {
+           && chktw(best_sch, best_rte)
+           && Cargo::basecost(cust.id()) > Cargo::basecost(remove_me)) {  // Quality heuristic!
             print << "\t\tSucceeded replaced cust " << remove_me << std::endl;
             nswapped_++;
             matched = true;
