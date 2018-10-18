@@ -31,8 +31,8 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int PERT  = 1000;
-const int T_MAX = 10;
+const int PERT  = 5000;
+const int T_MAX = 20;
 
 SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
