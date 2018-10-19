@@ -287,6 +287,16 @@ void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
     std::cout << "To remove: " << cust_id << std::endl;
     throw;
   }
+  // Special case: the last element in sch has -1 late window (for a taxi)
+  // and no more customer stops remaining
+  if (sch.size() == 2) {
+    const Stop& last_stop = sch.back();
+    if (last_stop.late() == -1) {
+      Stop new_dest(last_stop.owner(), sch.front().loc(), StopType::VehlDest, sch.front().early(), -1, -1);
+      vec_t<Stop> new_sch = {sch.front(), new_dest};
+      sch = new_sch;
+    }
+  }
 }
 
 void opdel_any(vec_t<Stop>& sch, const CustId& cust_id) {
