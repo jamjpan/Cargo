@@ -79,7 +79,9 @@ void TripVehicleGrouping::match() {
     auto cands = lcl_grid.within(RANGE, cust_a.orig());
     for (const auto& cand : cands) {
       print << "  checking vehl " << cand->id() << std::endl;
-      if (cand->queued() < cand->capacity()) {
+      // Speed-up heuristic!
+      // Try only if vehicle's current schedule len < 8 customer stops
+      if (cand->schedule().data().size() < 10) {
         DistInt cstout = 0;
         std::vector<Stop> schout;
         std::vector<Wayp> rteout;
@@ -589,11 +591,13 @@ bool TripVehicleGrouping::travel(const Vehicle& vehl,
 
   cstout = -1;
 
-  /* Insert customers one by one */
+  /* Insert customers one by one
+   * (There is room to optimize!) */
+
   DistInt cstsum = 0;
   for (const Customer& cust : custs) {
-    DistInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre);
-    if (chktw(schctr, rtectr)) {
+    DistInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre) - mtvehl.route().cost();
+    if (chkcap(mtvehl.capacity(), schctr) && chktw(schctr, rtectr)) {
       cstsum += cst;
       mtvehl.set_sch(schctr);
       mtvehl.set_rte(rtectr);
@@ -641,13 +645,13 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-14.instance";
-  option.path_to_solution = "A4-7_nvehls-14_trip_vehicle_grouping.sol";
-  option.path_to_dataout  = "A4-7_nvehls-14_trip_vehicle_grouping.dat";
+  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_solution = "trip_vehicle_grouping.sol";
+  option.path_to_dataout  = "trip_vehicle_grouping.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   TripVehicleGrouping tvg;
   tvg.unassign_penalty = 1000000;
