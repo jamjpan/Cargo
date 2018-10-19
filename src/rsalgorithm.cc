@@ -44,7 +44,7 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   nmat_ = 0;
   nrej_ = 0;
   delay_ = {};
-  retry_ = 15;
+  retry_ = 0;
   timeout_ = 1;
   prepare_stmt(sql::ssr_stmt, &ssr_stmt);
   prepare_stmt(sql::sss_stmt, &sss_stmt);
