@@ -278,6 +278,10 @@ bool chkcap(const Load& capacity, const vec_t<Stop>& sch) {
 
 /* Schedule operations -------------------------------------------------------*/
 void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
+  // Special case: removed cust is last stop for a TAXI
+  bool last_customer_stop = (sch.size() > 2 ? sch.at(sch.size()-2).owner() == cust_id : false);
+  bool is_taxi = (sch.back().late() == -1);
+
   vec_t<Stop> old_sch = sch;
   opdel_any(sch, cust_id);
   if (old_sch.size() - sch.size() != 2) {
@@ -287,15 +291,15 @@ void opdel(vec_t<Stop>& sch, const CustId& cust_id) {
     std::cout << "To remove: " << cust_id << std::endl;
     throw;
   }
-  // Special case: the last element in sch has -1 late window (for a taxi)
-  // and no more customer stops remaining
-  if (sch.size() == 2) {
-    const Stop& last_stop = sch.back();
-    if (last_stop.late() == -1) {
-      Stop new_dest(last_stop.owner(), sch.front().loc(), StopType::VehlDest, sch.front().early(), -1, -1);
-      vec_t<Stop> new_sch = {sch.front(), new_dest};
-      sch = new_sch;
-    }
+
+  if (last_customer_stop && is_taxi) {
+    vec_t<Stop> new_sch = {};
+    const Stop& last_stop = sch.at(sch.size()-2);
+    Stop new_dest(sch.front().owner(), last_stop.loc(), StopType::VehlDest, last_stop.early(), -1, -1);
+    for (size_t i = 0; i < sch.size()-1; ++i)
+      new_sch.push_back(sch.at(i));
+    new_sch.push_back(new_dest);
+    sch = new_sch;
   }
 }
 
