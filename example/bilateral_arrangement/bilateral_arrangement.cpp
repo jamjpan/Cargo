@@ -50,10 +50,8 @@ void BilateralArrangement::match() {
       this->grid_.within(pickup_range(cust), cust.orig());
     print << "\t" << cust.id() << " (" << candidates.size() << ")" << std::endl;
     for (const MutableVehicleSptr& cand : candidates) {
-      // Speed-up heuristics:
-      //   1) Try only if vehicle has capacity at this point in time
-      //   2) Try only if vehicle's current schedule len < 8 customer stops
-      // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+      // Speed-up heuristics!
+      // Try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
         sop_insert(*cand, cust, sch, rte);
         if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
@@ -87,7 +85,6 @@ void BilateralArrangement::match() {
       vec_t<Stop> sch;
       vec_t<Wayp> rte;
       DistInt new_cst = sop_insert(*cand, cust, sch, rte);
-      // DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
       DistInt cost = new_cst - cand->route().cost();
       if (cost < 0) {
         print(MessageType::Error) << "Got negative detour!" << std::endl;
@@ -105,15 +102,10 @@ void BilateralArrangement::match() {
         throw;
       }
       if (cost < best_cost) {
-        // Quality heuristic: if candidate has no customers currently, then
-        // immediately check if the constraints pass. This way we don't waste
-        // trying "replace" with this vehicle because there's nothing to replace.
-        if ((cand->queued() == 0 && chktw(sch, rte)) || cand->queued() > 0) {
-          best_vehl = cand;
-          best_sch  = sch;
-          best_rte  = rte;
-          best_cost = cost;
-        }
+        best_vehl = cand;
+        best_sch  = sch;
+        best_rte  = rte;
+        best_cost = cost;
       }
       if (this->timeout(this->timeout_0))
         break;
@@ -122,7 +114,7 @@ void BilateralArrangement::match() {
     CustId removed_cust = -1;
     vec_t<Stop> old_sch;
     if (best_vehl != nullptr) {
-      // Do constraints check
+      // Do constraints check here
       if (chkcap(best_vehl->capacity(), best_sch) && chktw(best_sch, best_rte)) {
         matched = true;
       } else {
@@ -132,13 +124,11 @@ void BilateralArrangement::match() {
           old_sch = best_vehl->schedule().data();
           DistInt replace_cost = sop_replace(best_vehl, remove_me, cust, best_sch, best_rte) - best_vehl->route().cost();
           if (chkcap(best_vehl->capacity(), best_sch)
-           && chktw(best_sch, best_rte)
-           && Cargo::basecost(cust.id()) > Cargo::basecost(remove_me)  // Quality heuristic!
-           && replace_cost <= 0) {  // Quality heuristic!
+           && chktw(best_sch, best_rte)) {
             print << "\t\tSucceeded replaced cust " << remove_me << std::endl;
             nswapped_++;
             matched = true;
-            removed_cust = remove_me;
+            removed_cust = remove_me;  // it will be tried in the next batch
           } else {
             print << "\t\tStill not feasible after replace cust " << remove_me << std::endl;
             best_vehl->set_sch(old_sch);
