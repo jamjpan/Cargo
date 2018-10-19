@@ -122,7 +122,7 @@ void BilateralArrangement::match() {
         CustId remove_me = randcust(best_vehl->schedule().data());
         if (remove_me != -1) {
           old_sch = best_vehl->schedule().data();
-          DistInt replace_cost = sop_replace(best_vehl, remove_me, cust, best_sch, best_rte) - best_vehl->route().cost();
+          sop_replace(best_vehl, remove_me, cust, best_sch, best_rte);
           if (chkcap(best_vehl->capacity(), best_sch)
            && chktw(best_sch, best_rte)) {
             print << "\t\tSucceeded replaced cust " << remove_me << std::endl;
