@@ -50,7 +50,7 @@ void BilateralArrangement::match() {
       this->grid_.within(pickup_range(cust), cust.orig());
     print << "\t" << cust.id() << " (" << candidates.size() << ")" << std::endl;
     for (const MutableVehicleSptr& cand : candidates) {
-      // Speed-up heuristics!
+      // Speed-up heuristic!
       // Try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
         sop_insert(*cand, cust, sch, rte);
@@ -61,10 +61,8 @@ void BilateralArrangement::match() {
     }
   }}
 
-  // std::random_shuffle(customers().begin(), customers().end());
-
-  // Preserve access order same as GR, KT, NN
-  std::reverse(this->customers().begin(), this->customers().end());
+  // Randomize customer access order
+  std::random_shuffle(customers().begin(), customers().end());
 
   print << "Assigning customers (" << this->customers().size() << ")" << std::endl;
   while (!this->customers().empty()) {
@@ -142,11 +140,10 @@ void BilateralArrangement::match() {
     /* Attempt commit to db */
     if (matched) {
       print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
-      std::vector<CustId> cdel = {};
+      vec_t<CustId> cdel = {};
       if (removed_cust != -1)
         cdel.push_back(removed_cust);
-      this->assign_or_delay(
-          {cust.id()}, cdel, best_rte, best_sch, *best_vehl);
+      this->assign_or_delay({cust.id()}, cdel, best_rte, best_sch, *best_vehl);
     } else
       this->beg_delay(cust.id());
 
