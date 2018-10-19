@@ -50,10 +50,8 @@ void BAImproved::match() {
       this->grid_.within(pickup_range(cust), cust.orig());
     print << "\t" << cust.id() << " (" << candidates.size() << ")" << std::endl;
     for (const MutableVehicleSptr& cand : candidates) {
-      // Speed-up heuristics:
-      //   1) Try only if vehicle has capacity at this point in time
-      //   2) Try only if vehicle's current schedule len < 8 customer stops
-      // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+      // Speed-up heuristic!
+      // Try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
         sop_insert(*cand, cust, sch, rte);
         if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
@@ -63,10 +61,8 @@ void BAImproved::match() {
     }
   }}
 
-  // std::random_shuffle(customers().begin(), customers().end());
-
-  // Preserve access order same as GR, KT, NN
-  std::reverse(this->customers().begin(), this->customers().end());
+  // Randomize customer access order
+  std::random_shuffle(customers().begin(), customers().end());
 
   print << "Assigning customers (" << this->customers().size() << ")" << std::endl;
   while (!this->customers().empty()) {
@@ -78,16 +74,16 @@ void BAImproved::match() {
     print << "\tGot " << candidates.size() << " candidates" << std::endl;
 
     DistInt best_cost = InfInt;
+    DistInt best_feasible_cost = InfInt;
 
-    vec_t<Stop> best_sch;
-    vec_t<Wayp> best_rte;
-    MutableVehicleSptr best_vehl;
+    vec_t<Stop> best_sch, best_feasible_sch;
+    vec_t<Wayp> best_rte, best_feasible_rte;
+    MutableVehicleSptr best_vehl, best_feasible_vehl;
     bool matched = false;
     for (const MutableVehicleSptr& cand : candidates) {
       vec_t<Stop> sch;
       vec_t<Wayp> rte;
       DistInt new_cst = sop_insert(*cand, cust, sch, rte);
-      // DistInt cost = new_cst - cand->route().cost() + cand->next_node_distance();
       DistInt cost = new_cst - cand->route().cost();
       if (cost < 0) {
         print(MessageType::Error) << "Got negative detour!" << std::endl;
@@ -105,15 +101,18 @@ void BAImproved::match() {
         throw;
       }
       if (cost < best_cost) {
-        // Quality heuristic: if candidate has no customers currently, then
-        // immediately check if the constraints pass. This way we don't waste
-        // trying "replace" with this vehicle because there's nothing to replace.
-        if ((cand->queued() == 0 && chktw(sch, rte)) || cand->queued() > 0) {
-          best_vehl = cand;
-          best_sch  = sch;
-          best_rte  = rte;
-          best_cost = cost;
-        }
+        best_vehl = cand;
+        best_sch  = sch;
+        best_rte  = rte;
+        best_cost = cost;
+      }
+      // Quality heuristic!
+      // Remember the best FEASIBLE, and use it if replace fails
+      if (cost < best_feasible_cost && chktw(sch, rte) && chkcap(cand->capacity(), sch)) {
+        best_feasible_vehl = cand;
+        best_feasible_sch  = sch;
+        best_feasible_rte  = rte;
+        best_feasible_cost = cost;
       }
       if (this->timeout(this->timeout_0))
         break;
@@ -147,6 +146,14 @@ void BAImproved::match() {
           print << "\tCould not replace! (remove_me == -1)" << std::endl;
         }
       }
+    }
+
+    // If replace failed, fallback to best feasible
+    if (!matched && best_feasible_vehl != nullptr) {
+      best_vehl = best_feasible_vehl;
+      best_sch = best_feasible_sch;
+      best_rte = best_feasible_rte;
+      matched = true;
     }
 
     /* Attempt commit to db */
