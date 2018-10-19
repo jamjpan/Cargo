@@ -693,24 +693,24 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
 
   // Don't sleep if time exceeds batch time
   int dur = std::round(dur_milli(batch_1-batch_0).count());
-  bool within_batch_time = (dur <= this->batch_time_ * 1000);
-  if (!within_batch_time && !Cargo::static_mode) {
-    print(MessageType::Warning)
-        << "listen() (" << dur << " ms) "
-        << "exceeds batch time ("
-        << this->batch_time_ * 1000 << " ms) for "
-        << this->vehicles_.size() << " vehls and " << ncusts << " custs"
-        << std::endl;
-  } else if (within_batch_time) {
-    // print
-    //     << "listen() handled "
-    //     << this->vehicles_.size() << " vehls and "
-    //     << this->customers_.size() << " custs " << "in " << dur << " ms"
-    //     << std::endl;
-    if (Cargo::static_mode)
-        std::this_thread::sleep_for(milli(this->batch_time_ * 1000));
-    else
-        std::this_thread::sleep_for(milli(this->batch_time_ * 1000 - dur));
+  if (Cargo::static_mode)
+    std::this_thread::sleep_for(milli(this->batch_time_ * 1000));
+  else {
+    if (dur > this->batch_time_ * 1000) {
+      print(MessageType::Warning)
+          << "listen() (" << dur << " ms) "
+          << "exceeds batch time ("
+          << this->batch_time_ * 1000 << " ms) for "
+          << this->vehicles_.size() << " vehls and " << ncusts << " custs"
+          << std::endl;
+    } else {
+      // print
+      //     << "listen() handled "
+      //     << this->vehicles_.size() << " vehls and "
+      //     << this->customers_.size() << " custs " << "in " << dur << " ms"
+      //     << std::endl;
+      std::this_thread::sleep_for(milli(this->batch_time_ * 1000 - dur));
+    }
   }
 }
 
