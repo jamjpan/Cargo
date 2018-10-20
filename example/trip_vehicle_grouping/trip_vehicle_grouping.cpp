@@ -58,7 +58,7 @@ void TripVehicleGrouping::match() {
 
   /* Generate rv-graph */
   { std::vector<Customer> lcl_cust = customers();
-  print << "generating rv-graph..." << std::endl;
+  print << "Generating rv-graph..." << std::endl;
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
          rv_cst, rv_sch, rv_rte, matchable_custs)
   { /* Each thread gets a local gtree and a local grid to perform
@@ -70,14 +70,13 @@ void TripVehicleGrouping::match() {
     #pragma omp critical
     { matchable_custs.push_back(ptcust->id()); }
     const Customer& cust_a = *ptcust;
-    print << "Working on cust " << ptcust->id() << std::endl;
+    print << "\tWorking on cust " << ptcust->id() << std::endl;
 
     /* Build rv edges
      * ----------------- */
-    print << "building rv-edges..." << std::endl;
+    print << "\tBuilding rv-edges..." << std::endl;
     auto cands = lcl_grid.within(pickup_range(cust_a), cust_a.orig());
     for (const auto& cand : cands) {
-      print << "  checking vehl " << cand->id() << std::endl;
       // Speed-up heuristic!
       // Try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
@@ -85,7 +84,6 @@ void TripVehicleGrouping::match() {
         std::vector<Stop> schout;
         std::vector<Wayp> rteout;
         if (travel(*cand, {cust_a}, cstout, schout, rteout, lcl_gtre)) {
-          print << "  accept" << std::endl;
           #pragma omp critical
           { rv_cst[*cand][cust_a] = cstout;
             rv_sch[*cand][cust_a] = schout;
@@ -109,7 +107,7 @@ void TripVehicleGrouping::match() {
 
     /* Build rr edges
      * ----------------- */
-    // print << "building rr-edges..." << std::endl;
+    print << "\tBuilding rr-edges..." << std::endl;
     Vehicle vtvehl(cust_a.id(), cust_a.orig(), cust_a.dest(),
                    cust_a.early(), cust_a.late(), 0, lcl_gtre);
     /* ...then compare against all other cust_b */
@@ -183,6 +181,7 @@ void TripVehicleGrouping::match() {
   /* Generate rtv-graph */
   this->timeout_rtv_0 = hiclock::now();
   int nvted = 0;
+  print << "Generating rtv-graph" << std::endl;
   { std::vector<Vehicle> lcl_vehl = vehicles();
   #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
           vted_, rvgrph_rr_, rvgrph_rv_)
@@ -205,7 +204,7 @@ void TripVehicleGrouping::match() {
     /* Trips of size 1
      * ---------------
      *  Add a trip of size 1 for every rv-pair involving this vehl */
-    // print << "Building trips size 1 for Vehl " << vehl.id() << "..." << std::endl;
+    print << "\tBuilding trips size 1 for vehl " << vehl.id() << "..." << std::endl;
     if (rvgrph_rv_.count(vehl) > 0) {
       for (const Customer& cust : rvgrph_rv_.at(vehl)) {
         SharedTripId stid;
@@ -229,8 +228,8 @@ void TripVehicleGrouping::match() {
      * ---------------
      * Add trips of size 1 that can be combined, and add any rr-pairs
      * that can be served by this vehl */
-    if (vehl.capacity() - vehl.queued() > 1) {  // <-- only vehls with capac
-    // print << "Building trips size 2 for Vehl " << vehl.id() << "..." << std::endl;
+    if (vehl.capacity() > 1) {  // <-- only vehls with capac
+    print << "\tBuilding trips size 2 for vehl " << vehl.id() << "..." << std::endl;
     /* 1) Check if any size 1 trips can be combined */
     for (const auto& id_a : tripk.at(1)) {
       SharedTrip shtrip(lcl_trip.at(id_a));
@@ -284,7 +283,7 @@ void TripVehicleGrouping::match() {
       }
     }
     if (this->timeout(this->timeout_rtv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -292,8 +291,8 @@ void TripVehicleGrouping::match() {
     /* Trips of size >= 3
      * ------------------ */
     size_t k = 3;
-    while ((size_t)(vehl.capacity() - vehl.queued()) >= k && tripk.count(k-1) > 0) {
-      // print << "Building trips size " << k << " for Vehl " << vehl.id() << "..." << std::endl;
+    while (vehl.capacity() >= (int)k && tripk.count(k-1) > 0) {
+      print << "\tBuilding trips size " << k << " for vehl " << vehl.id() << "..." << std::endl;
       /* Loop through trips of size k-1 */
       for (SharedTripId id_a : tripk.at(k - 1)) {
         const SharedTrip& trip_a = lcl_trip.at(id_a);
@@ -342,7 +341,7 @@ void TripVehicleGrouping::match() {
           }  // end if shtrip.size() == k
         }  // end inner for
         if (this->timeout(this->timeout_rtv_0)) {
-          // print << "Timed out" << std::endl;
+          print << "Timed out" << std::endl;
           // break;
           #pragma omp cancel for
         }
@@ -351,7 +350,7 @@ void TripVehicleGrouping::match() {
     } // end while
     } // end if vehls with capacity
     if (this->timeout(timeout_rtv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -494,7 +493,7 @@ void TripVehicleGrouping::match() {
   cparams.tm_lim = 15 * 1000;  // set time limit to 15 sec
   cparams.mip_gap = 0.001;     // set optimality gap to 0.1%
 
-  // print(MessageType::Info) << "solving..." << std::endl;
+  print(MessageType::Info) << "Solving mip..." << std::endl;
   // int rc = glp_intopt(mip, &cparams);  // <-- solve!
   glp_intopt(mip, &cparams);  // <-- solve!
 
@@ -536,8 +535,10 @@ void TripVehicleGrouping::match() {
       std::vector<Wayp>& new_rte = vt_rte.at(colmap[i].first).at(colmap[i].second);
       std::vector<Stop>& new_sch = vt_sch.at(colmap[i].first).at(colmap[i].second);
       std::vector<CustId> cadd {};
-      for (const Customer& cust : trip_.at(colmap[i].second))
+      for (const Customer& cust : trip_.at(colmap[i].second)) {
         cadd.push_back(cust.id());
+        print << "Matched " << cust.id() << " with " << sync_vehl.id() << std::endl;
+      }
       if (this->assign(cadd, {}, new_rte, new_sch, sync_vehl, false/*true*/)) {
         for (const auto& cust : trip_.at(colmap[i].second)) {
           is_matched.at(cust.id()) = true;
@@ -629,7 +630,7 @@ void TripVehicleGrouping::reset_workspace() {
   this->rv_rte = {};
   this->rv_cst = {};
   this->matchable_custs = {};
-  this->timeout_ = BATCH/2*1000;
+  this->timeout_ = this->timeout_/2;
   this->stid_ = 0;
   this->trip_ = {};
   this->vted_ = {};
