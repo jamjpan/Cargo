@@ -31,9 +31,8 @@
 using namespace cargo;
 
 const int BATCH = 30;
-// const int PERT  = 3000;
 const int T_MAX = 5;
-const int NSOL = 10;
+const int NSOL = 5;
 
 PopulationAnnealingFar::PopulationAnnealingFar()
     : RSAlgorithm("population_annealing_far", true), grid_(100), d(0,1) {
@@ -45,8 +44,6 @@ PopulationAnnealingFar::PopulationAnnealingFar()
 }
 
 void PopulationAnnealingFar::match() {
-  if (customers().size() == 0)
-    return;
   this->beg_ht();
   this->reset_workspace();
   for (const Customer& cust : customers()) {
@@ -58,9 +55,8 @@ void PopulationAnnealingFar::match() {
 
   /* Generate initial solutions */
   print << "Initializing solution" << std::endl;
-  for (int i = 0; i < NSOL; ++i) {
+  for (int n_sol = 0; n_sol < NSOL; ++n_sol) {
     vec_t<std::tuple<Customer, MutableVehicle, DistInt>> sol = {};
-    DistInt solcst = 0;
     Grid lcl_grid(this->grid_); // make a local copy
     for (const Customer& cust : customers()) {
       bool initial = false;
@@ -86,7 +82,6 @@ void PopulationAnnealingFar::match() {
             std::tuple<Customer, MutableVehicle, DistInt>
               assignment(cust, *cand, cst);
             sol.push_back(assignment);
-            solcst += cst;
             cand_used.at(cust.id()).push_back(cand->id());
             initial = true;
             print << "Initial match " << cust.id() << " with " << cand->id()
@@ -107,7 +102,7 @@ void PopulationAnnealingFar::match() {
     /* Perturb the solution */
     std::uniform_int_distribution<> n(0, sol.size() - 1);
     for (int T = 1; T <= T_MAX; ++T) {
-      for (int i = 0; i < 1000*T; ++i) {  // dynamic # of perts
+      for (int i = 0; i < 200*T*T; ++i) {  // dynamic # of perts
         auto lcl_sol = sol;
         auto cust_itr = lcl_sol.begin();          // pick random customer
         std::advance(cust_itr, n(this->gen));
@@ -143,10 +138,11 @@ void PopulationAnnealingFar::match() {
           if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
               bool climb = false;
               bool accept = false;
+              print << "\tOld cost: " << std::get<2>(*cust_itr) << "; new cost: " << cst << std::endl;
               if (cst < std::get<2>(*cust_itr)) {
                 accept = true;
                 this->ndrops_++;
-              } else if (hillclimb(T)) {
+              } else if (hillclimb(T) && T != T_MAX) {
                 accept = true;
                 climb = true;
                 this->nclimbs_++;
@@ -173,23 +169,17 @@ void PopulationAnnealingFar::match() {
                 sptr->decr_queued();
 
                 /* Store the new solution */
+                vec_t<CustId> assigned = {};
                 std::get<1>(*cust_itr) = *cand; // modify sol with new cand
                 std::get<2>(*cust_itr) = cst;   // modify sol with new cost
-                // DistInt lcl_solcst = cst;
-                DistInt lcl_solcst = 0;
                 for (auto &assignment : lcl_sol) {
                   if (std::get<1>(assignment).id() == sptr->id())
                     std::get<1>(assignment) = *sptr;  // modify old assignment
-                  // else
-                  //   lcl_solcst += std::get<2>(assignment);
                   if (std::get<1>(assignment).id() == cand->id())
                     std::get<1>(assignment) = *cand;  // modify old assignment
-                  // I try a different cost computation
-                  lcl_solcst += std::get<1>(assignment).route().cost();
                 }
                 sol = lcl_sol;
-                solcst = lcl_solcst;
-                print << "\tMoved " << cust.id() << " to " << cand->id()
+                print << "\tN=" << n_sol << "; T=" << T << "; P=" << i << "; Moved " << cust.id() << " to " << cand->id()
                       << "; new cost: " << cst << (climb ? " (climb)" : "") << std::endl;
                 print << "New schedule for " << cand->id() << ":" << std::endl;
                 for (const Stop& stop : sch)
@@ -214,8 +204,19 @@ void PopulationAnnealingFar::match() {
 
     /* AT THIS POINT, sol has finished local search. Accept it as best_sol
      * if it beats the others. */
+    DistInt solcst = 0;
+    vec_t<CustId> assigned = {};
+    for (const auto& assignment : sol) {
+      solcst += std::get<2>(assignment);
+      assigned.push_back(std::get<0>(assignment).id());
+    }
+    for (const Customer& cust : this->customers())
+      if (std::find(assigned.begin(), assigned.end(), cust.id()) == assigned.end())
+        solcst += Cargo::basecost(cust.id());
 
+    print << "Solution cost: " << solcst << "; incumbent: " << best_solcst << std::endl;
     if (solcst < best_solcst) {
+      print << "Better solution found (" << solcst << " < " << best_solcst << ")" << std::endl;
       best_sol = sol;
       best_solcst = solcst;
     }
@@ -282,7 +283,7 @@ void PopulationAnnealingFar::listen(bool skip_assigned, bool skip_delayed) {
 }
 
 bool PopulationAnnealingFar::hillclimb(int& T) {
-  return this->d(this->gen) <= std::exp((-1)*T/1.0) ? true : false;
+  return this->d(this->gen) < std::exp(-1.2*(float)T);
 }
 
 void PopulationAnnealingFar::reset_workspace() {

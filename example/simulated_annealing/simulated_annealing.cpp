@@ -31,8 +31,7 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int PERT  = 2000;
-const int T_MAX = 10;
+const int T_MAX = 5;
 
 SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
@@ -49,7 +48,7 @@ void SimulatedAnnealing::match() {
   for (const Customer& cust : customers())
     this->is_matched[cust.id()] = false;
 
-  DistInt best_solcst = 0;
+  // DistInt best_solcst = 0;
 
   /* Generate an initial solution */
   print << "Initializing solution" << std::endl;
@@ -72,7 +71,6 @@ void SimulatedAnnealing::match() {
           std::tuple<Customer, MutableVehicle, DistInt>
             assignment(cust, *cand, cst);
           this->best_sol.push_back(assignment);
-          best_solcst += cst;
           initial = true;
           print << "Initial match " << cust.id() << " with " << cand->id()
                 << "; cost: " << cst << std::endl;
@@ -91,8 +89,8 @@ void SimulatedAnnealing::match() {
 
   /* Perturb the solution */
   std::uniform_int_distribution<> n(0, this->best_sol.size() - 1);
-  for (int T = 0; T < T_MAX; ++T) {
-    for (int i = 0; i < PERT; ++i) {
+  for (int T = 1; T <= T_MAX; ++T) {
+    for (int i = 0; i < 200*T*T; ++i) {
       auto sol = best_sol;
       auto cust_itr = sol.begin();          // pick random customer
       std::advance(cust_itr, n(this->gen));
@@ -126,13 +124,15 @@ void SimulatedAnnealing::match() {
             throw;
           }
           if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
-            bool climb = hillclimb(T);
+            bool climb = false;
             bool accept = false;
+            print << "\tOld cost: " << std::get<2>(*cust_itr) << "; new cost: " << cst << std::endl;
             if (cst < std::get<2>(*cust_itr)) {
               accept = true;
               this->ndrops_++;
-            } else if (climb) {
+            } else if (hillclimb(T) && T != T_MAX) {
               accept = true;
+              climb = true;
               this->nclimbs_++;
             }
             if (accept) {
@@ -159,19 +159,15 @@ void SimulatedAnnealing::match() {
               /* Store the new solution */
               std::get<1>(*cust_itr) = *cand; // modify sol with new cand
               std::get<2>(*cust_itr) = cst;   // modify sol with new cost
-              DistInt solcst = cst;
               for (auto &assignment : sol) {
                 if (std::get<1>(assignment).id() == sptr->id())
                   std::get<1>(assignment) = *sptr;  // modify old assignment
-                else
-                  solcst += std::get<2>(assignment);
                 if (std::get<1>(assignment).id() == cand->id())
                   std::get<1>(assignment) = *cand;  // modify old assignment
               }
               best_sol = sol;
-              best_solcst = solcst;
-              print << "\tMoved " << cust.id() << " to " << cand->id()
-                    << "; new cost: " << cst << (climb ? " (climb)" : "") << std::endl;
+              print << "\tT=" << T << "; P=" << i << "; Moved " << cust.id() << " to " << cand->id()
+                    << (climb ? " (climb)" : "") << std::endl;
               print << "New schedule for " << cand->id() << ":" << std::endl;
               for (const Stop& stop : sch)
                 print << stop.loc() << " ";
@@ -251,7 +247,7 @@ void SimulatedAnnealing::listen(bool skip_assigned, bool skip_delayed) {
 }
 
 bool SimulatedAnnealing::hillclimb(int& T) {
-  return this->d(this->gen) <= std::exp((-1)*T/1.0) ? true : false;
+  return this->d(this->gen) < std::exp(-1.2*(float)T);
 }
 
 void SimulatedAnnealing::reset_workspace() {
