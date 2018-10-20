@@ -146,9 +146,12 @@ Customer GRASP::roulette_select(const dict<Customer, int>& fitness) {
     i = fitness.begin();
     std::advance(i, n(this->gen));
     float threshold = m(this->gen);
-    float rankratio = 1 - (float)i->second/max;
-    if (rankratio == 0 || rankratio > threshold)
+    float rankratio = (max = 0 ? 0 : 1 - (float)i->second/max);
+    if (rankratio == 0 || rankratio > threshold) {
       break;
+    } else {
+      print << "Roulette failed to hit " << rankratio << " not > " << threshold << std::endl;
+    }
   }
   return i->first;
 }

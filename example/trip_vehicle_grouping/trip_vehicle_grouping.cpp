@@ -32,13 +32,12 @@
 
 using namespace cargo;
 
-const int BATCH=30;
-const int RANGE=2000; // meters
-const int TOP_CUST = 30;  // customers per vehicle for rv-graph
+const int BATCH = 30;
+const int TOP_CUST = 8;  // customers per vehicle for rv-graph
 const int TRIP_MAX = 15000;  // maximum number of trips per batch
 
 TripVehicleGrouping::TripVehicleGrouping()
-    : RSAlgorithm("trip_vehicle_grouping", false), grid_(100) {
+    : RSAlgorithm("trip_vehicle_grouping", true), grid_(100) {
   batch_time() = BATCH;
   if (!omp_get_cancellation()) {
     print(MessageType::Error) << "OMP_CANCELLATION not set"
@@ -76,7 +75,7 @@ void TripVehicleGrouping::match() {
     /* Build rv edges
      * ----------------- */
     print << "building rv-edges..." << std::endl;
-    auto cands = lcl_grid.within(RANGE, cust_a.orig());
+    auto cands = lcl_grid.within(pickup_range(cust_a), cust_a.orig());
     for (const auto& cand : cands) {
       print << "  checking vehl " << cand->id() << std::endl;
       // Speed-up heuristic!
@@ -119,11 +118,11 @@ void TripVehicleGrouping::match() {
       // print << "Cust " << cust_a.id() << " join Cust " << cust_b.id() << " ? "
       //      << std::endl;
       /* Euclidean filters */
-      if (haversine(cust_a.orig(), cust_b.orig()) > RANGE) {
+      if (haversine(cust_a.orig(), cust_b.orig()) > pickup_range(cust_b)) {
         // print << "  origins not in range; reject" << std::endl;
         continue;
       }
-      if (haversine(cust_a.dest(), cust_b.dest()) > RANGE) {
+      if (haversine(cust_a.dest(), cust_b.dest()) > pickup_range(cust_b)) {
         // print << "  destinations not in range; reject" << std::endl;
         continue;
       }
@@ -239,7 +238,7 @@ void TripVehicleGrouping::match() {
         if (id_a == id_b) continue;
         shtrip.insert(shtrip.end(), lcl_trip.at(id_b).begin(), lcl_trip.at(id_b).end());
         /* Euclidean filter */
-        if (haversine(vehl.last_visited_node(), shtrip.at(0).orig()) > RANGE)
+        if (haversine(vehl.last_visited_node(), shtrip.at(0).orig()) > pickup_range(shtrip.at(0)))
           continue;
         DistInt cstout = 0;
         std::vector<Stop> schout;
@@ -266,7 +265,7 @@ void TripVehicleGrouping::match() {
     for (const auto& kv : rvgrph_rr_) {
       const Customer& cust_a = kv.first;
       /* Euclidean filter */
-      if (haversine(vehl.last_visited_node(), cust_a.orig()) > RANGE) continue;
+      if (haversine(vehl.last_visited_node(), cust_a.orig()) > pickup_range(cust_a)) continue;
       for (const Customer& cust_b : kv.second) {
         DistInt cstout = 0;
         std::vector<Stop> schout;

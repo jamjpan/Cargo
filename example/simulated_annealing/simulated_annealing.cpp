@@ -31,8 +31,8 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int PERT  = 5000;
-const int T_MAX = 20;
+const int PERT  = 2000;
+const int T_MAX = 10;
 
 SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
@@ -47,7 +47,7 @@ void SimulatedAnnealing::match() {
   this->beg_ht();
   this->reset_workspace();
   for (const Customer& cust : customers())
-    is_matched[cust.id()] = false;
+    this->is_matched[cust.id()] = false;
 
   DistInt best_solcst = 0;
 
@@ -56,15 +56,12 @@ void SimulatedAnnealing::match() {
   Grid lcl_grid(this->grid_); // make a local copy
   for (const Customer& cust : customers()) {
     bool initial = false;
-    this->candidates =
-      lcl_grid.within(pickup_range(cust), cust.orig());
+    this->candidates = lcl_grid.within(pickup_range(cust), cust.orig());
     while (!this->candidates.empty() && initial == false) {
       MutableVehicleSptr& cand = this->candidates.back();
       candidates.pop_back();
-      // Speed-up heuristics:
-      //   1) Try only if vehicle has capacity at this point in time
-      //   2) Try only if vehicle's current schedule len < 8 customer stops
-      // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+      // Speed-up heuristic!
+      // Try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
         DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
         if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
@@ -77,7 +74,8 @@ void SimulatedAnnealing::match() {
           this->best_sol.push_back(assignment);
           best_solcst += cst;
           initial = true;
-          print << "Initial match " << cust.id() << " with " << cand->id() << std::endl;
+          print << "Initial match " << cust.id() << " with " << cand->id()
+                << "; cost: " << cst << std::endl;
         }
       }
     }
@@ -110,7 +108,23 @@ void SimulatedAnnealing::match() {
 
         bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
         if (!is_same && cand->schedule().data().size() < 10) {
-          DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+          DistInt new_cst = sop_insert(*cand, cust, sch, rte);
+          DistInt cst = new_cst - cand->route().cost();
+          if (cst < 0) {
+            print(MessageType::Error) << "Got negative detour!" << std::endl;
+            print << cand->id() << std::endl;
+            print << cst << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
+            print << "Current schedule: ";
+            for (const Stop& sp : cand->schedule().data())
+              print << sp.loc() << " ";
+            print << std::endl;
+            print << "nnd: " << cand->next_node_distance() << std::endl;
+            print << "New schedule: ";
+            for (const Stop& sp : sch)
+              print << sp.loc() << " ";
+            print << std::endl;
+            throw;
+          }
           if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
             bool climb = hillclimb(T);
             bool accept = false;
@@ -156,7 +170,16 @@ void SimulatedAnnealing::match() {
               }
               best_sol = sol;
               best_solcst = solcst;
-              print << "\tMoved " << cust.id() << " to " << cand->id() << std::endl;
+              print << "\tMoved " << cust.id() << " to " << cand->id()
+                    << "; new cost: " << cst << (climb ? " (climb)" : "") << std::endl;
+              print << "New schedule for " << cand->id() << ":" << std::endl;
+              for (const Stop& stop : sch)
+                print << stop.loc() << " ";
+              print << std::endl;
+              print << "New schedule for " << sptr->id() << ":" << std::endl;
+              for (const Stop& stop : less_sch)
+                print << stop.loc() << " ";
+              print << std::endl;
             }
           }
         }

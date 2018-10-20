@@ -49,7 +49,7 @@ class PopulationAnnealingFar : public RSAlgorithm {
   std::vector<MutableVehicleSptr> candidates;
   tick_t timeout_0;
   dict<CustId, bool> is_matched;
-  dict<CustId, VehlId> cand_used;
+  dict<CustId, vec_t<VehlId>> cand_used;
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;

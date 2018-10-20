@@ -31,13 +31,12 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int RANGE = 2000;
-const int PERT  = 1000;
-const int T_MAX = 10;
+// const int PERT  = 3000;
+const int T_MAX = 5;
 const int NSOL = 10;
 
 PopulationAnnealingFar::PopulationAnnealingFar()
-    : RSAlgorithm("population_annealing_far", false), grid_(100), d(0,1) {
+    : RSAlgorithm("population_annealing_far", true), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
   this->ndrops_ = 0;
@@ -51,26 +50,35 @@ void PopulationAnnealingFar::match() {
   this->beg_ht();
   this->reset_workspace();
   for (const Customer& cust : customers()) {
-    is_matched[cust.id()] = false;
-    cand_used[cust.id()] = -1;
+    this->is_matched[cust.id()] = false;
+    cand_used[cust.id()] = {};
   }
 
   DistInt best_solcst = InfInt;
 
   /* Generate initial solutions */
+  print << "Initializing solution" << std::endl;
   for (int i = 0; i < NSOL; ++i) {
     vec_t<std::tuple<Customer, MutableVehicle, DistInt>> sol = {};
     DistInt solcst = 0;
     Grid lcl_grid(this->grid_); // make a local copy
     for (const Customer& cust : customers()) {
       bool initial = false;
-      this->candidates = lcl_grid.within(RANGE, cust.orig());
+      this->candidates = lcl_grid.within(pickup_range(cust), cust.orig());
+      // Clear the memory if all candidates have been used up
+      if (cand_used.at(cust.id()).size() == this->candidates.size())
+        cand_used.at(cust.id()).clear();
+      // Randomize access order
+      std::random_shuffle(this->candidates.begin(), this->candidates.end());
       while (!this->candidates.empty() && initial == false) {
         MutableVehicleSptr& cand = this->candidates.back();
         candidates.pop_back();
-        if (cand->queued() < cand->capacity() && cand_used.at(cust.id()) != cand->id() ) {
-          DistInt cst = sop_insert(*cand, cust, sch, rte);
-          if (chktw(sch, rte)) {
+        bool is_used = (std::find(cand_used.at(cust.id()).begin(), cand_used.at(cust.id()).end(), cand->id()) != cand_used.at(cust.id()).end());
+        // Speed-up heuristic!
+        // Try only if vehicle's current schedule len < 8 customer stops
+        if (cand->schedule().data().size() < 10 && !is_used) {
+          DistInt cst = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+          if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
             cand->set_sch(sch);
             cand->set_rte(rte);
             cand->reset_lvn();
@@ -79,8 +87,10 @@ void PopulationAnnealingFar::match() {
               assignment(cust, *cand, cst);
             sol.push_back(assignment);
             solcst += cst;
-            cand_used[cust.id()] = cand->id();
+            cand_used.at(cust.id()).push_back(cand->id());
             initial = true;
+            print << "Initial match " << cust.id() << " with " << cand->id()
+                  << "; cost: " << cst << std::endl;
           }
         }
       }
@@ -89,23 +99,22 @@ void PopulationAnnealingFar::match() {
     /* AT THIS POINT, vehicles in lcl_grid are different from grid_ because
      * candidates have different routes/schedules now. */
 
-    if (sol.empty())
+    if (sol.empty()) {
+      print << "Empty sol; returning." << std::endl;
       return;
+    }
 
     /* Perturb the solution */
     std::uniform_int_distribution<> n(0, sol.size() - 1);
-    for (int T = 0; T < T_MAX; ++T) {
-      for (int i = 0; i < PERT; ++i) {
+    for (int T = 1; T <= T_MAX; ++T) {
+      for (int i = 0; i < 1000*T; ++i) {  // dynamic # of perts
         auto lcl_sol = sol;
         auto cust_itr = lcl_sol.begin();          // pick random customer
         std::advance(cust_itr, n(this->gen));
         Customer& cust = std::get<0>(*cust_itr);
+        print << "Perturbing " << cust.id() << std::endl;
 
-        // print << "Perturbing " << cust.id() << " (" <<
-        //     std::get<1>(*cust_itr).id() << ")" << std::endl;
-        // print_sch(std::get<1>(*cust_itr).schedule().data());
-
-        auto candidates = lcl_grid.within(RANGE, cust.orig());
+        auto candidates = lcl_grid.within(pickup_range(cust), cust.orig());
         if (!candidates.empty()) {
           std::uniform_int_distribution<> m(0, candidates.size() - 1);
           auto vehl_itr = candidates.begin(); // pick random candidate
@@ -113,16 +122,33 @@ void PopulationAnnealingFar::match() {
           auto cand = *vehl_itr;
 
           bool is_same = (cand->id() == std::get<1>(*cust_itr).id());
-          if (!is_same && cand->queued() < cand->capacity()) {
-            DistInt cst = sop_insert(*cand, cust, sch, rte);
-            if (chktw(sch, rte)) {
-              bool climb = hillclimb(T);
+          if (!is_same && cand->schedule().data().size() < 10) {
+          DistInt new_cst = sop_insert(*cand, cust, sch, rte);
+          DistInt cst = new_cst - cand->route().cost();
+          if (cst < 0) {
+            print(MessageType::Error) << "Got negative detour!" << std::endl;
+            print << cand->id() << std::endl;
+            print << cst << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
+            print << "Current schedule: ";
+            for (const Stop& sp : cand->schedule().data())
+              print << sp.loc() << " ";
+            print << std::endl;
+            print << "nnd: " << cand->next_node_distance() << std::endl;
+            print << "New schedule: ";
+            for (const Stop& sp : sch)
+              print << sp.loc() << " ";
+            print << std::endl;
+            throw;
+          }
+          if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
+              bool climb = false;
               bool accept = false;
               if (cst < std::get<2>(*cust_itr)) {
                 accept = true;
                 this->ndrops_++;
-              } else if (climb) {
+              } else if (hillclimb(T)) {
                 accept = true;
+                climb = true;
                 this->nclimbs_++;
               }
               if (accept) {
@@ -131,8 +157,6 @@ void PopulationAnnealingFar::match() {
                 cand->reset_lvn();
                 cand->incr_queued();
 
-                // print << "Moving to " << cand->id() << std::endl;
-
                 auto sptr = lcl_grid.select(std::get<1>(*cust_itr).id());
                 if (sptr == nullptr) {
                   print(MessageType::Error)
@@ -140,7 +164,6 @@ void PopulationAnnealingFar::match() {
                   throw;
                 }
                 auto less_sch = sptr->schedule().data();
-                // print << "Removing from " << sptr->id() << std::endl;
                 opdel(less_sch, cust.id());
                 std::vector<Wayp> less_rte {};
                 route_through(less_sch, less_rte);
@@ -152,17 +175,30 @@ void PopulationAnnealingFar::match() {
                 /* Store the new solution */
                 std::get<1>(*cust_itr) = *cand; // modify sol with new cand
                 std::get<2>(*cust_itr) = cst;   // modify sol with new cost
-                DistInt lcl_solcst = cst;
+                // DistInt lcl_solcst = cst;
+                DistInt lcl_solcst = 0;
                 for (auto &assignment : lcl_sol) {
                   if (std::get<1>(assignment).id() == sptr->id())
                     std::get<1>(assignment) = *sptr;  // modify old assignment
-                  else
-                    lcl_solcst += std::get<2>(assignment);
+                  // else
+                  //   lcl_solcst += std::get<2>(assignment);
                   if (std::get<1>(assignment).id() == cand->id())
                     std::get<1>(assignment) = *cand;  // modify old assignment
+                  // I try a different cost computation
+                  lcl_solcst += std::get<1>(assignment).route().cost();
                 }
                 sol = lcl_sol;
                 solcst = lcl_solcst;
+                print << "\tMoved " << cust.id() << " to " << cand->id()
+                      << "; new cost: " << cst << (climb ? " (climb)" : "") << std::endl;
+                print << "New schedule for " << cand->id() << ":" << std::endl;
+                for (const Stop& stop : sch)
+                  print << stop.loc() << " ";
+                print << std::endl;
+                print << "New schedule for " << sptr->id() << ":" << std::endl;
+                for (const Stop& stop : less_sch)
+                  print << stop.loc() << " ";
+                print << std::endl;
               }
             }
           }
@@ -205,8 +241,10 @@ void PopulationAnnealingFar::match() {
     auto cand = MutableVehicle(*std::find_if(vehicles().begin(), vehicles().end(),
             [&](const Vehicle& a){ return a.id() == cand_id; }));
     std::vector<CustId> custs_to_add = {};
-    for (const auto& cust : custs)
+    for (const auto& cust : custs) {
       custs_to_add.push_back(cust.id());
+      print << "Matched " << cust.id() << " with " << cand_id << std::endl;
+    }
     if (assign(custs_to_add, {}, commit_rte.at(cand_id), commit_sch.at(cand_id), cand)) {
       for (const auto& cust_id : custs_to_add) {
         is_matched.at(cust_id) = true;
@@ -270,9 +308,9 @@ int main() {
   option.path_to_solution = "population_annealing_far.sol";
   option.path_to_dataout  = "population_annealing_far.dat";
   option.time_multiplier  = 1;
-  option.vehicle_speed    = 20;
+  option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   PopulationAnnealingFar paf;
   cargo.start(paf);
