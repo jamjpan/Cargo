@@ -384,6 +384,7 @@ void TripVehicleGrouping::match() {
 
   /* Generating the mip */
   if (vted_.size() > 0) {
+  print << "Got " << nvted << " trips, " << vted_.size() << " vehicles" << std::endl;
   /* Objective: c11x11 + c12x12 + ... + cijxij + y1 + y2 + ... + yn
    *     For cijxij, ij are from vted_
    *     For yn, n is from waiting_customers()
@@ -591,20 +592,6 @@ bool TripVehicleGrouping::travel(const Vehicle& vehl,
 
   cstout = -1;
 
-  /* Insert customers one by one
-   * (There is room to optimize!) */
-  // DistInt cstsum = 0;
-  // for (const Customer& cust : custs) {
-  //   DistInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre) - mtvehl.route().cost();
-  //   if (chkcap(mtvehl.capacity(), schctr) && chktw(schctr, rtectr)) {
-  //     cstsum += cst;
-  //     mtvehl.set_sch(schctr);
-  //     mtvehl.set_rte(rtectr);
-  //     mtvehl.reset_lvn();
-  //   } else  // <-- a customer failed; trip cannot be served
-  //     return false;
-  // }
-
   /* Try every customer order */
   DistInt best_order_cost = InfInt;
   vec_t<Customer> best_order = {};
@@ -614,20 +601,20 @@ bool TripVehicleGrouping::travel(const Vehicle& vehl,
   std::sort(copy.begin(), copy.end(), [](const Customer& a, const Customer& b) {
     return a.id() < b.id(); });
 
-  do {
+  do {  // Start a new permutation
     MutableVehicle vehl_copy = mtvehl;
     bool valid = true;
-    for (const Customer& cust : custs) {
+    for (const Customer& cust : copy) {  // insert all
       sop_insert(vehl_copy, cust, schctr, rtectr, gtre);
       if (chkcap(vehl_copy.capacity(), schctr) && chktw(schctr, rtectr)) {
         vehl_copy.set_sch(schctr);
         vehl_copy.set_rte(rtectr);
         vehl_copy.reset_lvn();
-      } else {  // <-- a customer failed; trip cannot be served
+      } else {  // <-- a customer failed; this permutation is not good
         valid = false;
         break;
       }
-    }
+    }  // finished insert. schctr is complete.
     if (valid && vehl_copy.route().cost() < best_order_cost) {
       best_order = copy;
       best_order_cost = vehl_copy.route().cost();
@@ -637,8 +624,9 @@ bool TripVehicleGrouping::travel(const Vehicle& vehl,
   } while (std::next_permutation(copy.begin(), copy.end(), [](const Customer& a, const Customer& b) {
       return a.id() < b.id(); }));
 
-  if (best_order.empty())
+  if (best_order.empty()) {
     return false;
+  }
   else {
     cstout = best_order_cost - mtvehl.route().cost();
     schout = best_schedule;
