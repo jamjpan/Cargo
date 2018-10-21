@@ -447,14 +447,20 @@ DistInt sop_insert(const std::shared_ptr<MutableVehicle>& mutvehl,
   return sop_insert(*mutvehl, cust, schout, rteout);
 }
 
-DistInt sop_replace(const std::shared_ptr<MutableVehicle>& mutvehl,
+DistInt sop_replace(const MutableVehicle& mutvehl,
                     const CustId& rm, const Customer& cust,
                     vec_t<Stop>& schout, vec_t<Wayp>& rteout) {
-  MutableVehicle mutcopy = *mutvehl;
+  MutableVehicle mutcopy = mutvehl;
   vec_t<Stop> sch1 = mutcopy.schedule().data();
   opdel(sch1, rm);
   mutcopy.set_sch(sch1);
   return sop_insert(mutcopy, cust, schout, rteout);
+}
+
+DistInt sop_replace(const std::shared_ptr<MutableVehicle>& mutvehl,
+                    const CustId& rm, const Customer& cust,
+                    vec_t<Stop>& schout, vec_t<Wayp>& rteout) {
+  return sop_replace(*mutvehl, rm, cust, schout, rteout);
 }
 
 }  // namespace cargo

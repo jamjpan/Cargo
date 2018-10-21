@@ -106,6 +106,13 @@ DistInt sop_insert(
         vec_t<Wayp> &
 );
 DistInt sop_replace(
+  const MutableVehicle &,
+  const CustId &,
+  const Customer &,
+        vec_t<Stop> &,
+        vec_t<Wayp> &
+);
+DistInt sop_replace(
   const std::shared_ptr<MutableVehicle> &,
   const CustId &,
   const Customer &,
