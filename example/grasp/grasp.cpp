@@ -37,6 +37,48 @@ GRASP::GRASP()
   this->gen.seed(rd());
 }
 
+void GRASP::match() {
+  this->beg_ht();
+  this->timeout_0 = hiclock::now();
+
+  Solution best = {};
+  DistInt cost = InfInt;
+  for (int iter_count = 0; iter_count < MAX_ITER; ++iter_count) {
+    print << "Initializing sol_0" << std::endl;
+    Grid local_grid = this->grid_;
+    Solution sol_0 = this->initialize(local_grid);
+    print << "Done initialize" << std::endl;
+    print_sol(sol_0);
+    print << "Searching for improvement" << std::endl;
+    // - Solution sol_1 = replace(sol_0, ...);
+    // - Solution sol_2 = swap(sol_0, ...);
+    // - Solution sol_3 = rearrange(sol_0, ...);
+    // - Solution sol_f = get_best(sol_replace, sol_swap, sol_rearrange);
+    print << "Done improvement" << std::endl;
+    Solution sol_f = sol_0;  // for testing
+    DistInt cost_f = this->solcost(sol_f);
+    if (cost_f < cost) {
+      best = sol_f;
+      cost = cost_f;
+    }
+  }
+  this->commit(best);
+  this->end_ht();
+}
+
+void GRASP::handle_vehicle(const Vehicle& vehl) {
+  this->grid_.insert(vehl);
+}
+
+void GRASP::end() {
+  this->print_statistics();
+}
+
+void GRASP::listen(bool skip_assigned, bool skip_delayed) {
+  this->grid_.clear();
+  RSAlgorithm::listen(skip_assigned, skip_delayed);
+}
+
 Solution GRASP::initialize(Grid& local_grid) {
   Solution sol_0 = {};
 
@@ -203,48 +245,6 @@ void GRASP::print_sol(const Solution& sol) {
       print << stop.loc() << " ";
     print << std::endl;
   }
-}
-
-void GRASP::match() {
-  this->beg_ht();
-  this->timeout_0 = hiclock::now();
-
-  Solution best = {};
-  DistInt cost = InfInt;
-  for (int iter_count = 0; iter_count < MAX_ITER; ++iter_count) {
-    print << "Initializing sol_0" << std::endl;
-    Grid local_grid = this->grid_;
-    Solution sol_0 = this->initialize(local_grid);
-    print << "Done initialize" << std::endl;
-    print_sol(sol_0);
-    print << "Searching for improvement" << std::endl;
-    // - Solution sol_1 = replace(sol_0, ...);
-    // - Solution sol_2 = swap(sol_0, ...);
-    // - Solution sol_3 = rearrange(sol_0, ...);
-    // - Solution sol_f = get_best(sol_replace, sol_swap, sol_rearrange);
-    print << "Done improvement" << std::endl;
-    Solution sol_f = sol_0;  // for testing
-    DistInt cost_f = this->solcost(sol_f);
-    if (cost_f < cost) {
-      best = sol_f;
-      cost = cost_f;
-    }
-  }
-  this->commit(best);
-  this->end_ht();
-}
-
-void GRASP::handle_vehicle(const Vehicle& vehl) {
-  this->grid_.insert(vehl);
-}
-
-void GRASP::end() {
-  this->print_statistics();
-}
-
-void GRASP::listen(bool skip_assigned, bool skip_delayed) {
-  this->grid_.clear();
-  RSAlgorithm::listen(skip_assigned, skip_delayed);
 }
 
 int main() {
