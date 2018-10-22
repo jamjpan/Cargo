@@ -48,6 +48,8 @@ void GRASP::match() {
     Grid local_grid = this->grid_;
     Solution sol_0 = this->initialize(local_grid);
     print << "Done initialize" << std::endl;
+    this->verify(sol_0);
+    print << "Passed verification" << std::endl;
     DistInt sol_0_cost = this->solcost(sol_0);
     best = sol_0;
     cost = sol_0_cost;
@@ -55,6 +57,7 @@ void GRASP::match() {
     print << "Searching for improvement" << std::endl;
 
     Solution sol_1 = replace(sol_0, local_grid);
+    this->verify(sol_1);
     DistInt sol_1_cost = this->solcost(sol_1);
     print << "Replace cost: " << sol_1_cost << " (incumbent: " << cost << ")" << std::endl;
     if (sol_1_cost < cost) {
@@ -63,6 +66,7 @@ void GRASP::match() {
     }
 
     Solution sol_2 = swap(sol_0, local_grid);
+    this->verify(sol_2);
     DistInt sol_2_cost = this->solcost(sol_2);
     print << "Swap cost: " << sol_2_cost << " (incumbent: " << cost << ")" << std::endl;
     if (sol_2_cost < cost) {
@@ -99,6 +103,7 @@ void GRASP::listen(bool skip_assigned, bool skip_delayed) {
 
 Solution GRASP::initialize(Grid& local_grid) {
   Solution sol_0 = {};
+  dict<VehlId, std::pair<MutableVehicle, std::pair<vec_t<Customer>, vec_t<Customer>>>> soldex;
 
   vec_t<Customer> local_customers = this->customers();
   vec_t<MutableVehicleSptr> local_vehicles = {};
@@ -158,9 +163,14 @@ Solution GRASP::initialize(Grid& local_grid) {
         cand->set_rte(rte);
         cand->reset_lvn();
         cand->incr_queued();
-        if (sol_0.count(*cand) == 0)
-          sol_0[*cand] = {{}, {}};
-        ((sol_0.at(*cand)).first).push_back(cust_to_add);
+        if (soldex.count(cand->id()) == 0) {
+          vec_t<Customer> assignments = {};
+          vec_t<Customer> unassign = {};
+          auto data = std::make_pair(assignments, unassign);
+          soldex[cand->id()] = std::make_pair(*cand, data);
+        }
+        soldex.at(cand->id()).first = *cand;
+        soldex.at(cand->id()).second.first.push_back(cust_to_add);
         print << "\t\t\tAdded cust " << cust_to_add.id() << std::endl;
         // Clean up customer from stores
         for (auto& kv : local_candidates) {
@@ -184,6 +194,10 @@ Solution GRASP::initialize(Grid& local_grid) {
     }
   }
   print << "\tDone assignment" << std::endl;
+  for (const auto& kv : soldex) {
+    print << kv.first << " (" << kv.second.second.first.size() << ")" << std::endl;
+    sol_0[kv.second.first] = kv.second.second;
+  }
   return sol_0;
 }
 
@@ -440,6 +454,46 @@ DistInt GRASP::solcost(const Solution& sol) {
     if (std::find(assigned.begin(), assigned.end(), cust.id()) == assigned.end())
       sum += Cargo::basecost(cust.id());
   return sum;
+}
+
+bool GRASP::verify(const Solution& sol) {
+  for (auto& kv : sol) {
+    const MutableVehicle& vehl = kv.first;
+    const vec_t<Stop>& schedule = vehl.schedule().data();
+    const vec_t<Customer>& assigned = kv.second.first;
+    const vec_t<Customer>& unassign = kv.second.second;
+    for (const Customer& cust : assigned) {
+      bool has_origin = (std::find_if(schedule.begin(), schedule.end(), [&](const Stop& stop) {
+        return stop.owner() == cust.id() && stop.type() == StopType::CustOrig;
+              }) != schedule.end());
+      bool has_destination = (std::find_if(schedule.begin(), schedule.end(), [&](const Stop& stop) {
+        return stop.owner() == cust.id() && stop.type() == StopType::CustDest;
+              }) != schedule.end());
+      if (!(has_origin && has_destination)) {
+        print(MessageType::Error) << "Solution assigns " << cust.id() << " to " << vehl.id() << " but schedule incomplete!" << std::endl;
+        for (const Stop& stop : schedule)
+          print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
+        print << std::endl;
+        throw;
+      }
+    }
+    for (const Customer& cust : unassign) {
+      bool has_origin = (std::find_if(schedule.begin(), schedule.end(), [&](const Stop& stop) {
+        return stop.owner() == cust.id() && stop.type() == StopType::CustOrig;
+              }) != schedule.end());
+      bool has_destination = (std::find_if(schedule.begin(), schedule.end(), [&](const Stop& stop) {
+        return stop.owner() == cust.id() && stop.type() == StopType::CustDest;
+              }) != schedule.end());
+      if (has_origin || has_destination) {
+        print(MessageType::Error) << "Solution unassigns " << cust.id() << " from " << vehl.id() << " but schedule malformed!" << std::endl;
+        for (const Stop& stop : schedule)
+          print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
+        print << std::endl;
+        throw;
+      }
+    }
+  }
+  return true;
 }
 
 void GRASP::print_sol(const Solution& sol) {

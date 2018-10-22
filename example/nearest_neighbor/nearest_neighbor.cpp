@@ -51,7 +51,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     //   2) Try only if vehicle's current schedule len < 8 customer stops
     // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
       DistDbl cst = haversine(cand->last_visited_node(), cust.orig());
-      rank_cand rc = {cst, cand};
+      rank_cand rc = std::make_pair(cst, cand);
       my_q.push(rc);
     // }
     if(this->timeout(this->timeout_0))      // (rsalgorithm.h)

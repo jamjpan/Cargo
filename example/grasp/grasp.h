@@ -72,6 +72,7 @@ class GRASP : public RSAlgorithm {
   void commit(const Solution &);
 
   DistInt solcost(const Solution &);
+  bool verify(const Solution &);
 
   void print_sol(const Solution &);
 
