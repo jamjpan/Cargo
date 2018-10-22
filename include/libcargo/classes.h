@@ -174,9 +174,8 @@ class Customer : public Trip {
         bool         assigned()   const;  // return TRUE if assigned
         void         print()      const;  // print properties to standard out
 
-  /* Equality operator
-   * Customer A and B are equal if id is the same. */
   bool operator==(const Customer & rhs) const { return id_ == rhs.id_; }
+  bool operator<(const Customer & rhs) const { return id_ < rhs.id_; }
 
  private:
   CustStatus status_;
@@ -225,9 +224,8 @@ class Vehicle : public Trip {
         Load         capacity()              const;  // return REMAINING capacity
   void print()                               const;  // print to standard out
 
-  /* Equality operator
-   * Vehicle A and B are equal if id is the same. */
   bool operator==(const Vehicle & rhs) const { return id_ == rhs.id_; }
+  bool operator<(const Vehicle & rhs) const { return id_ < rhs.id_; }
 
  protected:
   DistInt next_node_distance_;
@@ -256,6 +254,9 @@ class MutableVehicle : public Vehicle {
   void reset_lvn();                   // set last-visited node index to 0
   void incr_queued();                 // increase value of queued by 1
   void decr_queued();                 // decrease value of queued by 1
+
+  bool operator==(const MutableVehicle & rhs) const { return id_ == rhs.id_; }
+  bool operator<(const MutableVehicle & rhs) const { return id_ < rhs.id_; }
 };
 typedef std::shared_ptr<MutableVehicle> MutableVehicleSptr;
 
@@ -291,6 +292,11 @@ namespace std {
 /* Hash vehicles by their id */
 template <> struct hash<cargo::Vehicle>  {
   std::size_t operator()(const cargo::Vehicle  & vehl) const
+  { return std::hash<int>{}(vehl.id()); }
+};
+
+template <> struct hash<cargo::MutableVehicle>  {
+  std::size_t operator()(const cargo::MutableVehicle  & vehl) const
   { return std::hash<int>{}(vehl.id()); }
 };
 

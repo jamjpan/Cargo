@@ -40,6 +40,7 @@ void BilateralArrangement::match() {
   this->beg_ht();
   this->reset_workspace();
 
+  auto time_init = hiclock::now();
   // Retrieve list of valid candidates per customer
   { print << "Initializing candidates" << std::endl;
   vec_t<Stop> sch;

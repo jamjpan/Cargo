@@ -29,8 +29,8 @@ using namespace cargo;
 // A Solution is a table keyed by vehicle containing new assignment data.
 // The first vector in the pair is list of assignments; the second vector is
 // list of unassignments (due to swap, replace).
-typedef dict<MutableVehicleSptr,
-    std::pair<vec_t<Customer>, vec_t<Customer>>> Solution;
+typedef dict<MutableVehicle, std::pair<vec_t<Customer>, vec_t<Customer>>>
+    Solution;
 
 class GRASP : public RSAlgorithm {
  public:
@@ -49,6 +49,8 @@ class GRASP : public RSAlgorithm {
   std::uniform_real_distribution<> d;
 
   /* Workspace variables */
+  dict<VehlId, vec_t<Customer>> candidates_list;
+
   std::vector<Stop> sch;
   std::vector<Wayp> rte;
   std::vector<MutableVehicleSptr> candidates;
@@ -63,6 +65,9 @@ class GRASP : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
   Solution initialize(Grid &);
+  Solution replace(const Solution &, Grid &);
+  Solution swap(const Solution &, Grid &);
+  Solution rearrange(const Solution &);
   Customer roulette_select(const dict<Customer, int> &);
   void commit(const Solution &);
 

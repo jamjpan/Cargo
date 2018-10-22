@@ -52,6 +52,7 @@ class Cargo {
                                                      return edges_.at(u).at(v); }
   static Point           node2pt(const NodeId& i)  { return nodes_.at(i); }
   static DistInt         basecost(const TripId& i) { return trip_costs_.at(i); }
+  static Customer        basecust(const TripId& i) { return customers_.at(i); }  // INITIAL customer (never gets updated)
   static BoundingBox     bbox()                    { return bbox_; }
   static Speed         & vspeed()                  { return speed_; }
   static SimlTime        now()                     { return t_; }
@@ -105,6 +106,7 @@ class Cargo {
   /* Global vars */
   static KVNodes nodes_;                    // nodes_[u] = Point
   static KVEdges edges_;                    // edges_[u][v] = w
+  static dict<TripId, Customer> customers_;
   static BoundingBox bbox_;
   static GTree::G_Tree gtree_;
   static sqlite3* db_;
@@ -124,8 +126,8 @@ class Cargo {
 
   /* Logger containers */
   std::map<VehlId, NodeId>  log_v_;
-  vec_t<CustId>       log_p_, log_d_, log_t_;
-  vec_t<VehlId>       log_a_;
+  vec_t<CustId> log_p_, log_d_, log_t_;
+  vec_t<VehlId> log_a_;
 
   /* Save Database */
   Filepath database_file_;

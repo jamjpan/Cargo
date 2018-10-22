@@ -40,6 +40,7 @@ void BAImproved::match() {
   this->beg_ht();
   this->reset_workspace();
 
+  auto time_init = hiclock::now();
   // Retrieve list of valid candidates per customer
   { print << "Initializing candidates" << std::endl;
   vec_t<Stop> sch;
@@ -60,7 +61,9 @@ void BAImproved::match() {
       }
     }
   }}
+  print << "Init time: " << std::round(dur_milli(hiclock::now()-time_init).count()) << std::endl;
 
+  auto time_assign = hiclock::now();
   // Randomize customer access order
   std::random_shuffle(customers().begin(), customers().end());
 
@@ -170,6 +173,7 @@ void BAImproved::match() {
     if (this->timeout(this->timeout_0))
       break;
   }
+  print << "Assign time: " << std::round(dur_milli(hiclock::now()-time_assign).count()) << std::endl;
   this->end_ht();
 }
 

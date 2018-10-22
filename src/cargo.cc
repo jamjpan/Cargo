@@ -56,6 +56,9 @@ KVEdges Cargo::edges_ = {};
 /* Base trip costs (shortest-path dist from origin to dest) */
 dict<TripId, DistInt> Cargo::trip_costs_ = {};
 
+/* Base customers */
+dict<TripId, Customer> Cargo::customers_ = {};
+
 /* Bounding box (needed by grid index) */
 BoundingBox Cargo::bbox_ = {{}, {}};
 
@@ -899,6 +902,10 @@ void Cargo::initialize(const Options& opt) {
         base_cost_ += cost;
         trip_costs_[trip.id()] = cost;
         stop_type = StopType::CustOrig;
+
+        /* Insert to local index */
+        Customer cust(trip.id(), trip.orig(), trip.dest(), trip.early(), trip.late(), trip.load(), CustStatus::Waiting);
+        customers_[trip.id()] = cust;
 
         /* Insert to database */
         sqlite3_bind_int(insert_customer_stmt, 1, trip.id());

@@ -28,7 +28,7 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 3;
+const int MAX_ITER = 1;
 
 GRASP::GRASP()
     : RSAlgorithm("grasp", true), grid_(100), d(0,1) {
@@ -48,10 +48,28 @@ void GRASP::match() {
     Grid local_grid = this->grid_;
     Solution sol_0 = this->initialize(local_grid);
     print << "Done initialize" << std::endl;
-    print_sol(sol_0);
+    DistInt sol_0_cost = this->solcost(sol_0);
+    best = sol_0;
+    cost = sol_0_cost;
+
     print << "Searching for improvement" << std::endl;
-    // - Solution sol_1 = replace(sol_0, ...);
-    // - Solution sol_2 = swap(sol_0, ...);
+
+    Solution sol_1 = replace(sol_0, local_grid);
+    DistInt sol_1_cost = this->solcost(sol_1);
+    print << "Replace cost: " << sol_1_cost << " (incumbent: " << cost << ")" << std::endl;
+    if (sol_1_cost < cost) {
+      best = sol_1;
+      cost = sol_1_cost;
+    }
+
+    Solution sol_2 = swap(sol_0, local_grid);
+    DistInt sol_2_cost = this->solcost(sol_2);
+    print << "Swap cost: " << sol_2_cost << " (incumbent: " << cost << ")" << std::endl;
+    if (sol_2_cost < cost) {
+      best = sol_2;
+      cost = sol_2_cost;
+    }
+
     // - Solution sol_3 = rearrange(sol_0, ...);
     // - Solution sol_f = get_best(sol_replace, sol_swap, sol_rearrange);
     print << "Done improvement" << std::endl;
@@ -84,24 +102,25 @@ Solution GRASP::initialize(Grid& local_grid) {
 
   vec_t<Customer> local_customers = this->customers();
   vec_t<MutableVehicleSptr> local_vehicles = {};
+  dict<VehlId, vec_t<Customer>> local_candidates = {};
 
   // Get candidates list of vehicles and customers
   print << "\tBuilding candidates list" << std::endl;
-  dict<VehlId, vec_t<Customer>> candidates_list = {};
+  this->candidates_list = {};
   for (const Customer& cust : this->customers()) {
     vec_t<MutableVehicleSptr> cands = local_grid.within(pickup_range(cust), cust.orig());
     for (MutableVehicleSptr& cand : cands) {
-      if (candidates_list.count(cand->id()) == 0) {
-        candidates_list[cand->id()] = {};
+      if (this->candidates_list.count(cand->id()) == 0) {
+        this->candidates_list[cand->id()] = {};
         local_vehicles.push_back(cand);
       }
-      candidates_list.at(cand->id()).push_back(cust);
+      this->candidates_list.at(cand->id()).push_back(cust);
     }
   }
+  local_candidates = candidates_list;
   print << "\tDone candidates list" << std::endl;
 
-  auto rng = std::default_random_engine {};
-  std::shuffle(std::begin(local_vehicles), std::end(local_vehicles), rng);
+  std::shuffle(local_vehicles.begin(), local_vehicles.end(), this->gen);
 
   print << "\tAssigning customers to vehicles" << std::endl;
   while (!local_vehicles.empty() && !local_customers.empty()) {
@@ -115,10 +134,10 @@ Solution GRASP::initialize(Grid& local_grid) {
     dict<Customer, vec_t<Stop>> schedule = {};
     dict<Customer, vec_t<Wayp>> route = {};
 
-    while (!candidates_list.at(cand->id()).empty()) {
+    while (!local_candidates.at(cand->id()).empty()) {
       // 2. (Re)-compute fitness
       print << "\t\t\t(Re)-computing fitness" << std::endl;
-      for (const Customer& cust : candidates_list.at(cand->id())) {
+      for (const Customer& cust : local_candidates.at(cand->id())) {
         vec_t<Stop> sch;
         vec_t<Wayp> rte;
         int score = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
@@ -139,12 +158,12 @@ Solution GRASP::initialize(Grid& local_grid) {
         cand->set_rte(rte);
         cand->reset_lvn();
         cand->incr_queued();
-        if (sol_0.count(cand) == 0)
-          sol_0[cand] = {{}, {}};
-        ((sol_0.at(cand)).first).push_back(cust_to_add);
+        if (sol_0.count(*cand) == 0)
+          sol_0[*cand] = {{}, {}};
+        ((sol_0.at(*cand)).first).push_back(cust_to_add);
         print << "\t\t\tAdded cust " << cust_to_add.id() << std::endl;
         // Clean up customer from stores
-        for (auto& kv : candidates_list) {
+        for (auto& kv : local_candidates) {
           vec_t<Customer>& custs = kv.second;
           auto i = std::find(custs.begin(), custs.end(), cust_to_add);
           if (i != custs.end())
@@ -156,7 +175,7 @@ Solution GRASP::initialize(Grid& local_grid) {
         route.erase(cust_to_add);
       } else {
         print << "\t\t\tInvalid." << std::endl;
-        vec_t<Customer>& possibles = candidates_list.at(cand->id());
+        vec_t<Customer>& possibles = local_candidates.at(cand->id());
         possibles.erase(std::find(possibles.begin(), possibles.end(), cust_to_add));
         fitness.erase(cust_to_add);
         schedule.erase(cust_to_add);
@@ -166,6 +185,202 @@ Solution GRASP::initialize(Grid& local_grid) {
   }
   print << "\tDone assignment" << std::endl;
   return sol_0;
+}
+
+Solution GRASP::replace(const Solution& sol, Grid& local_grid) {
+  if (sol.empty()) {
+    print << "Replace returning empty solution" << std::endl;
+    return sol;
+  }
+
+  // 1. Get unassigned
+  vec_t<Customer> customers = this->customers();  // copy
+  vec_t<Customer> assigned = {};
+  for (const auto& kv : sol)
+    for (const Customer& cust : kv.second.first)
+      assigned.push_back(cust);  // copy
+
+  vec_t<Customer> unassigned;
+  std::sort(customers.begin(), customers.end());
+  std::sort(assigned.begin(), assigned.end());
+  std::set_difference(customers.begin(), customers.end(), assigned.begin(), assigned.end(),
+    std::inserter(unassigned, unassigned.begin()));
+
+  print << "Replace got " << unassigned.size() << " unassigned." << std::endl;
+  if (unassigned.size() == 0)
+    return sol;
+
+  // 2. Select random unassigned
+  std::uniform_int_distribution<> n(0, unassigned.size() - 1);
+  auto replace_by = unassigned.begin();
+  std::advance(replace_by, n(this->gen));
+
+  print << "\tSelected " << replace_by->id() << " for replace by" << std::endl;
+
+  // 3. Replace
+  vec_t<MutableVehicleSptr> candidates = local_grid.within(pickup_range(*replace_by), replace_by->orig());
+  std::shuffle(candidates.begin(), candidates.end(), this->gen);
+  CustId replace_me = -1;
+  auto candptr = candidates.begin();
+  while (replace_me == -1 && candptr != candidates.end()) {
+    replace_me = randcust((*candptr)->schedule().data());
+    if (replace_me == -1)
+      candptr++;
+  }
+  if (candptr == candidates.end()) {
+    print << "\tNo vehicles have replaceable customer" << std::endl;
+    return sol;  // return now, or try again?
+  } else {
+    MutableVehicle cand = **candptr;
+    vec_t<Stop> sch;
+    vec_t<Wayp> rte;
+    sop_replace(cand, replace_me, *replace_by, sch, rte);
+    Customer to_replace = Cargo::basecust(replace_me);
+    if (chkcap(cand.capacity(), sch) && chktw(sch, rte)) {
+      cand.set_sch(sch);
+      cand.set_rte(rte);
+      cand.reset_lvn();
+
+      // 4. Update the solution
+      auto improved_sol = sol;
+      vec_t<Customer> new_assignments, unassignments;
+      for (auto itr = improved_sol.begin(); itr != improved_sol.end(); ++itr) {
+        if (itr->first.id() == cand.id()) {
+          new_assignments = itr->second.first;
+          unassignments = itr->second.second;
+          improved_sol.erase(itr);
+          break;
+        }
+      }
+      new_assignments.push_back(*replace_by);
+      // If replace_me is an existing customer, it needs to be added to unassignments
+      auto i = std::find_if(new_assignments.begin(), new_assignments.end(), [&](const Customer& a) {
+                  return a.id() == replace_me; });
+      if (i == new_assignments.end())  // cannot find in THIS ITERATION'S assignments; it must be a prior
+        unassignments.push_back(to_replace);
+      else  // else, remove from assignments
+        new_assignments.erase(i);
+      improved_sol[cand] = {new_assignments, unassignments};
+      return improved_sol;
+    } else {
+      print << "\tReplace " << replace_me << " with " << replace_by->id() << " on vehl " << cand.id() << " not feasible" << std::endl;
+      return sol;
+    }
+  }
+}
+
+Solution GRASP::swap(const Solution& sol, Grid& local_grid) {
+  if (sol.empty()) {
+    print << "Swap returning empty solution" << std::endl;
+    return sol;
+  }
+
+  print << "Swap" << std::endl;
+
+  // 1. Select random vehicle
+  std::uniform_int_distribution<> n(0, sol.size() - 1);
+  auto k1ptr = sol.begin();
+  std::advance(k1ptr, n(this->gen));
+  MutableVehicle k1 = k1ptr->first;
+
+  // 2. Select random customer assigned to k1
+  vec_t<Customer> assignments = k1ptr->second.first;
+  std::uniform_int_distribution<> m(0, assignments.size() - 1);
+  auto cptr = assignments.begin();
+  std::advance(cptr, m(this->gen));
+  Customer from_k1 = *cptr;
+
+  print << "\tSelected " << from_k1.id() << " from " << k1.id() << " for swap" << std::endl;
+
+  vec_t<MutableVehicleSptr> candidates = local_grid.within(pickup_range(from_k1), from_k1.orig());
+
+  // 3. Select random candidate
+  std::shuffle(candidates.begin(), candidates.end(), this->gen);
+  CustId replace_me = -1;
+  auto candptr = candidates.begin();
+  while ((replace_me == -1 || replace_me == from_k1.id()) && candptr != candidates.end()) {
+    replace_me = randcust((*candptr)->schedule().data());
+    if (replace_me == -1 || replace_me == from_k1.id())
+      candptr++;
+  }
+  if (candptr == candidates.end()) {
+    print << "\tNo vehicles have swappable customer for " << from_k1.id() << std::endl;
+    return sol;  // return now, or try again?
+  } else {
+    MutableVehicle k2 = **candptr;
+    Customer from_k2 = Cargo::basecust(replace_me);
+
+    print << "\tSelected " << from_k2.id() << " from " << k2.id() << " for swap" << std::endl;
+
+    vec_t<Stop> sch1, sch2;
+    vec_t<Wayp> rte1, rte2;
+    sop_replace(k1, from_k1.id(), from_k2, sch1, rte1);
+    sop_replace(k2, from_k2.id(), from_k1, sch2, rte2);
+    if (chkcap(k1.capacity(), sch1) && chktw(sch1, rte1)
+     && chkcap(k2.capacity(), sch2) && chktw(sch2, rte2)) {
+      k1.set_sch(sch1);
+      k1.set_rte(rte1);
+      k1.reset_lvn();
+      k2.set_sch(sch2);
+      k2.set_rte(rte2);
+      k2.reset_lvn();
+
+      // 4. Update the solution
+      auto improved_sol = sol;
+      vec_t<Customer> new_assignments1, unassignments1, new_assignments2, unassignments2;
+
+      // Get k1
+      for (auto itr = improved_sol.begin(); itr != improved_sol.end(); ++itr) {
+        if (itr->first.id() == k1.id()) {
+          new_assignments1 = itr->second.first;
+          unassignments1 = itr->second.second;
+          improved_sol.erase(itr);
+          break;
+        }
+      }
+      new_assignments1.push_back(from_k2);
+
+      // Get k2
+      for (auto itr = improved_sol.begin(); itr != improved_sol.end(); ++itr) {
+        if (itr->first.id() == k2.id()) {
+          new_assignments2 = itr->second.first;
+          unassignments2 = itr->second.second;
+          improved_sol.erase(itr);
+          break;
+        }
+      }
+      new_assignments2.push_back(from_k1);
+
+      // from_k1 needs to be removed from k1's assignments or added to k1's unassignments
+      { auto i = std::find_if(new_assignments1.begin(), new_assignments1.end(), [&](const Customer& a) {
+                  return a.id() == from_k1.id(); });
+      if (i == new_assignments1.end())  // cannot find in THIS ITERATION'S assignments; it must be a prior
+        unassignments2.push_back(from_k1);
+      else  // else, remove from assignments
+        new_assignments1.erase(i);
+      }
+
+      // from_k2 needs to be removed from k2's assignments or added to k2's unassignments
+      {auto i = std::find_if(new_assignments2.begin(), new_assignments2.end(), [&](const Customer& a) {
+                  return a.id() == from_k2.id(); });
+      if (i == new_assignments2.end())  // cannot find in THIS ITERATION'S assignments; it must be a prior
+        unassignments2.push_back(from_k2);
+      else  // else, remove from assignments
+        new_assignments2.erase(i);
+      }
+
+      improved_sol[k1] = {new_assignments1, unassignments1};
+      improved_sol[k2] = {new_assignments2, unassignments2};
+      return improved_sol;
+    } else {
+      print << "\tSwap not feasible" << std::endl;
+      return sol;
+    }
+  }
+}
+
+Solution GRASP::rearrange(const Solution& sol) {
+  return sol;
 }
 
 Customer GRASP::roulette_select(const dict<Customer, int>& fitness) {
@@ -200,17 +415,16 @@ Customer GRASP::roulette_select(const dict<Customer, int>& fitness) {
 
 void GRASP::commit(const Solution& sol) {
   for (const auto& kv : sol) {
-    MutableVehicleSptr cand = kv.first;
+    MutableVehicle cand = kv.first;
     vec_t<CustId> cadd = {};
     vec_t<CustId> cdel = {};
     for (const Customer& cust : (kv.second).first) {
       cadd.push_back(cust.id());
-      print << "Matched " << cust.id() << " with " << cand->id() << std::endl;
+      print << "Matched " << cust.id() << " with " << cand.id() << std::endl;
     }
     for (const Customer& cust : (kv.second).second)
       cdel.push_back(cust.id());
-    this->assign(cadd, cdel, cand->route().data(), cand->schedule().data(),
-                 *cand, false /*true*/);
+    this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand, false /*true*/);
   }
 }
 
@@ -218,7 +432,7 @@ DistInt GRASP::solcost(const Solution& sol) {
   vec_t<CustId> assigned = {};
   DistInt sum = 0;
   for (const auto& kv : sol) {
-    sum += (kv.first)->route().cost();
+    sum += (kv.first).route().cost();
     for (const Customer& cust : (kv.second).first)
       assigned.push_back(cust.id());
   }
@@ -230,7 +444,7 @@ DistInt GRASP::solcost(const Solution& sol) {
 
 void GRASP::print_sol(const Solution& sol) {
   for (const auto& kv : sol) {
-    print << "Vehl " << kv.first->id() << std::endl;
+    print << "Vehl " << kv.first.id() << std::endl;
     print << "\tAssigned to ";
     for (const Customer& cust : (kv.second).first)
       print << cust.id() << " ";
@@ -241,7 +455,7 @@ void GRASP::print_sol(const Solution& sol) {
     print << std::endl;
     print << "\tRoute: (omitted)" << std::endl;
     print << "\tSchedule: ";
-    for (const Stop& stop : (kv.first)->schedule().data())
+    for (const Stop& stop : (kv.first).schedule().data())
       print << stop.loc() << " ";
     print << std::endl;
   }
