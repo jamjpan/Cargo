@@ -25,6 +25,9 @@
 
 using namespace cargo;
 
+typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> Solution;
+typedef int Temperature;
+
 class SimulatedAnnealing : public RSAlgorithm {
  public:
   SimulatedAnnealing();
@@ -44,9 +47,10 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::uniform_real_distribution<> d;
 
   /* Workspace variables */
+  dict<CustId, vec_t<MutableVehicleSptr>> candidates_list;
+  dict<VehlId, MutableVehicleSptr> vehicle_lookup;
   std::vector<Stop> sch;
   std::vector<Wayp> rte;
-  std::vector<MutableVehicleSptr> candidates;
   tick_t timeout_0;
   std::unordered_map<CustId, bool> is_matched;
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
@@ -54,8 +58,11 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
+  Solution initialize(Grid &);
+  Solution perturb(const Solution &, const Temperature &);
+  void commit(const Solution &);
 
-  bool hillclimb(int &);
+  bool hillclimb(const int &);
 
   void reset_workspace();
 };
