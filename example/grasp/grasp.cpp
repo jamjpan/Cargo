@@ -28,13 +28,17 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 1;
+const int MAX_ITER = 10;
 
 GRASP::GRASP()
     : RSAlgorithm("grasp", true), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   std::random_device rd;
   this->gen.seed(rd());
+  this->nswap_ = 0;
+  this->nreplace_ = 0;
+  this->nrearrange_ = 0;
+  this->nnoimprov_ = 0;
 }
 
 void GRASP::match() {
@@ -43,6 +47,7 @@ void GRASP::match() {
 
   Solution best = {};
   DistInt cost = InfInt;
+  int stat_improv = -1;
   for (int iter_count = 0; iter_count < MAX_ITER; ++iter_count) {
     print << "Initializing sol_0" << std::endl;
     Grid local_grid = this->grid_;
@@ -54,36 +59,61 @@ void GRASP::match() {
     best = sol_0;
     cost = sol_0_cost;
 
-    print << "Searching for improvement" << std::endl;
+    do {
+      print << "Searching for improvement" << std::endl;
+      stat_improv = -1;
 
-    Solution sol_1 = replace(sol_0, local_grid);
-    this->verify(sol_1);
-    DistInt sol_1_cost = this->solcost(sol_1);
-    print << "Replace cost: " << sol_1_cost << " (incumbent: " << cost << ")" << std::endl;
-    if (sol_1_cost < cost) {
-      best = sol_1;
-      cost = sol_1_cost;
-    }
+      Solution sol_1 = replace(sol_0, local_grid);
+      this->verify(sol_1);
+      DistInt sol_1_cost = this->solcost(sol_1);
+      print << "Replace cost: " << sol_1_cost << " (incumbent: " << cost << ")" << std::endl;
+      if (sol_1_cost < cost) {
+        best = sol_1;
+        cost = sol_1_cost;
+        stat_improv = 1;
+      }
 
-    Solution sol_2 = swap(sol_0, local_grid);
-    this->verify(sol_2);
-    DistInt sol_2_cost = this->solcost(sol_2);
-    print << "Swap cost: " << sol_2_cost << " (incumbent: " << cost << ")" << std::endl;
-    if (sol_2_cost < cost) {
-      best = sol_2;
-      cost = sol_2_cost;
-    }
+      Solution sol_2 = swap(sol_0, local_grid);
+      this->verify(sol_2);
+      DistInt sol_2_cost = this->solcost(sol_2);
+      print << "Swap cost: " << sol_2_cost << " (incumbent: " << cost << ")" << std::endl;
+      if (sol_2_cost < cost) {
+        best = sol_2;
+        cost = sol_2_cost;
+        stat_improv = 2;
+      }
 
-    // - Solution sol_3 = rearrange(sol_0, ...);
-    // - Solution sol_f = get_best(sol_replace, sol_swap, sol_rearrange);
-    print << "Done improvement" << std::endl;
-    Solution sol_f = sol_0;  // for testing
-    DistInt cost_f = this->solcost(sol_f);
-    if (cost_f < cost) {
-      best = sol_f;
-      cost = cost_f;
-    }
+      Solution sol_3 = rearrange(sol_0);
+      this->verify(sol_3);
+      DistInt sol_3_cost = this->solcost(sol_3);
+      print << "Rearrange cost: " << sol_3_cost << " (incumbent: " << cost << ")" << std::endl;
+      if (sol_3_cost < cost) {
+        best = sol_3;
+        cost = sol_3_cost;
+        stat_improv = 3;
+      }
+
+      if (stat_improv == -1)
+        this->nnoimprov_++;
+      else if (stat_improv == 1)
+        this->nreplace_++;
+      else if (stat_improv == 2)
+        this->nswap_++;
+      else if (stat_improv == 3)
+        this->nrearrange_++;
+      // Have to update the grid in order to use replace/swap
+      for (const auto& kv : best) {
+        this->vehicles_lookup.at(kv.first.id())->set_sch(kv.first.schedule().data());
+        this->vehicles_lookup.at(kv.first.id())->set_rte(kv.first.route().data());
+        this->vehicles_lookup.at(kv.first.id())->reset_lvn();
+        // don't bother with incr/decr_queued, it's not used
+      }
+      // Get ready for the next iteration
+      sol_0 = best;
+      print << "Done improvement" << std::endl;
+    } while (stat_improv != -1);
   }
+
   this->commit(best);
   this->end_ht();
 }
@@ -103,6 +133,7 @@ void GRASP::listen(bool skip_assigned, bool skip_delayed) {
 
 Solution GRASP::initialize(Grid& local_grid) {
   Solution sol_0 = {};
+  // THIS SOLDEX THING IS HORRIBLE! GET RID OF IT?
   dict<VehlId, std::pair<MutableVehicle, std::pair<vec_t<Customer>, vec_t<Customer>>>> soldex;
 
   vec_t<Customer> local_customers = this->customers();
@@ -115,6 +146,7 @@ Solution GRASP::initialize(Grid& local_grid) {
   for (const Customer& cust : this->customers()) {
     vec_t<MutableVehicleSptr> cands = local_grid.within(pickup_range(cust), cust.orig());
     for (MutableVehicleSptr& cand : cands) {
+      this->vehicles_lookup[cand->id()] = cand;  // need for later
       if (this->candidates_list.count(cand->id()) == 0) {
         this->candidates_list[cand->id()] = {};
         local_vehicles.push_back(cand);
@@ -241,6 +273,10 @@ Solution GRASP::replace(const Solution& sol, Grid& local_grid) {
     if (replace_me == -1)
       candptr++;
   }
+  if (replace_me == -1) {
+    print << "\tNo replaceable customers" << std::endl;
+    return sol;
+  }
   if (candptr == candidates.end()) {
     print << "\tNo vehicles have replaceable customer" << std::endl;
     return sol;  // return now, or try again?
@@ -312,10 +348,21 @@ Solution GRASP::swap(const Solution& sol, Grid& local_grid) {
   std::shuffle(candidates.begin(), candidates.end(), this->gen);
   CustId replace_me = -1;
   auto candptr = candidates.begin();
-  while ((replace_me == -1 || replace_me == from_k1.id()) && candptr != candidates.end()) {
-    replace_me = randcust((*candptr)->schedule().data());
-    if (replace_me == -1 || replace_me == from_k1.id())
-      candptr++;
+  while (replace_me == -1 || replace_me == from_k1.id()) {
+    if ((*candptr)->id() == k1.id())
+      candptr++;  // skip it
+    else {
+      replace_me = randcust((*candptr)->schedule().data());
+      if (replace_me == -1 || replace_me == from_k1.id()) {
+        candptr++;
+      }
+    }
+    if(candptr == candidates.end())
+      break;
+  }
+  if (replace_me == -1) {
+    print << "\tNo replaceable customers" << std::endl;
+    return sol;
   }
   if (candptr == candidates.end()) {
     print << "\tNo vehicles have swappable customer for " << from_k1.id() << std::endl;
@@ -394,7 +441,67 @@ Solution GRASP::swap(const Solution& sol, Grid& local_grid) {
 }
 
 Solution GRASP::rearrange(const Solution& sol) {
-  return sol;
+  if (sol.empty()) {
+    print << "Rearrange returning empty solution" << std::endl;
+    return sol;
+  }
+
+  print << "Rearrange" << std::endl;
+
+  // 1. Randomly choose a vehicle in sol
+  auto improved_sol = sol;
+  std::uniform_int_distribution<>  n(0, improved_sol.size() - 1);
+  auto i = improved_sol.begin();
+  std::advance(i, n(this->gen));
+  MutableVehicle cand = i->first;
+  MutableVehicle improved_cand = cand;
+
+  // 2. Randomly choose a stop in vehicle schedule
+  vec_t<Stop> schedule = cand.schedule().data();
+  if (schedule.size() < 5) {
+    print << "\tNot enough stops, cannot rearrange" << std::endl;
+    return sol;
+  }
+  std::uniform_int_distribution<>  m(1, schedule.size() - 2);
+  auto j = schedule.begin();
+  std::advance(j, m(this->gen));
+
+  print << "\tSelected " << j->loc() << " from " << cand.id() << " for rearrange" << std::endl;
+  for (const Stop& stop : schedule)
+    print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
+  print << std::endl;
+
+  // 3. If it is an origin, check if neighbor is same dest
+  //   a. if so, choose the dest and swap it down
+  if (j->owner() == (j+1)->owner()) {
+    if (j->type() == StopType::CustOrig && (j+1)->type() == StopType::CustDest)
+      std::iter_swap(j+1,j+2);
+    else {
+      print(MessageType::Error) << "adjacent stops not in order!?" << std::endl;
+      for (const Stop& stop : schedule)
+        print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
+      print << std::endl;
+    }
+  }
+  //   b. if not, swap it down
+  std::iter_swap(j,j+1);
+  for (const Stop& stop : schedule)
+    print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
+  print << std::endl;
+
+  vec_t<Wayp> route;
+  route_through(schedule, route);
+  if (chkcap(cand.capacity(), schedule) && chktw(schedule, route)) {
+    improved_sol.erase(cand);
+    improved_cand.set_sch(schedule);
+    improved_cand.set_rte(route);
+    improved_sol[improved_cand] = sol.at(cand);
+    return improved_sol;
+  } else {
+    print << "Rearrange not feasible" << std::endl;
+    return sol;
+  }
+
 }
 
 Customer GRASP::roulette_select(const dict<Customer, int>& fitness) {

@@ -32,7 +32,7 @@ using namespace cargo;
 
 const int BATCH = 30;
 const int T_MAX = 5;
-const int P_MAX = 100;
+const int P_MAX = 100000;
 
 SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
@@ -65,9 +65,9 @@ void SimulatedAnnealing::match() {
     for (int perturbation = 1; perturbation <= P_MAX; ++perturbation) {
       print << "\tPerturb(T=" << temperature << ";P=" << perturbation << ")" << std::endl;
       sol = this->perturb(sol, temperature);
+      if (this->timeout(this->timeout_0))
+        break;
     }
-    if (this->timeout(this->timeout_0))
-      break;
   }
 
   this->commit(sol);

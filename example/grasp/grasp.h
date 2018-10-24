@@ -48,8 +48,14 @@ class GRASP : public RSAlgorithm {
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
+  int nswap_;
+  int nreplace_;
+  int nrearrange_;
+  int nnoimprov_;
+
   /* Workspace variables */
   dict<VehlId, vec_t<Customer>> candidates_list;
+  dict<VehlId, MutableVehicleSptr> vehicles_lookup;
 
   std::vector<Stop> sch;
   std::vector<Wayp> rte;
