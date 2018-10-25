@@ -304,23 +304,26 @@ bool RSAlgorithm::assign(
   return true;
 }
 
-void RSAlgorithm::assign_or_delay(
+bool RSAlgorithm::assign_or_delay(
   const vec_t<CustId> & custs_to_add,
   const vec_t<CustId> & custs_to_del,
   const vec_t<Wayp>   & new_rte,
   const vec_t<Stop>   & new_sch,
         MutableVehicle      & vehl,
         bool                strict) {
+    bool success = false;
     if (this->assign(
             custs_to_add, custs_to_del, new_rte, new_sch, vehl, strict)) {
       for (const CustId& cust_id : custs_to_add) {
         this->end_delay(cust_id);
       }
+      success = true;
     } else {
       for (const CustId& cust_id : custs_to_add) {
         this->beg_delay(cust_id);
       }
     }
+    return success;
 }
 
 bool RSAlgorithm::delay(const CustId& cust_id) {
@@ -512,6 +515,16 @@ RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
   out_sch.push_back(cur_sch.at(0));
   std::copy(k, new_sch.end(), std::back_inserter(out_sch));
 
+  /* HACK! I think the section above, Synchronize existing stops, is aggressively
+   * leaving out the last stop of taxis (the fake destination) if the vehicle
+   * hasn't moved. So just put it back in here. The issue only seems to happen
+   * for taxis. */
+  if (out_sch.size() == 1 && out_sch.front().late() == -1) {
+    const Stop& stop = out_sch.front();
+    Stop fake_dest(stop.owner(), stop.loc(), StopType::VehlDest, stop.early(), stop.late());
+    out_sch.push_back(fake_dest);
+  }
+
   DEBUG(3, {
     std::cout << "sync(9) out_rte: "; print_rte(out_rte);
     std::cout << "sync(9) out_sch: "; print_sch(out_sch);
@@ -669,7 +682,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   if (this->customers_.size() > 0) {
     // Set default timeout (per customer!)
     this->timeout_ = (Cargo::static_mode
-          ? std::ceil((float)600000/this->customers_.size())
+          ? std::ceil((float)300000/this->customers_.size())
           : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
     // print << "Set timeout to " << this->timeout_ << std::endl;
     for (const auto& customer : this->customers_) {
@@ -678,7 +691,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
     }
     // Set default timeout (per batch!)
     this->timeout_ = (Cargo::static_mode
-          ? std::ceil((float)600000)
+          ? std::ceil((float)300000)
           : std::ceil((float)batch_time_*(1000.0)));
     this->match();
   }

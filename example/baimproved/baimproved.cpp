@@ -1,22 +1,3 @@
-// Copyright (c) 2018 the Cargo authors
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 #include <algorithm> /* std::random_shuffle, std::remove_if, std::find_if */
 #include <iostream> /* std::endl */
 #include <queue>
@@ -31,7 +12,7 @@ using namespace cargo;
 const int BATCH = 30;
 
 BAImproved::BAImproved()
-    : RSAlgorithm("baimproved", true), grid_(100) {
+    : RSAlgorithm("baimproved", false), grid_(100) {
   this->batch_time() = BATCH;
   this->nswapped_ = 0;
 }
@@ -166,7 +147,7 @@ void BAImproved::match() {
       if (removed_cust != -1)
         cdel.push_back(removed_cust);
       this->assign_or_delay(
-          {cust.id()}, cdel, best_rte, best_sch, *best_vehl);
+          {cust.id()}, cdel, best_rte, best_sch, *best_vehl, false/*true*/);
     } else
       this->beg_delay(cust.id());
 
@@ -200,16 +181,16 @@ void BAImproved::reset_workspace() {
 int main() {
   /* Set options */
   Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_roadnet  = "../data/roadnetwork/*.rnet";
+  option.path_to_gtree    = "../data/roadnetwork/*.gtree";
+  option.path_to_edges    = "../data/roadnetwork/*.edges";
+  option.path_to_problem  = "../data/benchmark/*.instance";
   option.path_to_solution = "baimproved.sol";
   option.path_to_dataout  = "baimproved.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode = true;
+  option.static_mode=true;
   Cargo cargo(option);
   BAImproved ba;
   cargo.start(ba);

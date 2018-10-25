@@ -33,8 +33,9 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int TOP_CUST = 8;  // customers per vehicle for rv-graph
-const int TRIP_MAX = 15000;  // maximum number of trips per batch
+const int TOP_CUST = 30;  // customers per vehicle for rv-graph
+const int TRIP_MAX = 30000;  // maximum number of trips per batch
+const int MAX_THREADS = 6;
 
 TripVehicleGrouping::TripVehicleGrouping()
     : RSAlgorithm("trip_vehicle_grouping", true), grid_(100) {
@@ -44,7 +45,7 @@ TripVehicleGrouping::TripVehicleGrouping()
         << " (export OMP_CANCELLATION=true)" << std::endl;
     throw;
   }
-  for (int i = 0; i < omp_get_max_threads(); ++i)
+  for (int i = 0; i < MAX_THREADS; ++i)
     gtre_.push_back(GTree::get());
 }
 
@@ -56,9 +57,22 @@ void TripVehicleGrouping::match() {
   for (const Customer& cust : customers())
     is_matched[cust.id()] = false;
 
+  // Workspace variables
+  std::vector<CustId> matchable_custs {};
+  dict<Vehicle, dict<Customer, std::vector<Stop>>>    rv_sch;  // schedule store
+  dict<Vehicle, dict<Customer, std::vector<Wayp>>>    rv_rte;  // route store
+  dict<Vehicle, dict<Customer, DistInt>>              rv_cst;
+  dict<Customer, std::vector<Customer>>               rvgrph_rr_;
+  dict<Vehicle, std::vector<Customer>>                rvgrph_rv_;
+  dict<VehlId, dict<SharedTripId, std::vector<Stop>>> vt_sch;
+  dict<VehlId, dict<SharedTripId, std::vector<Wayp>>> vt_rte;
+  dict<VehlId, Vehicle>                               vehmap;
+  dict<VehlId, dict<SharedTripId, DistInt>>           vted_;  // vehl-trip edges
+
   /* Generate rv-graph */
   { std::vector<Customer> lcl_cust = customers();
   print << "Generating rv-graph..." << std::endl;
+  omp_set_num_threads(MAX_THREADS);
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
          rv_cst, rv_sch, rv_rte, matchable_custs)
   { /* Each thread gets a local gtree and a local grid to perform
@@ -100,7 +114,7 @@ void TripVehicleGrouping::match() {
        print << "No candidates." << std::endl;
      }
     if (this->timeout(this->timeout_rv_0)) {
-      print << "Timed out" << std::endl;
+      // print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -183,6 +197,7 @@ void TripVehicleGrouping::match() {
   int nvted = 0;
   print << "Generating rtv-graph" << std::endl;
   { std::vector<Vehicle> lcl_vehl = vehicles();
+  omp_set_num_threads(MAX_THREADS);
   #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
           vted_, rvgrph_rr_, rvgrph_rv_)
   { /* Each thread adds edges to a local vtedges; these are combined when
@@ -283,7 +298,7 @@ void TripVehicleGrouping::match() {
       }
     }
     if (this->timeout(this->timeout_rtv_0)) {
-      print << "Timed out" << std::endl;
+      // print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -341,7 +356,7 @@ void TripVehicleGrouping::match() {
           }  // end if shtrip.size() == k
         }  // end inner for
         if (this->timeout(this->timeout_rtv_0)) {
-          print << "Timed out" << std::endl;
+          // print << "Timed out" << std::endl;
           // break;
           #pragma omp cancel for
         }
@@ -350,7 +365,7 @@ void TripVehicleGrouping::match() {
     } // end while
     } // end if vehls with capacity
     if (this->timeout(timeout_rtv_0)) {
-      print << "Timed out" << std::endl;
+      // print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -625,20 +640,10 @@ SharedTripId TripVehicleGrouping::add_trip(const SharedTrip& trip) {
 
 void TripVehicleGrouping::reset_workspace() {
   this->is_matched = {};
-  this->rvgrph_rr_ = {};
-  this->rvgrph_rv_ = {};
-  this->rv_sch = {};
-  this->rv_rte = {};
-  this->rv_cst = {};
-  this->matchable_custs = {};
   this->timeout_ = this->timeout_/2;
   this->stid_ = 0;
   this->trip_ = {};
-  this->vted_ = {};
   this->cted_ = {};
-  this->vt_sch = {};
-  this->vt_rte = {};
-  this->vehmap = {};
 }
 
 int main() {

@@ -55,20 +55,12 @@ class GRASP : public RSAlgorithm {
 
   /* Workspace variables */
   dict<VehlId, vec_t<Customer>> candidates_list;
+  dict<CustId, DistInt> range;
   dict<VehlId, MutableVehicleSptr> vehicles_lookup;
 
-  std::vector<Stop> sch;
-  std::vector<Wayp> rte;
-  std::vector<MutableVehicleSptr> candidates;
-  tick_t timeout_0;
+  tick_t timeout_0, timeout_1;
 
-  DistInt best_solcst;
   dict<CustId, bool> is_matched;
-
-  std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
-  std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
-  std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
-  std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
   Solution initialize(Grid &);
   Solution replace(const Solution &, Grid &);
@@ -81,44 +73,5 @@ class GRASP : public RSAlgorithm {
   bool verify(const Solution &);
 
   void print_sol(const Solution &);
-
-
-  ///////////////////////////////////////////////////////////////////////////
-
-  void initialize(vec_t<Customer> &,
-                  dict<MutableVehicleSptr, vec_t<Customer>> &,
-                  dict<VehlId, vec_t<Customer>> &);
-
-  MutableVehicleSptr replace(
-    const dict<VehlId, vec_t<Customer>> &,  // solution
-    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // candidates
-    const vec_t<Customer> &,  // customers
-    DistInt &,                // amount of improvement
-    vec_t<Stop> &,            // schedule after replace
-    vec_t<Wayp> &,            // route after replace
-    CustId &,                 // replaced customer (previously assigned)
-    CustId &);                // replace by
-
-  std::pair<MutableVehicleSptr, MutableVehicleSptr> swap(
-    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
-    DistInt &,                // amount of improvement
-    vec_t<Stop> &,            // schedule1 after swap
-    vec_t<Wayp> &,            // route1 after swap
-    vec_t<Stop> &,            // schedule2 after swap
-    vec_t<Wayp> &,            // route2 after swap
-    CustId &,                 // swapped to 1
-    CustId &);                // swapped to 2
-
-  MutableVehicleSptr rearrange(
-    const dict<MutableVehicleSptr, vec_t<Customer>> &,  // solution
-    DistInt &,                // amount of improvement
-    vec_t<Stop> &,            // schedule after rearrange
-    vec_t<Wayp> &);           // route after rearrange
-
-
-  DistInt max_rank(const vec_t<std::pair<DistInt, Customer>> &);
-  DistInt max_rank(const vec_t<std::pair<DistInt, MutableVehicleSptr>> &);
-
-  void reset_workspace();
 };
 

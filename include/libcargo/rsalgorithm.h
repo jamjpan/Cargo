@@ -74,7 +74,7 @@ class RSAlgorithm {
           MutableVehicle &,                 // vehicle to assign to
           bool strict = false);             // set if do not want re-routing
 
-  void assign_or_delay(
+  bool assign_or_delay(
     const vec_t<CustId> &,
     const vec_t<CustId> &,
     const vec_t<Wayp>   &,

@@ -52,19 +52,9 @@ class TripVehicleGrouping : public RSAlgorithm {
   std::unordered_map<CustId, bool> is_matched;
   tick_t timeout_rv_0;
   tick_t timeout_rtv_0;
-  dict<Customer, std::vector<Customer>> rvgrph_rr_;
-  dict<Vehicle, std::vector<Customer>>  rvgrph_rv_;
-  dict<Vehicle, dict<Customer, std::vector<Stop>>> rv_sch;
-  dict<Vehicle, dict<Customer, std::vector<Wayp>>> rv_rte;
-  dict<Vehicle, dict<Customer, DistInt>>           rv_cst;
-  std::vector<CustId> matchable_custs {};
-  dict<VehlId, dict<SharedTripId, std::vector<Stop>>> vt_sch;
-  dict<VehlId, dict<SharedTripId, std::vector<Wayp>>> vt_rte;
-  dict<VehlId, Vehicle> vehmap;
 
 
   SharedTripId stid_;
-  dict<VehlId, dict<SharedTripId, DistInt>> vted_;  // vehl-trip edges
   dict<CustId, std::vector<SharedTripId>>   cted_;  // cust-trip edges
   dict<SharedTripId, SharedTrip>            trip_;  // trip lookup
 

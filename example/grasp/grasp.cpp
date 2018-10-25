@@ -28,7 +28,8 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 10;
+const int MAX_ITER = 100;
+const int MAX_C = 10;
 
 GRASP::GRASP()
     : RSAlgorithm("grasp", true), grid_(100), d(0,1) {
@@ -43,7 +44,7 @@ GRASP::GRASP()
 
 void GRASP::match() {
   this->beg_ht();
-  this->timeout_0 = hiclock::now();
+  this->timeout_ = this->timeout_/MAX_ITER/2;
 
   Solution best = {};
   DistInt cost = InfInt;
@@ -51,7 +52,7 @@ void GRASP::match() {
   for (int iter_count = 0; iter_count < MAX_ITER; ++iter_count) {
     print << "Initializing sol_0" << std::endl;
     Grid local_grid = this->grid_;
-    Solution sol_0 = this->initialize(local_grid);
+    Solution sol_0 = this->initialize(local_grid);  // <-- bottleneck
     print << "Done initialize" << std::endl;
     this->verify(sol_0);
     print << "Passed verification" << std::endl;
@@ -59,6 +60,7 @@ void GRASP::match() {
     best = sol_0;
     cost = sol_0_cost;
 
+    this->timeout_0 = hiclock::now();
     do {
       print << "Searching for improvement" << std::endl;
       stat_improv = -1;
@@ -68,6 +70,7 @@ void GRASP::match() {
       DistInt sol_1_cost = this->solcost(sol_1);
       print << "Replace cost: " << sol_1_cost << " (incumbent: " << cost << ")" << std::endl;
       if (sol_1_cost < cost) {
+        print << "Acceped replace" << std::endl;
         best = sol_1;
         cost = sol_1_cost;
         stat_improv = 1;
@@ -78,6 +81,7 @@ void GRASP::match() {
       DistInt sol_2_cost = this->solcost(sol_2);
       print << "Swap cost: " << sol_2_cost << " (incumbent: " << cost << ")" << std::endl;
       if (sol_2_cost < cost) {
+        print << "Accepted swap" << std::endl;
         best = sol_2;
         cost = sol_2_cost;
         stat_improv = 2;
@@ -88,6 +92,7 @@ void GRASP::match() {
       DistInt sol_3_cost = this->solcost(sol_3);
       print << "Rearrange cost: " << sol_3_cost << " (incumbent: " << cost << ")" << std::endl;
       if (sol_3_cost < cost) {
+        print << "Accepted rearrange" << std::endl;
         best = sol_3;
         cost = sol_3_cost;
         stat_improv = 3;
@@ -111,6 +116,10 @@ void GRASP::match() {
       // Get ready for the next iteration
       sol_0 = best;
       print << "Done improvement" << std::endl;
+      if (this->timeout(this->timeout_0)) {
+        print << "hit timeout" << std::endl;
+        break;
+      }
     } while (stat_improv != -1);
   }
 
@@ -124,6 +133,10 @@ void GRASP::handle_vehicle(const Vehicle& vehl) {
 
 void GRASP::end() {
   this->print_statistics();
+  print << "nswap: " << nswap_ << std::endl;
+  print << "nreplace: " << nreplace_ << std::endl;
+  print << "nrearrange: " << nrearrange_ << std::endl;
+  print << "nnoimprov: " << nnoimprov_ << std::endl;
 }
 
 void GRASP::listen(bool skip_assigned, bool skip_delayed) {
@@ -132,17 +145,18 @@ void GRASP::listen(bool skip_assigned, bool skip_delayed) {
 }
 
 Solution GRASP::initialize(Grid& local_grid) {
+  this->timeout_1 = hiclock::now();
   Solution sol_0 = {};
   // THIS SOLDEX THING IS HORRIBLE! GET RID OF IT?
   dict<VehlId, std::pair<MutableVehicle, std::pair<vec_t<Customer>, vec_t<Customer>>>> soldex;
 
   vec_t<Customer> local_customers = this->customers();
   vec_t<MutableVehicleSptr> local_vehicles = {};
-  dict<VehlId, vec_t<Customer>> local_candidates = {};
 
   // Get candidates list of vehicles and customers
   print << "\tBuilding candidates list" << std::endl;
   this->candidates_list = {};
+  this->range = {};
   for (const Customer& cust : this->customers()) {
     vec_t<MutableVehicleSptr> cands = local_grid.within(pickup_range(cust), cust.orig());
     for (MutableVehicleSptr& cand : cands) {
@@ -152,9 +166,25 @@ Solution GRASP::initialize(Grid& local_grid) {
         local_vehicles.push_back(cand);
       }
       this->candidates_list.at(cand->id()).push_back(cust);
+      this->range[(cust.id())] = haversine(cand->last_visited_node(), cust.orig());
     }
   }
-  local_candidates = candidates_list;
+  // Speed-up Heuristic! Keep the top MAX_C NEAREST customers per vehicle
+  for (auto& kv : this->candidates_list) {
+    if (kv.second.size() > MAX_C) {
+      vec_t<std::pair<DistInt, Customer>> top = {};
+      for (const Customer& cust : kv.second) {
+        auto rank = std::make_pair(range.at(cust.id()), cust);
+        top.push_back(rank);
+      }
+      std::sort(top.begin(), top.end(), [](std::pair<DistInt, Customer>& a, std::pair<DistInt, Customer>& b) {
+          return a.first < b.first; });
+      vec_t<Customer> new_list = {};
+      for (auto i = top.begin(); i < top.begin()+MAX_C || i != top.end(); ++i)
+        new_list.push_back(i->second);
+      this->candidates_list.at(kv.first) = new_list;
+    }
+  }
   print << "\tDone candidates list" << std::endl;
 
   std::shuffle(local_vehicles.begin(), local_vehicles.end(), this->gen);
@@ -171,26 +201,36 @@ Solution GRASP::initialize(Grid& local_grid) {
     dict<Customer, vec_t<Stop>> schedule = {};
     dict<Customer, vec_t<Wayp>> route = {};
 
-    while (!local_candidates.at(cand->id()).empty()) {
-      // 2. (Re)-compute fitness
+    int count = 0;
+    bool has_change = false;
+    while (!this->candidates_list.at(cand->id()).empty()) {
+      // 2. (Re)-compute fitness <-- bottleneck
       print << "\t\t\t(Re)-computing fitness" << std::endl;
-      for (const Customer& cust : local_candidates.at(cand->id())) {
-        vec_t<Stop> sch;
-        vec_t<Wayp> rte;
-        int score = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-        fitness[cust] = score;
-        schedule[cust] = sch;
-        route[cust] = rte;
-        print << "\t\t\t\tCust " << cust.id() << ": " << score << std::endl;
+      vec_t<Stop> sch;
+      vec_t<Wayp> rte;
+      if (count == 0 || has_change) {
+        for (const Customer& cust : this->candidates_list.at(cand->id())) {
+          int score = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+          fitness[cust] = score;
+          schedule[cust] = sch;
+          route[cust] = rte;
+          print << "\t\t\t\tCust " << cust.id() << ": " << score << std::endl;
+          // if (this->timeout(this->timeout_1)) {
+          //   print << "hit timeout" << std::endl;
+          //   break;
+          // }
+        }
+      } else {
+        print << "\t\t\tNo change to fitness" << std::endl;
       }
 
       // 3. Roulette-select one customer to add to the vehicle
       print << "\t\t\tRolling the roulette wheel" << std::endl;
       Customer cust_to_add = roulette_select(fitness);
-      vec_t<Stop> sch = schedule.at(cust_to_add);
-      vec_t<Wayp> rte = route.at(cust_to_add);
+      sch = schedule.at(cust_to_add);
+      rte = route.at(cust_to_add);
       print << "\t\t\tConfirming cust " << cust_to_add.id() << std::endl;
-      if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
+      if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {  // <-- often fails
         cand->set_sch(sch);
         cand->set_rte(rte);
         cand->reset_lvn();
@@ -205,7 +245,7 @@ Solution GRASP::initialize(Grid& local_grid) {
         soldex.at(cand->id()).second.first.push_back(cust_to_add);
         print << "\t\t\tAdded cust " << cust_to_add.id() << std::endl;
         // Clean up customer from stores
-        for (auto& kv : local_candidates) {
+        for (auto& kv : this->candidates_list) {
           vec_t<Customer>& custs = kv.second;
           auto i = std::find(custs.begin(), custs.end(), cust_to_add);
           if (i != custs.end())
@@ -215,14 +255,21 @@ Solution GRASP::initialize(Grid& local_grid) {
         fitness.erase(cust_to_add);
         schedule.erase(cust_to_add);
         route.erase(cust_to_add);
+        has_change = true;
       } else {
         print << "\t\t\tInvalid." << std::endl;
-        vec_t<Customer>& possibles = local_candidates.at(cand->id());
+        vec_t<Customer>& possibles = this->candidates_list.at(cand->id());
         possibles.erase(std::find(possibles.begin(), possibles.end(), cust_to_add));
         fitness.erase(cust_to_add);
         schedule.erase(cust_to_add);
         route.erase(cust_to_add);
+        has_change = false;
       }
+      if (this->timeout(this->timeout_1)) {
+        print << "hit timeout" << std::endl;
+        break;
+      }
+      count++;
     }
   }
   print << "\tDone assignment" << std::endl;
