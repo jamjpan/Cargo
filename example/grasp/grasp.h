@@ -26,11 +26,7 @@
 
 using namespace cargo;
 
-// A Solution is a table keyed by vehicle containing new assignment data.
-// The first vector in the pair is list of assignments; the second vector is
-// list of unassignments (due to swap, replace).
-typedef dict<MutableVehicle, std::pair<vec_t<Customer>, vec_t<Customer>>>
-    Solution;
+typedef dict<MutableVehicleSptr, std::pair<vec_t<CustId>, vec_t<CustId>>> Solution;
 
 class GRASP : public RSAlgorithm {
  public:
@@ -53,25 +49,16 @@ class GRASP : public RSAlgorithm {
   int nrearrange_;
   int nnoimprov_;
 
-  /* Workspace variables */
-  dict<VehlId, vec_t<Customer>> candidates_list;
-  dict<CustId, DistInt> range;
-  dict<VehlId, MutableVehicleSptr> vehicles_lookup;
+  tick_t timeout_0;
 
-  tick_t timeout_0, timeout_1;
+  dict<MutableVehicleSptr, vec_t<Customer>> candidates_list;
+  dict<MutableVehicleSptr, dict<Customer, DistInt>> fitness;
+  dict<MutableVehicleSptr, dict<Customer, vec_t<Stop>>> schedules;
+  dict<MutableVehicleSptr, dict<Customer, vec_t<Wayp>>> routes;
 
-  dict<CustId, bool> is_matched;
-
-  Solution initialize(Grid &);
-  Solution replace(const Solution &, Grid &);
-  Solution swap(const Solution &, Grid &);
-  Solution rearrange(const Solution &);
-  Customer roulette_select(const dict<Customer, int> &);
+  Solution initialize(Grid &, vec_t<Customer>);
+  Customer roulette(const dict<Customer, DistInt> &);
   void commit(const Solution &);
 
-  DistInt solcost(const Solution &);
-  bool verify(const Solution &);
-
-  void print_sol(const Solution &);
 };
 

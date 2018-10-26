@@ -21,8 +21,7 @@
 
 using namespace cargo;
 
-typedef std::tuple<DistInt, MutableVehicleSptr,
-  std::vector<Stop>, std::vector<Wayp>> rank_cand;
+typedef std::pair<DistInt, MutableVehicleSptr> rank_cand;
 
 class BilateralArrangement : public RSAlgorithm {
  public:
@@ -38,11 +37,18 @@ class BilateralArrangement : public RSAlgorithm {
   Grid grid_;
   int nswapped_;
 
-  dict<Customer, vec_t<MutableVehicleSptr>> candidates_list_by_cust;
+  dict<CustId, vec_t<rank_cand>> lookup;
+  dict<CustId, dict<VehlId, vec_t<Stop>>> schedules;
+  dict<CustId, dict<VehlId, vec_t<Wayp>>> routes;
+  dict<MutableVehicleSptr, bool> modified;
+  dict<MutableVehicleSptr, vec_t<CustId>> to_assign;
+  dict<MutableVehicleSptr, vec_t<CustId>> to_unassign;
 
   /* Workspace variables */
   tick_t timeout_0;
 
-  void reset_workspace();
+  void prepare();
+  void clear();
+  void commit(const MutableVehicleSptr &);
 };
 

@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <memory>
+#include <tuple>
 #include <unordered_map>
 #include <random>
 
@@ -25,9 +26,15 @@
 
 using namespace cargo;
 
-class PopulationAnnealingNear : public RSAlgorithm {
+// A Solution is a table keyed by vehicle containing new assignment data.
+// The first vector in the pair is list of assignments; the second vector is
+// list of unassignments (due to swap, replace).
+typedef dict<MutableVehicle, std::pair<vec_t<Customer>, vec_t<Customer>>>
+    Solution;
+
+class GRASP : public RSAlgorithm {
  public:
-  PopulationAnnealingNear();
+  GRASP();
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -38,26 +45,33 @@ class PopulationAnnealingNear : public RSAlgorithm {
  private:
   Grid grid_;
 
-  int nclimbs_;
-  int ndrops_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
 
+  int nswap_;
+  int nreplace_;
+  int nrearrange_;
+  int nnoimprov_;
+
   /* Workspace variables */
-  std::vector<Stop> sch;
-  std::vector<Wayp> rte;
-  std::vector<MutableVehicleSptr> candidates;
-  tick_t timeout_0;
-  std::unordered_map<CustId, bool> is_matched;
-  dict<CustId, VehlId> cand_used;
-  std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
-  std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
-  std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
-  std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
+  dict<VehlId, vec_t<Customer>> candidates_list;
+  dict<CustId, DistInt> range;
+  dict<VehlId, MutableVehicleSptr> vehicles_lookup;
 
+  tick_t timeout_0, timeout_1;
 
-  bool hillclimb(int &);
+  dict<CustId, bool> is_matched;
 
-  void reset_workspace();
+  Solution initialize(Grid &);
+  Solution replace(const Solution &, Grid &);
+  Solution swap(const Solution &, Grid &);
+  Solution rearrange(const Solution &);
+  Customer roulette_select(const dict<Customer, int> &);
+  void commit(const Solution &);
+
+  DistInt solcost(const Solution &);
+  bool verify(const Solution &);
+
+  void print_sol(const Solution &);
 };
 

@@ -49,10 +49,10 @@ class SimulatedAnnealing : public RSAlgorithm {
   /* Workspace variables */
   dict<CustId, vec_t<MutableVehicleSptr>> candidates_list;
   dict<VehlId, MutableVehicleSptr> vehicle_lookup;
-  std::vector<Stop> sch;
-  std::vector<Wayp> rte;
   tick_t timeout_0;
   std::unordered_map<CustId, bool> is_matched;
+  std::vector<Stop> sch;
+  std::vector<Wayp> rte;
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;

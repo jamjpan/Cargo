@@ -35,56 +35,24 @@ GreedyInsertion::GreedyInsertion()
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
-  print << "Handling cust " << cust.id() << std::endl;
   this->beg_ht();
   this->reset_workspace();
   this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
 
-  DistInt best_cst = InfInt;
+  print << "Handling cust " << cust.id() << " (" << this->candidates.size() << " candidates)" << std::endl;
 
-  float ss = 0;
-  for (const auto& cand : this->candidates)
-    ss += cand->schedule().data().size()-2;
-
-  print << "\tGot " << this->candidates.size()
-        << " candidates (range=" << pickup_range(cust) << ", s.avg=" << ss/this->candidates.size() << ")" << std::endl;
+  DistInt best_cost = InfInt;
 
   for (const MutableVehicleSptr& cand : this->candidates) {
-    // Speed-up heuristics:
-    //   1) Try only if vehicle has capacity at this point in time
-    //   2) Try only if vehicle's current schedule len < 8 customer stops
-    // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+    // Speed heuristic: try only if vehicle's current schedule len < 8 customer stops
     if (cand->schedule().data().size() < 10) {
-      DistInt new_cst = sop_insert(*cand, cust, sch, rte); // TODO consider having sop_insert return the detour cost?
-      // DistInt cst = new_cst - cand->route().cost() + cand->next_node_distance();
-      DistInt cst = new_cst - cand->route().cost();
-      if (cst < 0) {
-        print(MessageType::Error) << "Got negative detour!" << std::endl;
-        print << cand->id() << std::endl;
-        print << cst << " (" << new_cst << "-" << cand->route().cost() << ")" << std::endl;
-        print << "Current schedule: ";
-        for (const Stop& sp : cand->schedule().data())
-          print << sp.loc() << " ";
-        print << std::endl;
-        print << "nnd: " << cand->next_node_distance() << std::endl;
-        print << "New schedule: ";
-        for (const Stop& sp : sch)
-          print << sp.loc() << " ";
-        print << std::endl;
-        throw;
-      }
-      // print << "\t\tVehl " << cand->id() << ": " << cst << std::endl;
-      if (cst < best_cst) {
-        if (chkcap(cand->capacity(), sch)
-         && chktw(sch, rte)) {
+      DistInt cost = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
+      if (cost < best_cost) {
+        if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
           best_vehl = cand;
-          best_sch  = sch;
-          best_rte  = rte;
-          best_cst  = cst;
-          // print << "sch: ";
-          // for (const Stop& a : best_sch)
-          //   print << a.loc() << " ";
-          // print << std::endl;
+          best_sch = sch;
+          best_rte = rte;
+          best_cost = cost;
         }
       }
     }
@@ -97,8 +65,7 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   /* Attempt commit to db */
   if (matched) {
     print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
-    this->assign_or_delay(
-        {cust.id()}, {}, best_rte, best_sch, *best_vehl);
+    this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl);
   } else {
     this->beg_delay(cust.id());
   }

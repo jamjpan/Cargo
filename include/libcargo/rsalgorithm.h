@@ -87,6 +87,8 @@ class RSAlgorithm {
 
   void beg_ht();                            // begin measure handling time
   void end_ht();                            // end measure handling time
+  void beg_batch_ht();
+  void end_batch_ht();
 
   Message print;                            // print stream
 
@@ -111,6 +113,7 @@ class RSAlgorithm {
   std::string name_;                        // get with name()
   bool done_;                               // get with done(), set with kill()
   int batch_time_;                          // get/set with batch_time()
+  int nsize_;                               // number of customers per batch
 
   vec_t<Customer> customers_;               // get with customers()
   vec_t<Vehicle>  vehicles_;                // get with vehicles()

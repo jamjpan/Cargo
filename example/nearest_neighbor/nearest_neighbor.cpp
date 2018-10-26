@@ -42,18 +42,15 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   this->candidates =                        // collect candidates
     this->grid_.within(pickup_range(cust), cust.orig()); // (functions.h, grid.h)
 
+  print << "Handling cust " << cust.id() << " (" << this->candidates.size() << " candidates)" << std::endl;
+
   /* Rank candidates (timeout) */
   std::priority_queue<rank_cand, vec_t<rank_cand>, decltype(cmp)>
     my_q(cmp);                              // rank by nearest
   for (const MutableVehicleSptr& cand : this->candidates) {
-    // Speed-up heuristics:
-    //   1) Try only if vehicle has capacity at this point in time
-    //   2) Try only if vehicle's current schedule len < 8 customer stops
-    // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
-      DistDbl cst = haversine(cand->last_visited_node(), cust.orig());
-      rank_cand rc = std::make_pair(cst, cand);
-      my_q.push(rc);
-    // }
+    DistDbl cost = haversine(cand->last_visited_node(), cust.orig());
+    rank_cand rc = std::make_pair(cost, cand);
+    my_q.push(rc);
     if(this->timeout(this->timeout_0))      // (rsalgorithm.h)
       break;
   }
@@ -64,17 +61,19 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     my_q.pop();                             // remove from queue
     best_vehl = std::get<1>(rc);
     sop_insert(best_vehl, cust, sch, rte);  // (functions.h)
-    if (chktw(sch, rte))                    // check time window (functions.h)
+    if (chktw(sch, rte)                     // check time window (functions.h)
+     && chkcap(best_vehl->capacity(), sch)) // check capacity (functions.h)
       matched = true;                       // accept
     if (this->timeout(this->timeout_0))     // (rsalgorithm.h)
       break;
   }
 
   /* Attempt commit to db */
-  if (matched)
+  if (matched) {
+    print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
     this->assign_or_delay(                  // (rsalgorithm.h)
         {cust.id()}, {}, rte, sch, *best_vehl);
-  else
+  } else
     this->beg_delay(cust.id());             // (rsalgorithm.h)
 
   this->end_ht();                           // end timing

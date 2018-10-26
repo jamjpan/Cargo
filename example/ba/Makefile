@@ -6,13 +6,13 @@ LDL = -ldl
 METIS = -L/usr/local/lib -lmetis
 CARGO = -L../../lib -lcargo
 
-OBJS = baimproved.o
+OBJS = ba.o
 
 all: $(OBJS)
-	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o baimproved
+	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o ba
 
-baimproved.o: ../../lib/libcargo.a baimproved.h baimproved.cpp
-	$(CXX) $(CFLAGS) baimproved.cpp
+ba.o: ../../lib/libcargo.a ba.h ba.cpp
+	$(CXX) $(CFLAGS) ba.cpp
 
 clean:
-	rm *.o baimproved
+	rm *.o ba

@@ -343,9 +343,21 @@ void RSAlgorithm::beg_ht() {
   this->ht_0 = hiclock::now();
 }
 
+void RSAlgorithm::beg_batch_ht() {
+  this->ht_0 = hiclock::now();
+  this->nsize_ = this->customers_.size();
+}
+
 void RSAlgorithm::end_ht() {
   this->ht_1 = hiclock::now();
   handling_times_.push_back(std::round(dur_milli(ht_1-ht_0).count()));
+}
+
+void RSAlgorithm::end_batch_ht() {
+  this->ht_1 = hiclock::now();
+  float ht = std::round(dur_milli(ht_1-ht_0).count())/(float)this->nsize_;
+  for (int i = 0; i < nsize_; ++i)
+    handling_times_.push_back(ht);
 }
 
 bool RSAlgorithm::timeout(tick_t& start) {

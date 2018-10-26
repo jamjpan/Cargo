@@ -47,27 +47,21 @@ KineticTrees::~KineticTrees() {
 }
 
 void KineticTrees::handle_customer(const Customer& cust) {
-  print << "Handling cust " << cust.id() << std::endl;
   DistInt range = pickup_range(cust);
   this->beg_ht();
   this->reset_workspace();
-  this->candidates =
-    this->grid_.within(range, cust.orig());
+  this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
 
   Stop cust_orig = Stop(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_dest = Stop(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
 
   DistInt max_travel = (cust.late()-Cargo::now())*Cargo::vspeed();  // distance from root
-  DistInt best_cst = InfInt;
+  DistInt best_cost = InfInt;
 
-  print << "\tGot " << this->candidates.size() << " candidates." << std::endl;
+  print << "Handling cust " << cust.id() << " (" << this->candidates.size() << " candidates)" << std::endl;
 
   for (const MutableVehicleSptr& cand : this->candidates) {
-    // Speed-up heuristics:
-    // (If all these are off, I get out of memory (16gb))
-    //   1) Try only if vehicle has capacity at this point in time
-    //   2) Try only if vehicle's current schedule len < 8 customer stops
-    // if (cand->capacity() > 1 && cand->schedule().data().size() < 10) {
+    // Speed heuristic: try only if vehicle's current schedule len < 8 customer stops
     if (cand->schedule().data().size() < 10) {
       print << "\t\tTrying " << cand->id() << std::endl;
       for (const auto& sp : cand->schedule().data())
@@ -94,7 +88,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
           print(MessageType::Error) << "Got negative detour!" << std::endl;
           throw;
         }
-        if (cst < best_cst) {
+        if (cst < best_cost) {
           print << "kt+: ";
           print_kt(this->kt_.at(cand->id()), true);
           sch = this->kt2sch(cand, cust_orig, cust_dest);
@@ -108,7 +102,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
             best_vehl = cand;
             best_sch  = sch;
             best_rte  = rte;
-            best_cst  = cst;
+            best_cost  = cst;
           } else {
             this->kt_.at(cand->id())->cancel();
           }
@@ -129,8 +123,6 @@ void KineticTrees::handle_customer(const Customer& cust) {
     DistInt head = best_vehl->route().dist_at(best_vehl->idx_last_visited_node() + 1);
     for (auto& wp : best_rte)
       wp.first += head;
-    // best_rte.insert(best_rte.begin(),
-    //       best_vehl->route().at(best_vehl->idx_last_visited_node()));
     if (this->assign(
       {cust.id()}, {}, best_rte, best_sch, *best_vehl)) {
       print << "\tAssigned." << std::endl;
