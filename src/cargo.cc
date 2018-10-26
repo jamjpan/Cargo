@@ -625,7 +625,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
     << std::setw(7) << " active"
     << std::setw(14) << "matched"
     << std::endl;
-  print << "---------------------------------------------------------------------" << std::endl;
+  print << "----------------------------------------------------------" << std::endl;
   tick_t t0, t1;
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {

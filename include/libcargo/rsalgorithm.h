@@ -93,6 +93,8 @@ class RSAlgorithm {
   Message print;                            // print stream
 
   void print_statistics();                  // print statistics
+  void print_rte(const vec_t<Wayp> &);
+  void print_sch(const vec_t<Stop> &);
 
  protected:
   int nmat_;                                // number matched

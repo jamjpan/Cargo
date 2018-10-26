@@ -72,7 +72,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   if (matched) {
     print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
     this->assign_or_delay(                  // (rsalgorithm.h)
-        {cust.id()}, {}, rte, sch, *best_vehl);
+        {cust.id()}, {}, rte, sch, *best_vehl, true);
   } else
     this->beg_delay(cust.id());             // (rsalgorithm.h)
 

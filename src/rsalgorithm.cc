@@ -246,7 +246,7 @@ bool RSAlgorithm::assign(
   sqlite3_bind_int(uro_stmt, 3, cur_nnd);
   sqlite3_bind_int(uro_stmt, 4, vehl.id());
   if ((rc = sqlite3_step(uro_stmt)) != SQLITE_DONE) {
-    std::cout << "Error in commit new route " << rc << std::endl;
+    print << "Error in commit new route " << rc << std::endl;
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
   sqlite3_clear_bindings(uro_stmt);
@@ -257,7 +257,7 @@ bool RSAlgorithm::assign(
                     out_sch.size() * sizeof(Stop), SQLITE_TRANSIENT);
   sqlite3_bind_int(sch_stmt, 2, vehl.id());
   if ((rc = sqlite3_step(sch_stmt)) != SQLITE_DONE) {
-    std::cout << "Error in commit new schedule " << rc << std::endl;
+    print << "Error in commit new schedule " << rc << std::endl;
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
   sqlite3_clear_bindings(sch_stmt);
@@ -267,7 +267,7 @@ bool RSAlgorithm::assign(
   sqlite3_bind_int(qud_stmt, 1, (int)(custs_to_add.size()-custs_to_del.size()));
   sqlite3_bind_int(qud_stmt, 2, vehl.id());
   if ((rc = sqlite3_step(qud_stmt)) != SQLITE_DONE) {
-    std::cout << "Error in qud " << rc << std::endl;
+    print << "Error in qud " << rc << std::endl;
     throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
   }
   sqlite3_clear_bindings(qud_stmt);
@@ -278,7 +278,7 @@ bool RSAlgorithm::assign(
     sqlite3_bind_int(com_stmt, 1, vehl.id());
     sqlite3_bind_int(com_stmt, 2, cust_id);
     if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
-      std::cout << "Error in commit assignment " << rc << std::endl;
+      print << "Error in commit assignment " << rc << std::endl;
       throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
     }
     sqlite3_clear_bindings(com_stmt);
@@ -290,7 +290,7 @@ bool RSAlgorithm::assign(
     sqlite3_bind_null(com_stmt, 1);
     sqlite3_bind_int(com_stmt, 2, cust_id);
     if ((rc = sqlite3_step(com_stmt)) != SQLITE_DONE) {
-      std::cout << "Error in commit assignment " << rc << std::endl;
+      print << "Error in commit assignment " << rc << std::endl;
       throw std::runtime_error(sqlite3_errmsg(Cargo::db()));
     }
     sqlite3_clear_bindings(com_stmt);
@@ -375,24 +375,45 @@ void RSAlgorithm::print_statistics() {
     << std::endl;
 }
 
+void RSAlgorithm::print_rte(const vec_t<Wayp>& rte) {
+  for (const auto& wp : rte)
+    print << " (" << wp.first << "|" << wp.second << ")";
+  print << std::endl;
+}
+
+void RSAlgorithm::print_sch(const vec_t<Stop>& sch) {
+  for (const auto& sp : sch)
+    print << " (" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
+              << "|" << sp.late() << "|" << (int)sp.type() << ")";
+  print << std::endl;
+}
+
 RSAlgorithm::SyncResult
 RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
                   const vec_t<Wayp>   & cur_rte,
-                  const RteIdx              & idx_lvn,
+                  const RteIdx        & idx_lvn,
                   const vec_t<Stop>   & new_sch,
                   const vec_t<Stop>   & cur_sch,
                   const vec_t<CustId> & cadd,
                   const vec_t<CustId> & cdel,
                         vec_t<Wayp>   & out_rte,
                         vec_t<Stop>   & out_sch) {
+  // HACKY BUT WORKS: IF cur_sch LOOKS LIKE IT IS A STANDBY-TAXI,
+  // THEN ALWAYS RETURN TRUE
+  if (cur_sch.size() == 2 && cur_sch.front().loc() == cur_sch.back().loc() && cur_sch.back().late() == -1) {
+    out_sch = new_sch;
+    out_rte = new_rte;
+    return SUCCESS;
+  }
+
   out_rte = {};
   out_sch = {};
 
   DEBUG(3, {
-    std::cout << "sync(9) got new_rte: "; print_rte(new_rte);
-    std::cout << "sync(9) got cur_rte: "; print_rte(cur_rte);
-    std::cout << "sync(9) got new_sch: "; print_sch(new_sch);
-    std::cout << "sync(9) got cur_sch: "; print_sch(cur_sch);
+    print << "sync(9) got new_rte: "; print_rte(new_rte);
+    print << "sync(9) got cur_rte: "; print_rte(cur_rte);
+    print << "sync(9) got new_sch: "; print_sch(new_sch);
+    print << "sync(9) got cur_sch: "; print_sch(cur_sch);
   });
 
   /* VALIDATE CUSTOMERS
@@ -463,15 +484,15 @@ RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
   const NodeId& curloc = cur_rte.at(idx_lvn).second;
   const NodeId& nxtloc = cur_rte.at(idx_lvn+1).second;
   DEBUG(3, {
-    std::cout << "sync(9) got curloc=" << curloc << std::endl;
-    std::cout << "sync(9) got nxtloc=" << nxtloc << std::endl;
+    print << "sync(9) got curloc=" << curloc << std::endl;
+    print << "sync(9) got nxtloc=" << nxtloc << std::endl;
   });
   auto x = std::find_if(new_rte.begin(), new_rte.end(), [&](const Wayp& a) {
       return a.second == curloc; });
   if (x == new_rte.end() || (x+1)->second != nxtloc) {
       DEBUG(3, {
-        if (x == new_rte.end())      std::cout << "sync(9) curloc not in new_rte" << std::endl;
-        if ((x+1)->second != nxtloc) std::cout << "sync(9) nxtloc not in new_rte" << std::endl;
+        if (x == new_rte.end())      print << "sync(9) curloc not in new_rte" << std::endl;
+        if ((x+1)->second != nxtloc) print << "sync(9) nxtloc not in new_rte" << std::endl;
       });
       return CURLOC_MISMATCH;
   }
@@ -480,22 +501,22 @@ RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
   /* new_rte prefix must match what the vehicle's traveled */
   auto i = x + 2;
   auto j = cur_rte.begin() + idx_lvn + 2;
-  DEBUG(3, { std::cout << "Checking prefix: "; });
+  DEBUG(3, { print << "Checking prefix: "; });
   while (i != new_rte.begin()) {
     i--; j--;
-    DEBUG(3, { std::cout << " " << i->second << "==" << j->second; });
+    DEBUG(3, { print << " " << i->second << "==" << j->second; });
     /* Return false if j has reached head of the route */
     if (i != new_rte.begin() && j == cur_rte.begin()) {
-      DEBUG(3, { std::cout << "sync(9) new_rte prefix exceeds cur_rte" << std::endl; });
+      DEBUG(3, { print << "sync(9) new_rte prefix exceeds cur_rte" << std::endl; });
       return PREFIX_MISMATCH;
     }
     /* Return false if i, j mismatch */
     if (i->second != j->second) {
-      DEBUG(3, { std::cout << "sync(9) prefix mismatch" << std::endl; });
+      DEBUG(3, { print << "sync(9) prefix mismatch" << std::endl; });
       return PREFIX_MISMATCH;
     }
   }
-  DEBUG(3, { std::cout << " new_rte done." << std::endl; });
+  DEBUG(3, { print << " new_rte done." << std::endl; });
 
   /* Synchronize existing stops */
   auto k = new_sch.begin() + 1;
@@ -538,8 +559,8 @@ RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
   }
 
   DEBUG(3, {
-    std::cout << "sync(9) out_rte: "; print_rte(out_rte);
-    std::cout << "sync(9) out_sch: "; print_sch(out_sch);
+    print << "sync(9) out_rte: "; print_rte(out_rte);
+    print << "sync(9) out_sch: "; print_sch(out_sch);
   });
   return SUCCESS;
 }
