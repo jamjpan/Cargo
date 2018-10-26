@@ -35,6 +35,8 @@ using namespace cargo;
 const int BATCH = 30;
 const int TOP_CUST = 30;  // customers per vehicle for rv-graph
 const int TRIP_MAX = 30000;  // maximum number of trips per batch
+// const int TOP_CUST = 8;  // customers per vehicle for rv-graph
+// const int TRIP_MAX = 12000;  // maximum number of trips per batch
 const int MAX_THREADS = 6;
 
 TripVehicleGrouping::TripVehicleGrouping()
@@ -51,7 +53,7 @@ TripVehicleGrouping::TripVehicleGrouping()
 
 void TripVehicleGrouping::match() {
   print << "Match called." << std::endl;
-  this->beg_ht();
+  this->beg_batch_ht();
   this->reset_workspace();
   this->timeout_rv_0 = hiclock::now();
   for (const Customer& cust : customers())
@@ -91,8 +93,7 @@ void TripVehicleGrouping::match() {
     print << "\tBuilding rv-edges..." << std::endl;
     auto cands = lcl_grid.within(pickup_range(cust_a), cust_a.orig());
     for (const auto& cand : cands) {
-      // Speed-up heuristic!
-      // Try only if vehicle's current schedule len < 8 customer stops
+      // Speed-up heuristic: try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
         DistInt cstout = 0;
         std::vector<Stop> schout;
@@ -208,7 +209,8 @@ void TripVehicleGrouping::match() {
   #pragma omp for
   for (auto ptvehl = lcl_vehl.begin(); ptvehl < lcl_vehl.end(); ++ptvehl) {
     const Vehicle& vehl = *ptvehl;
-    if (vehl.queued() == vehl.capacity())
+    // Speed-up heuristic: try only if vehicle's current schedule len < 8 customer stops
+    if (vehl.schedule().data().size() > 10)
       continue; // skip assigned to full
     #pragma omp critical // store vehicle for later
     { vehmap[vehl.id()] = vehl; }
@@ -247,10 +249,15 @@ void TripVehicleGrouping::match() {
     print << "\tBuilding trips size 2 for vehl " << vehl.id() << "..." << std::endl;
     /* 1) Check if any size 1 trips can be combined */
     for (const auto& id_a : tripk.at(1)) {
-      SharedTrip shtrip(lcl_trip.at(id_a));
+      SharedTrip sh_base(lcl_trip.at(id_a));
       for (const auto& id_b : tripk.at(1)) {
         if (id_a == id_b) continue;
+        SharedTrip shtrip = sh_base;
         shtrip.insert(shtrip.end(), lcl_trip.at(id_b).begin(), lcl_trip.at(id_b).end());
+        print << "Formed shtrip: ";
+        for (const Customer& cust : shtrip)
+          print << cust.id() << " ";
+        print << std::endl;
         /* Euclidean filter */
         if (haversine(vehl.last_visited_node(), shtrip.at(0).orig()) > pickup_range(shtrip.at(0)))
           continue;
@@ -267,12 +274,17 @@ void TripVehicleGrouping::match() {
           lcl_trip[stid] = shtrip;
           tripk[2].push_back(stid);
         }
+        if (this->timeout(this->timeout_rtv_0)) {
+          // print << "Timed out" << std::endl;
+          // break;
+          #pragma omp cancel for
+        }
       }
-    }
-    if (this->timeout(this->timeout_rtv_0)) {
-      // print << "Timed out" << std::endl;
-      // break;
-      #pragma omp cancel for
+      if (this->timeout(this->timeout_rtv_0)) {
+        // print << "Timed out" << std::endl;
+        // break;
+        #pragma omp cancel for
+      }
     }
 
     /* 2) Check if any rr pairs can be served by this vehicle */
@@ -295,6 +307,16 @@ void TripVehicleGrouping::match() {
           lcl_trip[stid] = shtrip;
           tripk[2].push_back(stid);
         }
+        if (this->timeout(this->timeout_rtv_0)) {
+          // print << "Timed out" << std::endl;
+          // break;
+          #pragma omp cancel for
+        }
+      }
+      if (this->timeout(this->timeout_rtv_0)) {
+        // print << "Timed out" << std::endl;
+        // break;
+        #pragma omp cancel for
       }
     }
     if (this->timeout(this->timeout_rtv_0)) {
@@ -305,64 +327,64 @@ void TripVehicleGrouping::match() {
 
     /* Trips of size >= 3
      * ------------------ */
-    size_t k = 3;
-    while (vehl.capacity() >= (int)k && tripk.count(k-1) > 0) {
-      print << "\tBuilding trips size " << k << " for vehl " << vehl.id() << "..." << std::endl;
-      /* Loop through trips of size k-1 */
-      for (SharedTripId id_a : tripk.at(k - 1)) {
-        const SharedTrip& trip_a = lcl_trip.at(id_a);
-        /* Compare against remaining trips of size k-1 */
-        for (SharedTripId id_b : tripk.at(k - 1)) {
-          if (id_a == id_b) continue;
-          const SharedTrip& trip_b = lcl_trip.at(id_b);
-          /* Join trip_a and trip_b into new trip (no dups) */
-          SharedTrip shtrip(trip_a);
-          for (const Customer& cust : trip_b)
-            if (std::find(shtrip.begin(), shtrip.end(), cust) == shtrip.end())
-              shtrip.push_back(cust);
-          /* If shtrip is size k... */
-          if (shtrip.size() == k) {
-            bool all_ok = true;
-            /* ... check each subtrip if it is already a trip */
-            for (size_t p = 0; p < shtrip.size(); ++p) {
-              bool subtrip_ok = false;
-              SharedTrip subtrip(shtrip);
-              subtrip.erase(subtrip.begin() + p);
-              for (SharedTripId id_q : tripk.at(k - 1))
-                if (subtrip == lcl_trip.at(id_q)) {
-                  subtrip_ok = true;
-                  break;
-                }
-              if (!subtrip_ok) {
-                all_ok = false;
-                break;
-              }
-            }
-            if (all_ok) {
-              DistInt cstout = 0;
-              std::vector<Stop> schout;
-              std::vector<Wayp> rteout;
-              if (travel(vehl, shtrip, cstout, schout, rteout, lcl_gtre)) {
-                SharedTripId stid;
-                #pragma omp critical
-                { stid = add_trip(shtrip);
-                  vt_sch[vehl.id()][stid] = schout;
-                  vt_rte[vehl.id()][stid] = rteout; }
-                lcl_vted[vehl.id()][stid] = cstout;
-                lcl_trip[stid] = shtrip;
-                tripk[k].push_back(stid);
-              }
-            }
-          }  // end if shtrip.size() == k
-        }  // end inner for
-        if (this->timeout(this->timeout_rtv_0)) {
-          // print << "Timed out" << std::endl;
-          // break;
-          #pragma omp cancel for
-        }
-      } // end outer for
-      k++;
-    } // end while
+    // size_t k = 3;
+    // while (vehl.capacity() >= (int)k && tripk.count(k-1) > 0) {
+    //   print << "\tBuilding trips size " << k << " for vehl " << vehl.id() << "..." << std::endl;
+    //   /* Loop through trips of size k-1 */
+    //   for (SharedTripId id_a : tripk.at(k - 1)) {
+    //     const SharedTrip& trip_a = lcl_trip.at(id_a);
+    //     /* Compare against remaining trips of size k-1 */
+    //     for (SharedTripId id_b : tripk.at(k - 1)) {
+    //       if (id_a == id_b) continue;
+    //       const SharedTrip& trip_b = lcl_trip.at(id_b);
+    //       /* Join trip_a and trip_b into new trip (no dups) */
+    //       SharedTrip shtrip(trip_a);
+    //       for (const Customer& cust : trip_b)
+    //         if (std::find(shtrip.begin(), shtrip.end(), cust) == shtrip.end())
+    //           shtrip.push_back(cust);
+    //       /* If shtrip is size k... */
+    //       if (shtrip.size() == k) {
+    //         bool all_ok = true;
+    //         /* ... check each subtrip if it is already a trip */
+    //         for (size_t p = 0; p < shtrip.size(); ++p) {
+    //           bool subtrip_ok = false;
+    //           SharedTrip subtrip(shtrip);
+    //           subtrip.erase(subtrip.begin() + p);
+    //           for (SharedTripId id_q : tripk.at(k - 1))
+    //             if (subtrip == lcl_trip.at(id_q)) {
+    //               subtrip_ok = true;
+    //               break;
+    //             }
+    //           if (!subtrip_ok) {
+    //             all_ok = false;
+    //             break;
+    //           }
+    //         }
+    //         if (all_ok) {
+    //           DistInt cstout = 0;
+    //           std::vector<Stop> schout;
+    //           std::vector<Wayp> rteout;
+    //           if (travel(vehl, shtrip, cstout, schout, rteout, lcl_gtre)) {
+    //             SharedTripId stid;
+    //             #pragma omp critical
+    //             { stid = add_trip(shtrip);
+    //               vt_sch[vehl.id()][stid] = schout;
+    //               vt_rte[vehl.id()][stid] = rteout; }
+    //             lcl_vted[vehl.id()][stid] = cstout;
+    //             lcl_trip[stid] = shtrip;
+    //             tripk[k].push_back(stid);
+    //           }
+    //         }
+    //       }  // end if shtrip.size() == k
+    //     }  // end inner for
+    //     if (this->timeout(this->timeout_rtv_0)) {
+    //       // print << "Timed out" << std::endl;
+    //       // break;
+    //       #pragma omp cancel for
+    //     }
+    //   } // end outer for
+    //   k++;
+    // } // end while
     } // end if vehls with capacity
     if (this->timeout(timeout_rtv_0)) {
       // print << "Timed out" << std::endl;
@@ -574,7 +596,7 @@ void TripVehicleGrouping::match() {
   glp_delete_prob(mip);
   }  // end mip (if vted_.size() > 0)
 
-  this->end_ht();
+  this->end_batch_ht();
 }
 
 void TripVehicleGrouping::handle_vehicle(const Vehicle& vehl) {
@@ -596,35 +618,83 @@ bool TripVehicleGrouping::travel(const Vehicle& vehl,
                                  DistInt& cstout,
                                  std::vector<Stop>& schout,
                                  std::vector<Wayp>& rteout,
-                                 GTree::G_Tree& gtre) {
-  /* Need mutable copy so that schedule/route can be updated as customers
-   * are added */
-  MutableVehicle mtvehl = vehl;
+                                 GTree::G_Tree& gtree) {
+  vec_t<Customer> to_insert = custs;
+  std::sort(to_insert.begin(), to_insert.end(),
+    [](const Customer& a, const Customer& b) { return a.id() < b.id(); });
 
-  /* Containers */
-  std::vector<Stop> schctr;
-  std::vector<Wayp> rtectr;
+  bool has_good = false;
+  vec_t<Stop> sch, best_sch;
+  vec_t<Wayp> rte, best_rte;
+  DistInt best_cost = InfInt;
+  do {
+    // print << "\tTravel trying ";
+    // for (const Customer& cust : to_insert)
+    //   print << cust.id() << " ";
+    // print << std::endl;
+    MutableVehicle copy = vehl;
+    sch = {}; rte = {};
+    bool good = true;
+    for (const Customer& cust : to_insert) {
+      sop_insert(copy, cust, sch, rte, gtree);
+      if (chktw(sch, rte) && chkcap(copy.capacity(), sch)) {
+        copy.set_sch(sch);
+        copy.set_rte(rte);
+        copy.reset_lvn();
+      } else {
+        good = false;
+        break;  // break the for loop
+      }
+    }
+    if (good) {
+      has_good = true;
+      DistInt cost = copy.route().data().back().first - vehl.route().cost();
+      if (cost < best_cost) {
+        best_sch = copy.schedule().data();
+        best_rte = copy.route().data();
+        best_cost = cost;
+      }
+    }
+  } while (std::next_permutation(to_insert.begin(), to_insert.end(),
+    [](const Customer& a, const Customer& b) { return a.id() < b.id(); }));
 
-  cstout = -1;
-
-  /* Insert customers one by one
-   * (There is room to optimize?) */
-
-  DistInt cstsum = 0;
-  for (const Customer& cust : custs) {
-    DistInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre) - mtvehl.route().cost();
-    if (chkcap(mtvehl.capacity(), schctr) && chktw(schctr, rtectr)) {
-      cstsum += cst;
-      mtvehl.set_sch(schctr);
-      mtvehl.set_rte(rtectr);
-      mtvehl.reset_lvn();
-    } else  // <-- a customer failed; trip cannot be served
-      return false;
+  if (!has_good)
+    return false;
+  else {
+    cstout = best_cost;
+    schout = best_sch;
+    rteout = best_rte;
+    return true;
   }
-  cstout = cstsum - mtvehl.route().cost();
-  schout = schctr;
-  rteout = rtectr;
-  return true;
+
+  // /* Need mutable copy so that schedule/route can be updated as customers
+  //  * are added */
+  // MutableVehicle mtvehl = vehl;
+
+  // /* Containers */
+  // std::vector<Stop> schctr;
+  // std::vector<Wayp> rtectr;
+
+  // cstout = -1;
+
+  // /* Insert customers one by one
+  //  * (There is room to optimize?) */
+
+  // DistInt cstsum = 0;
+  // for (const Customer& cust : custs) {
+  //   DistInt cst = sop_insert(mtvehl, cust, schctr, rtectr, gtre) - mtvehl.route().cost();
+  //   if (chkcap(mtvehl.capacity(), schctr) && chktw(schctr, rtectr)) {
+  //     cstsum += cst;
+  //     mtvehl.set_sch(schctr);
+  //     mtvehl.set_rte(rtectr);
+  //     mtvehl.reset_lvn();
+  //   } else  // <-- a customer failed; trip cannot be served
+  //     return false;
+  // }
+  // cstout = cstsum - mtvehl.route().cost();
+  // schout = schctr;
+  // rteout = rtectr;
+  // return true;
 }
 
 SharedTripId TripVehicleGrouping::add_trip(const SharedTrip& trip) {
