@@ -39,7 +39,7 @@ test/build/
 test/run_tests
 example/greedy_insertion/greedy_insertion
 example/nearest_neighbor/nearest_neighbor
-example/bilateral_arrangement/bilateral_arrangement
+example/ba/ba
 example/baimproved/baimproved
 example/trip_vehicle_grouping/trip_vehicle_grouping
 example/kinetic_trees/kinetic_trees
