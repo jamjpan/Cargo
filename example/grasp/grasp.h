@@ -51,13 +51,18 @@ class GRASP : public RSAlgorithm {
 
   tick_t timeout_0;
 
+  dict<Customer, vec_t<MutableVehicleSptr>> candidates_index;
   dict<MutableVehicleSptr, vec_t<Customer>> candidates_list;
   dict<MutableVehicleSptr, dict<Customer, DistInt>> fitness;
   dict<MutableVehicleSptr, dict<Customer, vec_t<Stop>>> schedules;
   dict<MutableVehicleSptr, dict<Customer, vec_t<Wayp>>> routes;
 
-  Solution initialize(Grid &, vec_t<Customer>);
+  Solution initialize(Grid &, vec_t<Customer> &);
+  Solution replace(const Solution &, vec_t<Customer> &);
+  Solution swap(const Solution &);
+  Solution rearrange(const Solution &);
   Customer roulette(const dict<Customer, DistInt> &);
+  DistInt cost(const Solution &);
   void commit(const Solution &);
 
 };

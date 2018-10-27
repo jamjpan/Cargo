@@ -41,29 +41,69 @@ GRASP::GRASP()
 void GRASP::match() {
   this->beg_batch_ht();
   Solution best_solution = {};
+  DistInt best_cost = InfInt;
 
-  // Every solution gets its own grid and customers to make local changes.
   for (int count = 0; count < MAX_ITER; ++count) {
     Grid local_grid(this->grid_);  // deep copy
     vec_t<Customer> local_customers = this->customers();
 
     Solution initial_solution = this->initialize(local_grid, local_customers);
-    best_solution = initial_solution;  // for testing
+    DistInt local_cost = this->cost(initial_solution);
+    bool has_improvement = false;
+    Solution local_best = initial_solution;
+    print << "Initialized (cost=" << local_cost << ")" << std::endl;
+    do {
+      has_improvement = false;
+      Solution sol_replace      = this->replace(local_best, local_customers);
+      Solution sol_swap         = this->swap(local_best);
+      Solution sol_rearrange    = this->rearrange(local_best);
+      DistInt replace_cost      = this->cost(sol_replace);
+      DistInt swap_cost         = this->cost(sol_swap);
+      DistInt rearrange_cost    = this->cost(sol_rearrange);
+      if (replace_cost < local_cost) {
+        print << "\tAccepted replace (" << replace_cost << ")" << std::endl;
+        local_best = sol_replace;
+        local_cost = replace_cost;
+        has_improvement = true;
+        this->nreplace_++;
+      }
+      if (swap_cost < local_cost) {
+        print << "\tAccepted swap (" << swap_cost << ")" << std::endl;
+        local_best = sol_swap;
+        local_cost = swap_cost;
+        has_improvement = true;
+        this->nswap_++;
+      }
+      if (rearrange_cost < local_cost) {
+        print << "\tAccepted rearrange (" << rearrange_cost << ")" << std::endl;
+        local_best = sol_rearrange;
+        local_cost = rearrange_cost;
+        has_improvement = true;
+        this->nrearrange_++;
+      }
+    } while (has_improvement);
+    if (local_cost < best_cost) {
+      best_solution = local_best;
+      best_cost = local_cost;
+    }
   }
+  // best_solution = initial_solution;  // for testing
   this->commit(best_solution);
   this->end_batch_ht();
 }
 
-Solution GRASP::initialize(Grid& grid, vec_t<Customer> customers) {
+Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
   Solution initial_solution = {};
   this->candidates_list = {};
 
   // 1. List all the candidates for each customer
   vec_t<MutableVehicleSptr> vehicles = {};
   for (const Customer& cust : customers) {
+    this->candidates_index[cust] = {};
     vec_t<MutableVehicleSptr> candidates = grid.within(pickup_range(cust), cust.orig());
     for (const MutableVehicleSptr& cand : candidates) {
       vehicles.push_back(cand);
+      this->candidates_index.at(cust).push_back(cand);
       if (this->candidates_list.count(cand) == 0)
         this->candidates_list[cand] = {};
       this->candidates_list[cand].push_back(cust);
@@ -89,11 +129,11 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer> customers) {
         this->routes[cand][cust] = rte;
       }
       Customer cust_to_add = this->roulette(this->fitness.at(cand));
-      print << "roulette returned " << cust_to_add.id() << std::endl;
-      print << "all custs: ";
-      for (const auto& kv : this->fitness.at(cand))
-        print << kv.first.id() << std::endl;
-      print << std::endl;
+      // print << "roulette returned " << cust_to_add.id() << std::endl;
+      // print << "all custs: ";
+      // for (const auto& kv : this->fitness.at(cand))
+      //   print << kv.first.id() << std::endl;
+      // print << std::endl;
       sch = this->schedules.at(cand).at(cust_to_add);
       rte = this->routes.at(cand).at(cust_to_add);
       if (chktw(sch, rte) && chkcap(cand->capacity(), sch)) {
@@ -124,6 +164,233 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer> customers) {
   return initial_solution;
 }
 
+Solution GRASP::replace(const Solution& solution, vec_t<Customer>& customers) {
+  if (customers.size() == 0) {
+    print << "\tReplace found no unassigned" << std::endl;
+    return solution;
+  }
+  if (solution.size() == 0) {
+    print << "\tReplace found no assigned" << std::endl;
+    return solution;
+  }
+
+  // Only initialize(...) requires MutableVehicleSptr POINTERS because each
+  // physical vehicle can get updated during the initialize loop. WE COULD make
+  // a second Solution type that uses PHYSICAL VEHICLES, OR we could gymnastics
+  // the existing Solution type by using deep copies. BOTH METHODS are ugly.
+  // CAN WE DO BETTER????
+  Solution sol_replace = {};
+  for (const auto& kv : solution) {  // deep copy into new objects
+    MutableVehicleSptr copy = std::make_shared<MutableVehicle>(*(kv.first));
+    sol_replace[copy] = kv.second;
+  }
+
+  auto i = customers.begin();  // select a replacement
+  std::uniform_int_distribution<> n(0, customers.size() - 1);
+  std::advance(i, n(this->gen));
+  Customer replacement = *i;
+  print << "\tReplace got " << replacement.id() << " as replacement" << std::endl;
+
+  vec_t<MutableVehicleSptr>& candidates = candidates_index.at(replacement);
+  if (candidates.size() == 0) {
+    print << "\tReplacement " << replacement.id() << " has no candidates!" << std::endl;
+    return solution;
+  }
+  auto j = candidates.begin();
+  std::uniform_int_distribution<> m(0, candidates.size() - 1);
+  std::advance(j, m(this->gen));
+  MutableVehicle cand = **j;  // copy the physical vehicle
+
+  CustId to_replace = randcust(cand.schedule().data());
+  if (to_replace == -1) {
+    print << "\tVehicle " << cand.id() << " has no replaceables!" << std::endl;
+    return solution;
+  }
+  vec_t<Stop> new_sch;
+  vec_t<Wayp> new_rte;
+  sop_replace(cand, to_replace, replacement, new_sch, new_rte);
+  if (chkcap(cand.capacity(), new_sch) && chktw(new_sch, new_rte)) {
+    print << "\tReplacement feasible" << std::endl;
+    cand.set_sch(new_sch);
+    cand.set_rte(new_rte);
+    cand.reset_lvn();
+    // We need the following hacky gymnastics to update sol_replace
+    // with the updated cand
+    MutableVehicleSptr copy_cand = std::make_shared<MutableVehicle>(cand);
+    auto i = sol_replace.begin();
+    for (; i != sol_replace.end(); ++i) {
+      if (i->first->id() == cand.id()) {
+        sol_replace[copy_cand] = i->second;
+        sol_replace.erase(i);
+        break;
+      }
+    }
+    // Sometimes cand is NOT PART OF THE CURRENT SOLUTION.
+    // Just add it manually.
+    if (i == sol_replace.end()) {
+      vec_t<CustId> to_assign = {replacement.id()};
+      vec_t<CustId> to_unassign = {to_replace};
+      sol_replace[copy_cand] = std::make_pair(to_assign, to_unassign);
+    } else {
+      // Now we need to add replacement into assignments, and REMOVE to_replace
+      // from assignments OR add it to unassignments
+      vec_t<CustId>& to_assign = sol_replace.at(copy_cand).first;
+      vec_t<CustId>& to_unassign = sol_replace.at(copy_cand).second;
+      to_assign.push_back(replacement.id());
+      auto in_assignments = std::find(to_assign.begin(), to_assign.end(), to_replace);
+      if (in_assignments != to_assign.end())
+        to_assign.erase(in_assignments);
+      else
+        to_unassign.push_back(to_replace);
+    }
+    return sol_replace;
+  } else {
+    print << "\tReplacement not feasible" << std::endl;
+    return solution;
+  }
+}
+
+Solution GRASP::swap(const Solution& solution) {
+  if (solution.size() < 2) {
+    print << "\tSwap found not enough assignments" << std::endl;
+    return solution;
+  }
+
+  auto k1 = solution.begin();
+  auto k2 = solution.begin();
+  std::uniform_int_distribution<> n(0, solution.size() - 1);
+  while (k1 == k2) {
+    std::advance(k1, n(this->gen));
+    std::advance(k2, n(this->gen));
+  }
+
+  vec_t<CustId> k1_assignments = k1->second.first;
+  vec_t<CustId> k2_assignments = k2->second.first;
+  if (k1_assignments.empty() || k2_assignments.empty()) {
+    print << "\tSwap giving up" << std::endl;
+    return solution;
+  }
+  MutableVehicle vehl_1 = *k1->first;
+  MutableVehicle vehl_2 = *k2->first;
+
+  auto from_1 = k1_assignments.begin();
+  auto from_2 = k2_assignments.begin();
+  std::uniform_int_distribution<> m1(0, k1_assignments.size() - 1);
+  std::uniform_int_distribution<> m2(0, k2_assignments.size() - 1);
+  std::advance(from_1, m1(this->gen));
+  std::advance(from_2, m2(this->gen));
+
+  Customer cust_from_1 =
+    *(std::find_if(this->customers().begin(), this->customers().end(),
+      [&](const Customer& a) { return a.id() == *from_1; }));
+
+  Customer cust_from_2 =
+    *(std::find_if(this->customers().begin(), this->customers().end(),
+      [&](const Customer& a) { return a.id() == *from_2; }));
+
+  print << "\tSwapping " << cust_from_1.id() << " from " << vehl_1.id()
+        << " with " << cust_from_2.id() << " from " << vehl_2.id() << std::endl;
+
+  vec_t<Stop> sch_1, sch_2;
+  vec_t<Wayp> rte_1, rte_2;
+  sop_replace(vehl_1, *from_1, cust_from_2, sch_1, rte_1);
+  sop_replace(vehl_2, *from_2, cust_from_1, sch_2, rte_2);
+  if (chkcap(vehl_1.capacity(), sch_1) && chktw(sch_1, rte_1)
+   && chkcap(vehl_2.capacity(), sch_2) && chktw(sch_2, rte_2)) {
+    print << "\tSwap feasible" << std::endl;
+    vehl_1.set_sch(sch_1);
+    vehl_2.set_sch(sch_2);
+    vehl_1.set_rte(rte_1);
+    vehl_2.set_rte(rte_2);
+    vehl_1.reset_lvn();
+    vehl_2.reset_lvn();
+    k1_assignments.push_back(cust_from_2.id());
+    k2_assignments.push_back(cust_from_1.id());
+    auto in_k1 = std::find(k1_assignments.begin(), k1_assignments.end(), cust_from_1.id());
+    auto in_k2 = std::find(k2_assignments.begin(), k2_assignments.end(), cust_from_2.id());
+    k1_assignments.erase(in_k1);
+    k2_assignments.erase(in_k2);
+
+    Solution sol_swap = {};
+    for (const auto& kv : solution) {  // deep copy into new objects
+      if (kv.first->id() != vehl_1.id() && kv.first->id() != vehl_2.id()) {
+        MutableVehicleSptr copy = std::make_shared<MutableVehicle>(*(kv.first));
+        sol_swap[copy] = kv.second;
+      }
+    }
+    MutableVehicleSptr cand_1 = std::make_shared<MutableVehicle>(vehl_1);
+    MutableVehicleSptr cand_2 = std::make_shared<MutableVehicle>(vehl_2);
+    auto pair1 = std::make_pair(k1_assignments, k1->second.second);
+    auto pair2 = std::make_pair(k2_assignments, k2->second.second);
+    sol_swap[cand_1] = pair1;
+    sol_swap[cand_2] = pair2;
+    return sol_swap;
+  } else {
+    print << "\tSwap not feasible" << std::endl;
+    return solution;
+  }
+}
+
+Solution GRASP::rearrange(const Solution& solution) {
+  if (solution.empty()) {
+    print << "\tRearrange found empty solution" << std::endl;
+    return solution;
+  }
+
+  auto i = solution.begin();
+  std::uniform_int_distribution<> n(0, solution.size() - 1);
+  std::advance(i, n(this->gen));
+  MutableVehicle vehl = *(i->first);
+
+  print << "\tRearranging vehl " << vehl.id() << std::endl;
+
+  vec_t<Stop> schedule = vehl.schedule().data();
+  if (schedule.size() < 5) {
+    print << "\tNot enough to rearrange" << std::endl;
+  }
+
+  auto j = schedule.begin();
+  std::uniform_int_distribution<> m(1, schedule.size() - 2);
+  std::advance(j, m(this->gen));
+
+  if (j->owner() == (j+1)->owner()) {
+    if (j->type() == StopType::CustOrig && (j+1)->type() == StopType::CustDest)
+      std::iter_swap(j+1,j+2);
+    else {
+      print(MessageType::Error) << "adjacent stops not in order!?" << std::endl;
+      for (const Stop& stop : schedule)
+        print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
+      print << std::endl;
+      throw;
+    }
+  }
+  std::iter_swap(j,j+1);
+
+  vec_t<Wayp> route;
+  route_through(schedule, route);
+  if (chkcap(vehl.capacity(), schedule) && chktw(schedule, route)) {
+    print << "\tRearrange feasible" << std::endl;
+    vehl.set_sch(schedule);
+    vehl.set_rte(route);
+    vehl.reset_lvn();
+
+    Solution sol_rearrange = {};
+    for (const auto& kv : solution) {  // deep copy into new objects
+      if (kv.first->id() != vehl.id()) {
+        MutableVehicleSptr copy = std::make_shared<MutableVehicle>(*(kv.first));
+        sol_rearrange[copy] = kv.second;
+      }
+    }
+    MutableVehicleSptr cand = std::make_shared<MutableVehicle>(vehl);
+    auto pair = std::make_pair(i->second.first, i->second.second);
+    sol_rearrange[cand] = pair;
+    return sol_rearrange;
+  } else {
+    print << "\tRearrange not feasible" << std::endl;
+    return solution;
+  }
+}
+
 Customer GRASP::roulette(const dict<Customer, DistInt>& fitness) {
   if (fitness.size() == 0) {
     print(MessageType::Error) << "roulette called with empty fitness!" << std::endl;
@@ -147,6 +414,23 @@ Customer GRASP::roulette(const dict<Customer, DistInt>& fitness) {
       break;
   }
   return i->first;
+}
+
+DistInt GRASP::cost(const Solution& solution) {
+  DistInt sum = 0;
+  vec_t<CustId> matched = {};
+  for (const auto& kv : solution) {
+    for (const CustId& cid : kv.second.first)
+      matched.push_back(cid);
+    sum += kv.first->route().cost();
+  }
+  for (const Customer& cust : this->customers()) {
+    bool is_matched = (std::find(matched.begin(), matched.end(), cust.id()) != matched.end());
+    if (!is_matched)
+      sum += Cargo::basecost(cust.id());
+  }
+
+  return sum;
 }
 
 void GRASP::commit(const Solution& solution) {
