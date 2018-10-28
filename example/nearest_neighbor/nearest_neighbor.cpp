@@ -42,7 +42,8 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   this->candidates =                        // collect candidates
     this->grid_.within(pickup_range(cust), cust.orig()); // (functions.h, grid.h)
 
-  print << "Handling cust " << cust.id() << " (" << this->candidates.size() << " candidates)" << std::endl;
+  print << "Handling cust " << cust.id() << std::endl;
+  print << "\tGot " << this->candidates.size() << " candidates" << std::endl;
 
   /* Rank candidates (timeout) */
   std::priority_queue<rank_cand, vec_t<rank_cand>, decltype(cmp)>
@@ -51,6 +52,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     DistDbl cost = haversine(cand->last_visited_node(), cust.orig());
     rank_cand rc = std::make_pair(cost, cand);
     my_q.push(rc);
+    print << "\t\tAdded vehl " << cand->id() << " with cost " << cost << " to the queue" << std::endl;
     if(this->timeout(this->timeout_0))      // (rsalgorithm.h)
       break;
   }
@@ -61,6 +63,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     my_q.pop();                             // remove from queue
     best_vehl = std::get<1>(rc);
     sop_insert(best_vehl, cust, sch, rte);  // (functions.h)
+    print << "\tVehicle " << best_vehl->id() << " valid?" << std::endl;
     if (chktw(sch, rte)                     // check time window (functions.h)
      && chkcap(best_vehl->capacity(), sch)) // check capacity (functions.h)
       matched = true;                       // accept
@@ -70,7 +73,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
 
   /* Attempt commit to db */
   if (matched) {
-    print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
+    print(MessageType::Info)<< "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
     this->assign_or_delay(                  // (rsalgorithm.h)
         {cust.id()}, {}, rte, sch, *best_vehl, true);
   } else

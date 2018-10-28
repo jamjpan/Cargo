@@ -21,7 +21,7 @@
 
 using namespace cargo;
 
-typedef std::tuple<DistDbl, MutableVehicleSptr> rank_cand;
+typedef std::pair<DistDbl, MutableVehicleSptr> rank_cand;
 
 class NearestNeighbor : public RSAlgorithm {
  public:
