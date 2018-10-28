@@ -23,10 +23,11 @@
 
 // constructs a root gentree node
 //TreeNode ::TreeNode::TreeNode(ShortestPath *shortestPath, vertex *vert) {
-TreeNode::TreeNode(NodeId orig, NodeId dest) {
+TreeNode::TreeNode(NodeId orig, NodeId dest, NodeId owner) {
   parent = nullptr;
   this->loc = orig;
   this->dest = dest;
+  this->owner = owner;
 
   insert_uid = -1;
   start = true;
@@ -43,11 +44,17 @@ TreeNode::TreeNode(NodeId orig, NodeId dest) {
 //TreeNode ::TreeNode(TreeNode *parent, vertex *vert, bool start, long insert_uid,
 //                    double limit, bool pickupRemoved, double totalSlackTime,
 //                    ShortestPath *shortestPath) {
-TreeNode::TreeNode(TreeNode *parent, NodeId loc, bool start, long insert_uid,
+TreeNode::TreeNode(TreeNode *parent, NodeId loc, NodeId owner, bool start, long insert_uid,
                     double limit, bool pickupRemoved, double totalSlackTime) {
   // std::cout << "Construct TreeNode(" << loc << ") limit: " << limit << std::endl;
+  if (parent == nullptr) {
+    std::cout << "Created PARENTLESS-NODE at " << loc << "; limit=" << limit << std::endl;
+  } else {
+    std::cout << "Created node at " << loc << " (parent=" << parent->loc << "; limit=" << limit << ")" << std::endl;
+  }
   this->parent = parent;
   this->loc = loc;
+  this->owner = owner;
   this->dest = (parent != nullptr? parent->dest : -1);
   this->insert_uid = insert_uid;
   this->start = start;
@@ -64,6 +71,10 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, bool start, long insert_uid,
     absoluteTime = parent->absoluteTime + time;
     rootTime = parent->rootTime + time;
 
+    std::cout << "\tdist from " << parent->loc << " (parent) = " << time << std::endl;
+    std::cout << "\tabsolute dist(?) = " << absoluteTime << std::endl;
+    std::cout << "\tdist from root = " << rootTime << std::endl;
+
     // find our pairTime if this is a dropoff who's pair is still a sub-root
     // tree node
     if (!start && !pickupRemoved) {
@@ -73,13 +84,15 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, bool start, long insert_uid,
       }
 
       pairTime = absoluteTime - n->absoluteTime;
+      std::cout << "\tpairTime(?) = " << pairTime << std::endl;
     } else {
       pairTime = 0;
     }
   } else {
     time = 0;
     absoluteTime = 0;
-    rootTime = 0;
+    // rootTime = 0;
+    rootTime = Cargo::now();
     pairTime = 0;
   }
 }
@@ -89,11 +102,12 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, bool start, long insert_uid,
 //                    double limit, bool pickupRemoved, double time,
 //                    double pairTime, double totalSlackTime,
 //                    ShortestPath *shortestPath) {
-TreeNode::TreeNode(TreeNode *parent, NodeId loc, bool start, long insert_uid,
+TreeNode::TreeNode(TreeNode *parent, NodeId loc, NodeId owner, bool start, long insert_uid,
                     double limit, bool pickupRemoved, double time,
                     double pairTime, double totalSlackTime) {
   this->parent = parent;
   this->loc = loc;
+  this->owner = owner;
   this->dest = (parent != nullptr? parent->dest : -1);
   this->insert_uid = insert_uid;
   this->start = start;
@@ -123,38 +137,48 @@ TreeNode ::~TreeNode() {
 //                                       double limit, bool pickupRemoved,
 //                                       double totalSlackTime,
 //                                       ShortestPath *shortestPath) {
-TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, bool start,
+TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, NodeId owner, bool start,
                                       long insert_uid, double limit,
                                       bool pickupRemoved,
                                       double totalSlackTime) {
   //double time = shortestPath->shortestDistance(parent->vert, vert);
   double time = shortest_path_dist(parent->loc, loc);
 
+  std::cout << "copySafe " << loc << " into " << parent->loc << " is feasible?" << std::endl;
   if (start || pickupRemoved) {
+    std::cout << "\tstart or pickupRemoved, and " << parent->rootTime << " + " << time << " = " << parent->rootTime + time << " > " << limit << "?" << std::endl;
     if (parent->rootTime + time > limit) {
-      // std::cout << "safeConstructNode fail: (" << parent->rootTime << "+" << time << " > " << limit << ")" << std::endl;
+      std::cout << "safeConstructNode fail: (" << parent->rootTime << "+" << time << " > " << limit << ")" << std::endl;
       return NULL;
     } else {
+      std::cout << "\t\tsuccess!!" << std::endl;
       //return new TreeNode(parent, vert, start, insert_uid, limit, pickupRemoved,
       //                    time, 0, totalSlackTime, shortestPath);
-      return new TreeNode(parent, loc, start, insert_uid, limit, pickupRemoved,
+      return new TreeNode(parent, loc, owner, start, insert_uid, limit, pickupRemoved,
                           time, 0, totalSlackTime);
     }
   } else {
+    std::cout << "\tseems like " << loc << " is a destination" << std::endl;
     TreeNode *n = parent;
     while (n->insert_uid != insert_uid) {
       n = n->parent;
     }
 
-    double pairTime = time + parent->absoluteTime - n->absoluteTime;
+    // double pairTime = time + parent->absoluteTime - n->absoluteTime;
+    double pairTime = time + parent->absoluteTime;
 
+    // std::cout << "\tparTime = time + parent->absoluteTime - n->absoluteTime ==>> " << std::endl;
+    // std::cout << "\t\t" << time << " + " << parent->absoluteTime << " - " << n->absoluteTime << " > " << limit << "?" << std::endl;
+    std::cout << "\tparTime = time + parent->absoluteTime ==>> " << std::endl;
+    std::cout << "\t\t" << time << " + " << parent->absoluteTime << " > " << limit << "?" << std::endl;
     if (pairTime > limit) {
-      // std::cout << "safeConstructNode fail: (" << pairTime << " > " << limit << ")" << std::endl;
+      std::cout << "safeConstructNode fail: (" << pairTime << " > " << limit << ")" << std::endl;
       return NULL;
     } else {
+      std::cout << "\t\tsuccess!!!!!" << std::endl;
       //return new TreeNode(parent, vert, start, insert_uid, limit, pickupRemoved,
       //                    time, pairTime, totalSlackTime, shortestPath);
-      return new TreeNode(parent, loc, start, insert_uid, limit, pickupRemoved,
+      return new TreeNode(parent, loc, owner, start, insert_uid, limit, pickupRemoved,
                           time, pairTime, totalSlackTime);
     }
   }
@@ -169,14 +193,17 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, bool start,
  * vehicle's motion */
 void TreeNode ::step(double distanceTraveled, long pair) {
   if (limit > -1) {
-    rootTime -= distanceTraveled;
+    // rootTime -= distanceTraveled;    // dont need because we move it in handle_vehicle
 
-    if (start || pickupRemoved) {
-      limit -= distanceTraveled;
-    } else if (pair == insert_uid) {
-      pickupRemoved = true; // don't decrease pairtime for this one because the
-                            // current location (root) is now the pair
-    }
+    // if (start || pickupRemoved) {
+    //   limit -= distanceTraveled;
+    // } else if (pair == insert_uid) {
+    //   pickupRemoved = true; // don't decrease pairtime for this one because the
+    //                         // current location (root) is now the pair
+    // }
+    if (pair == insert_uid)
+      pickupRemoved = true;
+    limit -= distanceTraveled;
   }
 
   for (size_t i = 0; i < children.size(); i++) {
@@ -231,7 +258,7 @@ int TreeNode ::getNumberNodes() {
 // should delete
 bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
                           std::vector<TreeNode *> *doInsertPtr) {
-  // std::cout << "copyNodes into " << this->loc << std::endl;
+  std::cout << "copyNodes into " << this->loc << std::endl;
   // recursively copy nodes from other trees if requested
   if (sourcePtr != nullptr) {
       std::vector<TreeNode *> source = *sourcePtr;
@@ -239,8 +266,10 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
 
     for (size_t i = 0; i < source.size(); i++) {
       TreeNode *myCopy = source[i]->copy(this);
+      std::cout << "\tcopyNodes trying to insert " << myCopy->loc << std::endl;
 
       if (myCopy->feasible()) {
+        std::cout << "\t\tseems feasible" << std::endl;
         children.push_back(myCopy);
 
         if (!myCopy->copyNodes(&(source[i]->children), nullptr)) {
@@ -248,13 +277,13 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
           children.pop_back();
           delete myCopy;
           fail = true;
-          // std::cout << "child has no feasible branches" << std::endl;
+          std::cout << "\tchild has no feasible branches" << std::endl;
         }
       } else {
         // child is not feasible, delete
         delete myCopy;
         fail = true;
-        // std::cout << "myCopy->feasible() returned false" << std::endl;
+        std::cout << "\t\tinsert " << myCopy->loc << " into " << this->loc << " not feasible!" << std::endl;
       }
     }
 
@@ -269,13 +298,16 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
 
   // inserted new nodes into this tree if requested
   if (doInsertPtr != nullptr) {
+    std::cout << "\tcopyNodes now trying to insert NEW NODES" << std::endl;
     std::vector<TreeNode *> doInsert = *doInsertPtr;
 
     if (doInsert.size() > 0) {
       // take the first node to insert and put it directly underneath us
       TreeNode *insertCopy = doInsert[0]->copySafe(this);
+      std::cout << "\t\tinserting " << doInsert[0]->loc << std::endl;
 
       if (insertCopy) {
+        std::cout << "\t\t\tcopySafe seems to have worked" << std::endl;
         bool fail = false;
 
         // first, copy other branches to our inserted copy
@@ -283,11 +315,11 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
         if (children.empty() || checkSlack(insertCopy) || true) {
           if (!(insertCopy->copyNodes(&children, nullptr))) {
             fail = true;
-            // std::cout << "copy other branches failed" << std::endl;
+            std::cout << "copy other branches failed" << std::endl;
           }
         } else {
           fail = true;
-          // std::cout << "never reaches here" << std::endl;
+          std::cout << "never reaches here" << std::endl;
         }
 
         if (!fail && doInsert.size() >= 2) {
@@ -300,7 +332,7 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
 
           if (!insertCopy->copyNodes(nullptr, &doInsertClone)) {
             fail = true;
-            // std::cout << "doinsertclone fail" << std::endl;
+            std::cout << "doinsertclone fail" << std::endl;
           }
         }
 
@@ -332,9 +364,11 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
         // if our inserted copy is not feasible, no other path will be feasible
         //  since we have to insert the same node to our children.. assuming
         //  shortest paths are shortest
-        // std::cout << "insertcopy fail" << std::endl;
+        std::cout << "insertcopy fail" << std::endl;
         return false;
       }
+    } else {
+      std::cout << "\tno new nodes..." << std::endl;
     }
   }
 
@@ -343,11 +377,16 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
 
 // returns whether or not this node is feasible
 bool TreeNode ::feasible() {
-  if (start || pickupRemoved) {
-    return rootTime <= limit;
-  } else {
-    return pairTime <= limit;
-  }
+  std::cout << "Node at " << this->loc << " is feasible?" << std::endl;
+  // if (start || pickupRemoved) {
+  //   std::cout << "\tstart or pickupRemoved, and " << rootTime << " <= " << limit << "?" << std::endl;
+  //   return rootTime <= limit;
+  // } else {
+  //   std::cout << "\tno start nor pickupRemoved and " << pairTime << " <= " << limit << "?" << std::endl;
+  //   return pairTime <= limit;
+  // }
+  std::cout << "\t" << rootTime << " <= " << limit << "?" << std::endl;
+  return rootTime <= limit;
 }
 
 // this is this node's slack time
@@ -403,7 +442,7 @@ bool TreeNode ::checkSlack(TreeNode *newNode) {
 TreeNode *TreeNode ::copy(TreeNode *new_parent) {
   //TreeNode *copy = new TreeNode(new_parent, vert, start, insert_uid, limit,
   //                              pickupRemoved, totalSlackTime, shortestPath);
-  TreeNode *copy = new TreeNode(new_parent, loc, start, insert_uid, limit,
+  TreeNode *copy = new TreeNode(new_parent, loc, owner, start, insert_uid, limit,
                                 pickupRemoved, totalSlackTime);
   return copy;
 }
@@ -414,7 +453,7 @@ TreeNode *TreeNode ::copySafe(TreeNode *new_parent) {
   //TreeNode *copy =
   //    safeConstructNode(new_parent, vert, start, insert_uid, limit,
   //                      pickupRemoved, totalSlackTime, shortestPath);
-  TreeNode *copy = safeConstructNode(new_parent, loc, start, insert_uid, limit,
+  TreeNode *copy = safeConstructNode(new_parent, loc, owner, start, insert_uid, limit,
                                      pickupRemoved, totalSlackTime);
   return copy;
 }
@@ -423,7 +462,7 @@ TreeNode *TreeNode ::copySafe(TreeNode *new_parent) {
 TreeNode *TreeNode ::clone() {
   //TreeNode *clone = new TreeNode(parent, vert, start, insert_uid, limit,
   //                               pickupRemoved, totalSlackTime, shortestPath);
-  TreeNode *clone = new TreeNode(parent, loc, start, insert_uid, limit,
+  TreeNode *clone = new TreeNode(parent, loc, owner, start, insert_uid, limit,
                                  pickupRemoved, totalSlackTime);
 
   for (size_t i = 0; i < children.size(); i++) {
@@ -438,7 +477,7 @@ TreeNode *TreeNode ::clone() {
 
 void TreeNode ::print() {
   std::cout.precision(12);
-  std::cout << loc << ": " << rootTime << "/" << (start ? "pickup" : "dropoff")
+  std::cout << "Node belonging to " << owner << " at " << loc << ": " << rootTime << "/" << (start ? "pickup" : "dropoff")
        << "/" << limit << " [";
 
   for (size_t i = 0; i < children.size(); i++) {
@@ -455,8 +494,8 @@ void TreeNode ::print() {
 // ************************************************************************** //
 //TreeTaxiPath ::TreeTaxiPath(ShortestPath *shortestPath, vertex *curr)
 //    : TaxiPath(shortestPath, curr) {
-TreeTaxiPath ::TreeTaxiPath(NodeId orig, NodeId dest) {
-  root = new TreeNode(orig, dest);
+TreeTaxiPath ::TreeTaxiPath(NodeId orig, NodeId dest, NodeId owner) {
+  root = new TreeNode(orig, dest, owner);
   flag = false;
 
   nextPair = 0;
@@ -486,9 +525,9 @@ NodeId TreeTaxiPath::next() {
 // 2) Call cancel() to cancel the "test", and call push to accept it
 //
 //double TreeTaxiPath ::value(vertex *curr, vertex *source, vertex *dest) {
-double TreeTaxiPath ::value(NodeId source, NodeId dest,
+double TreeTaxiPath ::value(NodeId source, NodeId dest, NodeId owner,
                             DistInt pickup_rng, DistInt max_travel) {
-  // std::cout << "value(" /*<< loc << ","*/<< source << "," << dest << ")" << std::endl;
+  std::cout << "value(" /*<< loc << ","*/<< source << "," << dest << ")" << std::endl;
   flag = true;
 
   // root->loc = loc;
@@ -497,13 +536,15 @@ double TreeTaxiPath ::value(NodeId source, NodeId dest,
   //                              pickupConstraint, false, 0, shortestPathC);
   // TreeNode *pick =
   //    new TreeNode(nullptr, source, true, nextPair++, pickup_rng, false, 0);
-  TreeNode *pick =  // <<-- the `limit` parameter should be latest possible pickup time, converted to distance? just use max_travel for now
-      new TreeNode(nullptr, source, true, nextPair++, max_travel, false, 0);
+  // TreeNode *pick =  // <<-- the `limit` parameter should be latest possible pickup time, converted to distance? just use max_travel for now
+  //     new TreeNode(nullptr, source, true, nextPair++, max_travel, false, 0);
+   TreeNode *pick =
+       new TreeNode(nullptr, source, owner, true, nextPair++, pickup_rng, false, 0);
   //TreeNode *drop = new TreeNode(
   //    NULL, dest, false, pick->insert_uid,
   //    serviceConstraint * shortestPathC->shortestDistance(source, dest), false,
   //    0, shortestPathC);
-  TreeNode *drop = new TreeNode(nullptr, dest, false, pick->insert_uid,
+  TreeNode *drop = new TreeNode(nullptr, dest, owner, false, pick->insert_uid,
                                 max_travel, false, 0);
 
   std::vector<TreeNode *> doInsert;
@@ -519,6 +560,7 @@ double TreeTaxiPath ::value(NodeId source, NodeId dest,
 
   // update node values to reflect insertion
   double time = rootTemp->bestTime();
+  std::cout << "\time: " << time << std::endl;
   rootTemp->calculateTotalSlackTime();
 
   if (time != 0 && copyResult)
@@ -632,24 +674,30 @@ void TreeTaxiPath ::printTempPoints() {
   }
 }
 
-void TreeTaxiPath::printStopSequence(std::vector<std::pair<NodeId, bool>>& out) {
+void TreeTaxiPath::printStopSequence(std::vector<std::tuple<NodeId, NodeId, bool>>& out) {
   TreeNode* curr = root;
-  out.push_back({curr->loc,curr->start});
+  auto outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+  out.push_back(outbound);
   while (curr->children.size() > 0) {
     curr = curr->children[curr->getBestChild()];
-    out.push_back({curr->loc,curr->start});
+    outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+    out.push_back(outbound);
   }
-  out.push_back({curr->dest,curr->start}); // <-- at a leaf node now
+  outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+  out.push_back(outbound); // <-- at a leaf node now
 }
 
-void TreeTaxiPath::printTempStopSequence(std::vector<std::pair<NodeId, bool>>& out) {
+void TreeTaxiPath::printTempStopSequence(std::vector<std::tuple<NodeId, NodeId, bool>>& out) {
   TreeNode* curr = rootTemp;
-  out.push_back({curr->loc,curr->start});
+  auto outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+  out.push_back(outbound);
   while (curr->children.size() > 0) {
     curr = curr->children[curr->getBestChild()];
-    out.push_back({curr->loc,curr->start});
+    outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+    out.push_back(outbound);
   }
-  out.push_back({curr->dest,curr->start}); // <-- at a leaf node now
+  outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+  out.push_back(outbound); // <-- at a leaf node now
 }
 
 //double TreeTaxiPath ::euclidean(double ax, double ay, double bx, double by) {

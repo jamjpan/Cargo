@@ -24,6 +24,7 @@ class TreeNode {
               // point
   bool pickupRemoved; // true if the pickup has already been reached, in which
                       // limit should decrease for dropoff point
+  NodeId owner;
 
   TreeNode *parent;
   std::vector<TreeNode *> children;
@@ -51,19 +52,19 @@ class TreeNode {
   // constructs a root gentree node
   //TreeNode(ShortestPath *shortestPath, vertex *vert);
   // Cargo: vehicles have destinations specified. Param1: orig; param2: dest
-  TreeNode(NodeId, NodeId);
+  TreeNode(NodeId, NodeId, NodeId);
 
   // constructs a normal gentree node
   //TreeNode(TreeNode *parent, vertex *vert, bool start, long insert_uid,
   //         double limit, bool pickupRemoved, double totalSlackTime,
   //         ShortestPath *shortestPath);
-  TreeNode(TreeNode *, NodeId, bool, long, double, bool, double);
+  TreeNode(TreeNode *, NodeId, NodeId, bool, long, double, bool, double);
 
   // large constructor in case feasibility checking has already been done
   //TreeNode(TreeNode *parent, vertex *vert, bool start, long insert_uid,
   //         double limit, bool pickupRemoved, double time, double pairTime,
   //         double totalSlackTime, ShortestPath *shortestPath);
-  TreeNode(TreeNode *, NodeId, bool, long, double, bool, double, double,
+  TreeNode(TreeNode *, NodeId, NodeId, bool, long, double, bool, double, double,
            double);
 
   ~TreeNode();
@@ -75,7 +76,7 @@ class TreeNode {
   //                                   long insert_uid, double limit,
   //                                   bool pickupRemoved, double totalSlackTime,
   //                                   ShortestPath *shortestPath);
-  static TreeNode *safeConstructNode(TreeNode *, NodeId, bool, long, double,
+  static TreeNode *safeConstructNode(TreeNode *, NodeId, NodeId, bool, long, double,
                                      bool, double);
 
   // notify the gentree that the taxi has moved a certain distance
@@ -147,7 +148,7 @@ class TreeTaxiPath {
   // currNode is index of the vertex that taxi is currently at or heading towards
   //TreeTaxiPath(ShortestPath *shortestPath, vertex *curr);
   /* Cargo: vehicles have destinations; param1: orig, param2: dest */
-  TreeTaxiPath(NodeId, NodeId);
+  TreeTaxiPath(NodeId, NodeId, NodeId);
   ~TreeTaxiPath();
 
   //virtual void moved(double distance);
@@ -165,7 +166,7 @@ class TreeTaxiPath {
   /* Cargo: value() uses a global pickup/service constraint for source and
    * dest nodes. Cargo models each customer has its own constraints, based on
    * his time window. We modify value to accept specific constraints. */
-  double value(NodeId source, NodeId dest,
+  double value(NodeId source, NodeId dest, NodeId owner,
                DistInt pickup_rng, DistInt max_travel);
 
   // cancels the value() call
@@ -201,8 +202,8 @@ class TreeTaxiPath {
   void printTempPoints();
 
   // Output sequence along best path
-  void printStopSequence(std::vector<std::pair<NodeId, bool>> &);
-  void printTempStopSequence(std::vector<std::pair<NodeId, bool>> &);
+  void printStopSequence(std::vector<std::tuple<NodeId, NodeId, bool>> &);
+  void printTempStopSequence(std::vector<std::tuple<NodeId, NodeId, bool>> &);
 
   // calls getNumberNodes on the root node
   //virtual int getNumberNodes() {
