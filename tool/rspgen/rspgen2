@@ -4,6 +4,7 @@ James J. Pan <jamesjpan@outlook.com>
 """
 import pygraph.classes.graph
 import pygraph.algorithms.minmax
+import scipy.spatial
 import multiprocessing as mp
 import random
 import math
@@ -18,7 +19,7 @@ help_text = [
     "Vehicle capacity (default=2)",
     "Vehicle speed (default=10 m/s)",
     "Vehicle type (default=1(TAXI))",
-    "Maximum trip delay (default=8 min)",
+    "Maximum trip delay (default=6 min)",
     "Start hour (default=18)",
     "Sampling duration (default=30 min)",
     "Sampling scale (default=1)",
@@ -26,6 +27,7 @@ help_text = [
         ]
 
 nodes_index = {}
+nodes_reverse_index = {}
 customer_trips = []
 vehicle_trips = []
 
@@ -42,11 +44,15 @@ def rspgen2(args):
             w = haversine(u_lat, u_lng, v_lat, v_lng)
             if not G.has_node(u):
                 nodes_index[u] = (u_lng, u_lat)
+                nodes_reverse_index[(u_lng, u_lat)] = u
                 G.add_node(u, attrs=[("lng", u_lng), ("lat", u_lat)])
             if not G.has_node(v):
                 nodes_index[v] = (v_lng, v_lat)
+                nodes_reverse_index[(v_lng, v_lat)] = v
                 G.add_node(v, attrs=[("lng", v_lng), ("lat", v_lat)])
             G.add_edge((u,v), wt=w)
+    tree = scipy.spatial.KDTree(list(nodes_reverse_index))
+    print(len(tree.data))
     print("Complete!")
 
     sys.stdout.write("Extracting trips ({})\n\tStart hour: {}\n\tSampling duration: {}\n\tScale: {}\n\tVehicles: {}\n".format(
@@ -56,7 +62,7 @@ def rspgen2(args):
     start_time = int(args["hour"])*3600
     end_time = start_time + int(args["duration"])*60
     maximum_duration = end_time - start_time
-    scale_factor = int(args["scale"])
+    scale_factor = float(args["scale"])
     m_count = 1;
     with open(args["trips_file"]) as fn:
         for line in fn:
@@ -91,15 +97,21 @@ def rspgen2(args):
     sys.stdout.write("Completed (got {} vehicles)\n".format(len(raw_vehicles)))
 
     print("Map-matching customer nodes...")
-    pool = mp.Pool(processes=4)
-    result = list(pool.imap_unordered(align_trip, raw_customers))
-    customer_trips = [trip for trip in result if trip is not None]
+    #pool = mp.Pool(processes=4)
+    #result = list(pool.imap_unordered(align_trip, raw_customers))
+    customer_trips = []
+    for cust in raw_customers:
+        customer_trips.append(align_trip(cust, tree))
+    #customer_trips = [trip for trip in result if trip is not None]
     sys.stdout.write("Completed (mapped {} customers)\n".format(len(customer_trips)))
 
     print("Map-matching vehicle nodes...")
-    pool = mp.Pool(processes=4)
-    result = list(pool.imap_unordered(align_trip, raw_vehicles))
-    vehicle_trips = [trip for trip in result if trip is not None]
+    #pool = mp.Pool(processes=4)
+    #result = list(pool.imap_unordered(align_trip, raw_vehicles))
+    vehicle_trips = []
+    for vehl in raw_vehicles:
+        vehicle_trips.append(align_trip(vehl, tree))
+    #vehicle_trips = [trip for trip in result if trip is not None]
     sys.stdout.write("Completed (mapped {} vehicles)\n".format(len(vehicle_trips)))
 
     print("Writing trips...")
@@ -159,25 +171,16 @@ def haversine(lat1, lng1, lat2, lng2):
     return 2 * AVG_EARTH_RADIUS * math.asin(math.sqrt(d))
 
 
-def align_trip(trip):
-    #sys.stdout.write("Aligning ({},{})\n".format(trip[0][1], trip[0][0]))
-    #sys.stdout.write("Aligning ({},{})\n".format(trip[1][1], trip[1][0]))
-    #sys.stdout.flush()
-    mapped_o = nearest(trip[1][1], trip[1][0], nodes_index)
-    mapped_d = nearest(trip[2][1], trip[2][0], nodes_index)
-    if mapped_o != -1 and mapped_d != -1:
-        return (trip[0], mapped_o, mapped_d)
-
-
-def nearest(lat, lng, nodes_index):
-    d_min = float("inf")
-    near_node = -1
-    for node in nodes_index:
-        d = haversine(nodes_index[node][1],nodes_index[node][0],lat,lng)
-        if d < d_min and d <= MAP_TOLERANCE:
-            d_min = d
-            near_node = node
-    return near_node
+def align_trip(trip, tree):
+    # KDTree uses Manhattan distance; 9 is about 200 ft at this latitude
+    result = tree.query([[trip[1][0],trip[1][1]],[trip[2][0],trip[2][1]]], k=1, eps=9)
+    o_index = result[1][0]
+    d_index = result[1][1]
+    o_coords = tree.data[o_index]
+    d_coords = tree.data[d_index]
+    o = nodes_reverse_index[tuple(o_coords)]
+    d = nodes_reverse_index[tuple(d_coords)]
+    return (trip[0], o, d)
 
 
 def get_parser():
@@ -188,10 +191,10 @@ def get_parser():
     p.add_argument("-c", "--capacity", metavar="CAPACITY", type=int, help=help_text[1], default=2)
     p.add_argument("-s", "--speed", metavar="SPEED", type=int, help=help_text[2], default=10)
     p.add_argument("-t", "--type", metavar="TYPE", type=int, help=help_text[3], default=1)
-    p.add_argument("-d", "--delay", metavar="DELAY", type=int, help=help_text[4], default=8)
+    p.add_argument("-d", "--delay", metavar="DELAY", type=int, help=help_text[4], default=6)
     p.add_argument("-b", "--hour", metavar="HOUR", type=int, help=help_text[5], default=18)
     p.add_argument("-r", "--duration", metavar="DURATION", type=int, help=help_text[6], default=30)
-    p.add_argument("-x", "--scale", metavar="SCALE", type=int, help=help_text[7], default=1)
+    p.add_argument("-x", "--scale", metavar="SCALE", type=float, help=help_text[7], default=1)
     p.add_argument("-o", "--output", metavar="OUTPUT", help=help_text[8], default="a")
     return p;
 
