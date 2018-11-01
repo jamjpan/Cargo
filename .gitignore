@@ -33,7 +33,8 @@ lib/
 data/benchmark/temp
 data/benchmark/old
 tool/gtreebuilder/gtreebuilder
-tool/rspgen/rspgen
+tool/rspgen/rspgen_c
+tool/rspgen/data/
 tool/rspgen/script.sh
 test/build/
 test/run_tests
