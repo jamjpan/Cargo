@@ -198,6 +198,7 @@ int rspgen_c(const std::string& out) {
             trip.destination = point2node(trip.destination_lng, trip.destination_lat);
             if (trip.destination != -1) {
               if (opt_t == 1) {
+                trip.destination = -1;
                 trip.early = 0;
                 trip.late = -1;
               } else {
