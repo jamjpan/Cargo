@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+""" Authors:
+James J. Pan <jamesjpan@outlook.com>
+"""
+import pygraph.classes.graph
+import pygraph.algorithms.minmax
+import pygraph.algorithms.heuristics.chow
+import scipy.spatial
+import multiprocessing as mp
+import random
+import math
+import argparse
+import sys
+
+MAP_TOLERANCE=100;  # meters
+AVG_EARTH_RADIUS = 6371008 # meters
+vehicle_speed = 0 # set this once the arguments are loaded!
+
+help_text = [
+    "Number of vehicles (default=5000)",
+    "Vehicle capacity (default=2)",
+    "Vehicle speed (default=10 m/s)",
+    "Vehicle type (default=1(TAXI))",
+    "Maximum trip delay (default=6 min)",
+    "Start hour (default=18)",
+    "Sampling duration (default=30 min)",
+    "Sampling scale (default=1)",
+    "Output (default=a.instance)"
+        ]
+
+nodes_index = {}
+edges_index = {}
+nodes_reverse_index = {}
+customer_trips = []
+vehicle_trips = []
+G = pygraph.classes.graph.graph()
+h = pygraph.algorithms.heuristics.chow.chow(5931,10591,854)  # random centers
+
+def rspgen2(args):
+    print("Start")
+    global vehicle_speed
+    vehicle_speed = int(args["speed"])
+
+    sys.stdout.write("Loading the road network ({})\n".format(args["road_network_file"]))
+    with open(args["road_network_file"]) as fn:
+        for line in fn:
+            col = line.strip().split()
+            u, u_lng, u_lat = int(col[1]), float(col[3]), float(col[4])
+            v, v_lng, v_lat = int(col[2]), float(col[5]), float(col[6])
+            w = haversine(u_lat, u_lng, v_lat, v_lng)
+            if not G.has_node(u):
+                nodes_index[u] = (u_lng, u_lat)
+                edges_index[u] = {}
+                nodes_reverse_index[(u_lng, u_lat)] = u
+                G.add_node(u, attrs=[("lng", u_lng), ("lat", u_lat)])
+            if not G.has_node(v):
+                nodes_index[v] = (v_lng, v_lat)
+                edges_index[v] = {}
+                nodes_reverse_index[(v_lng, v_lat)] = v
+                G.add_node(v, attrs=[("lng", v_lng), ("lat", v_lat)])
+            G.add_edge((u,v), wt=w)
+            edges_index[u][v] = w
+            edges_index[v][u] = w
+    tree = scipy.spatial.KDTree(list(nodes_reverse_index))
+    global h
+    h.optimize(G)
+    print(len(tree.data))
+    print("Complete!")
+
+    sys.stdout.write("Extracting trips ({})\n\tStart hour: {}\n\tSampling duration: {}\n\tScale: {}\n\tVehicles: {}\n".format(
+        args["trips_file"], args["hour"], args["duration"], args["scale"], args["vehicles"]))
+    raw_customers = []
+    raw_vehicles = []
+    start_time = int(args["hour"])*3600
+    end_time = start_time + int(args["duration"])*60
+    maximum_duration = end_time - start_time
+    scale_factor = float(args["scale"])
+    m_count = 1;
+    with open(args["trips_file"]) as fn:
+        for line in fn:
+            col = line.strip().split(' ')
+            tm = col[2].split(':')
+            hour, minute, second = int(tm[0]), int(tm[1]), int(tm[2].split('.')[0])
+            timestamp = hour*3600 + minute*60 + second
+            if timestamp >= start_time:
+                diff = round((timestamp - start_time)/scale_factor)
+                if diff > maximum_duration:
+                    sys.stdout.write("Reached {} > {}\n".format(diff, maximum_duration))
+                    break;  # break out of the lines
+                o = (float(col[3]), float(col[4]))
+                d = (float(col[7]), float(col[8]))
+                raw_customers.append((diff,o,d))
+    sys.stdout.write("Completed (got {} customers)\n".format(len(raw_customers)))
+    with open(args["trips_file"]) as fn:
+        for line in reversed(list(fn)):
+            col = line.strip().split(' ')
+            tm = col[2].split(':')
+            hour, minute, second = int(tm[0]), int(tm[1]), int(tm[2].split('.')[0])
+            timestamp = hour*3600 + minute*60 + second
+            if timestamp < start_time:
+                diff = round((start_time - timestamp)/scale_factor)
+                if (m_count > args["vehicles"]):
+                    sys.stdout.write("Reached {} > {} vehicles\n".format(m_count, args["vehicles"]))
+                    break;
+                o = (float(col[3]), float(col[4]))
+                d = (float(col[7]), float(col[8]))
+                raw_vehicles.append((diff,o,d))
+                m_count += 1
+    sys.stdout.write("Completed (got {} vehicles)\n".format(len(raw_vehicles)))
+
+    print("Map-matching customer nodes...")
+    #pool = mp.Pool(processes=4)
+    #result = list(pool.imap_unordered(align_trip, raw_customers))
+    customer_trips = []
+    for cust in raw_customers:
+        result = align_trip(cust, tree)
+        if result is not None:
+            customer_trips.append(result)
+    #customer_trips = [trip for trip in result if trip is not None]
+    sys.stdout.write("Completed (mapped {} customers)\n".format(len(customer_trips)))
+
+    print("Map-matching vehicle nodes...")
+    #pool = mp.Pool(processes=4)
+    #result = list(pool.imap_unordered(align_trip, raw_vehicles))
+    vehicle_trips = []
+    for vehl in raw_vehicles:
+        result = align_trip(vehl, tree)
+        if result is not None:
+            vehicle_trips.append(result)
+    #vehicle_trips = [trip for trip in result if trip is not None]
+    sys.stdout.write("Completed (mapped {} vehicles)\n".format(len(vehicle_trips)))
+
+    vehicle_travel_times = {}
+    if args["type"] == 0:
+        print("Computing vehicle travel times...")
+        pool = mp.Pool(processes=4)
+        result = list(pool.imap_unordered(travel_time, vehicle_trips))
+        for res in result:
+            vehicle_travel_times[res[0]] = res[1]
+
+    print("Computing customer travel times...")
+    customer_travel_times = {}
+    pool = mp.Pool(processes=4)
+    result = list(pool.imap_unordered(travel_time, customer_trips))
+    for res in result:
+        customer_travel_times[res[0]] = res[1]
+
+    print("Writing trips...")
+    vehicle_trips = list(reversed(vehicle_trips))   # I'm going to access in backwards order
+    customer_trips = list(reversed(customer_trips))
+    vehicle_type=" RS" if args["type"] == 0 else " TAXI"
+    with open(args["output"] + ".instance", 'w') as fout:
+        fout.write(args["output"]+'\n'
+            + args["road_network_file"].split('/').pop().split('.rnet')[0] + vehicle_type + '\n'
+            + "VEHICLES " + str(len(vehicle_trips)) + '\n'
+            + "CUSTOMERS " + str(len(customer_trips)) + '\n\n'
+            + "ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n")
+        vehl_ids = [i for i in range(len(vehicle_trips))]
+        for vid in vehl_ids:
+            sys.stdout.write("Writing {}/{} vehicles\r".format(vid+2, len(vehicle_trips)))
+            sys.stdout.flush()
+            trip = vehicle_trips.pop()
+            trip_early = 0
+            trip_late = -1
+            if args["type"] == 0:
+                # shortest_paths = pygraph.algorithms.minmax.shortest_path(G, trip[1])
+                # trip_time = round(shortest_paths[1][trip[2]]/args["speed"])
+                trip_time = vehicle_travel_times[(trip[1],trip[2])]
+                trip_late = int(trip_early + trip_time + args["delay"]*60)
+                trip_early = trip[0]
+            trip_dest = -1 if args["type"] == 1 else trip[2]
+            fout.write('\t'.join([
+                str(vid+1), str(trip[1]), str(trip_dest), str(-1*int(args["capacity"])), str(trip_early), str(trip_late)
+                ])+'\n')
+        print("")
+        print("Done writing vehicles")
+        cust_ids = [i for i in range(len(customer_trips))]
+        for cid in cust_ids:
+            sys.stdout.write("Writing {}/{} customers\r".format(cid+1, len(customer_trips)))
+            sys.stdout.flush()
+            trip = customer_trips.pop()
+            # shortest_paths = pygraph.algorithms.minmax.shortest_path(G, trip[1])
+            # trip_time = round(shortest_paths[1][trip[2]]/args["speed"])
+            trip_time = customer_travel_times[(trip[1],trip[2])]
+            trip_early = trip[0]
+            trip_late = int(trip_early + trip_time + args["delay"]*60)
+            fout.write('\t'.join([
+                str(cid+vid+2), str(trip[1]), str(trip[2]), '1', str(trip_early), str(trip_late)
+                ])+'\n')
+        print("")
+        print("Done writing customers")
+    print("Done!")
+
+    print("")
+
+    print("All done!")
+
+
+def haversine(lat1, lng1, lat2, lng2):
+    lat1, lng1, lat2, lng2 = map(math.radians, (lat1, lng1, lat2, lng2))
+    lat = lat2 - lat1
+    lng = lng2 - lng1
+    d = math.sin(lat * 0.5) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(lng * 0.5) ** 2
+    return 2 * AVG_EARTH_RADIUS * math.asin(math.sqrt(d))
+
+
+def align_trip(trip, tree):
+    # KDTree uses Manhattan distance; 9 is about 200 ft at this latitude
+    result = tree.query([[trip[1][0],trip[1][1]],[trip[2][0],trip[2][1]]], k=1, eps=9)
+    o_index = result[1][0]
+    d_index = result[1][1]
+    o_coords = tree.data[o_index]
+    d_coords = tree.data[d_index]
+    if haversine(o_coords[1], o_coords[0], d_coords[1], d_coords[0]) < 500:
+      return None
+    o = nodes_reverse_index[tuple(o_coords)]
+    d = nodes_reverse_index[tuple(d_coords)]
+    return (trip[0], o, d)
+
+
+def travel_time(trip):
+    #shortest_paths = pygraph.algorithms.minmax.shortest_path(G, trip[1])
+    result = pygraph.algorithms.minmax.heuristic_search(G, trip[1], trip[2], h)
+    cost = edges_index[result[0]][result[1]]
+    for idx, val in list(enumerate(result[1:len(result)])):
+        cost += edges_index[result[idx]][val]
+    #return ((trip[1],trip[2]), round(shortest_paths[1][trip[2]]/vehicle_speed))
+    return ((trip[1],trip[2]), round(cost/vehicle_speed))
+
+
+def get_parser():
+    p = argparse.ArgumentParser(description="Generate RSP instances based on real-world trips.")
+    p.add_argument("road_network_file")
+    p.add_argument("trips_file")
+    p.add_argument("-m", "--vehicles", metavar="VEHICLES", type=int, help=help_text[0], default=5000)
+    p.add_argument("-c", "--capacity", metavar="CAPACITY", type=int, help=help_text[1], default=2)
+    p.add_argument("-s", "--speed", metavar="SPEED", type=int, help=help_text[2], default=10)
+    p.add_argument("-t", "--type", metavar="TYPE", type=int, help=help_text[3], default=1)
+    p.add_argument("-d", "--delay", metavar="DELAY", type=int, help=help_text[4], default=6)
+    p.add_argument("-b", "--hour", metavar="HOUR", type=int, help=help_text[5], default=18)
+    p.add_argument("-r", "--duration", metavar="DURATION", type=int, help=help_text[6], default=30)
+    p.add_argument("-x", "--scale", metavar="SCALE", type=float, help=help_text[7], default=1)
+    p.add_argument("-o", "--output", metavar="OUTPUT", help=help_text[8], default="a")
+    return p;
+
+
+if __name__ == "__main__":
+    rspgen2(vars(get_parser().parse_args()))
+

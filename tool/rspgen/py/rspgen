@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+""" Authors:
+Juntao Hu <hujuntao@buaa.edu.cn>
+James J. Pan <jamesjpan@outlook.com>
+"""
+import networkx as nx
+import random
+import math
+import argparse
+import sys
+
+def get_parser():
+    p = argparse.ArgumentParser(description="Generate RSP instances")
+    p.add_argument("rnet_file")
+    p.add_argument("num_customers")
+    p.add_argument("num_vehicles")
+    p.add_argument("type", choices=["SR","SC","R"])
+    p.add_argument("-m", "--min",   metavar="TRIP_MIN_D", type=int, help="min trip dist (default: 1,000 m)", default=1000)
+    p.add_argument("-f", "--freq",  metavar="FREQ", type=int, help="stream frequency (default: 5/s)", default=5)
+    p.add_argument("-s", "--speed", metavar="SPEED", type=int, help="vehicle speed (default: 10 m/s)", default=10)
+    p.add_argument("-d", "--delay", metavar="DELAY", type=int, help="max vehicle delay (default: 10 min)", default=10)
+    p.add_argument("-o", "--out",   metavar="OUTPUT", help="output dest (default: a.instance)", default="a")
+    p.add_argument("-i", "--input", metavar="INPUT", help="trips file (R only)")
+    p.add_argument("-b", "--begin", metavar="BEGIN_HOUR", help="start hour (R only)", choices=['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23'])
+    p.add_argument("-t", "--tolerance", metavar="TOLERANCE", help="tol for map-matching (def: 100m) (R only)", default=100)
+    return p;
+
+
+# Slow because of shortest_path_length()
+def write_prob(args, selected_pairs, G):
+    n, m = int(args["num_customers"]), int(args["num_vehicles"])
+    max_early = int((n+m)/int(args["freq"]))
+    with open(args["out"] + ".instance", 'w') as f_out:
+        f_out.write(args["out"] + '\n'
+                + args["rnet_file"].split('/').pop().split('.rnet')[0] + '\n'
+                + "VEHICLES " + args["num_vehicles"] + '\n'
+                + "CUSTOMERS " + args["num_customers"] + '\n'
+                + '\n'
+                + "ID\tORIGIN\tDEST\tQ\tEARLY\tLATE\n")
+        idxs = [i for i in range(n+m)]
+        random.shuffle(idxs)
+        id_count = 1
+        for idx in idxs:
+            sys.stdout.write('{}\{}\r'.format(id_count, (n+m))) # progress
+            sys.stdout.flush()
+            trip = selected_pairs.pop()
+            trip_time = round(nx.shortest_path_length(G,
+                source=trip[0], target=trip[1], weight='weight')/int(args["speed"]))
+            trip_early = random.randint(0, max_early)
+            # Random draw from (0, delay) is not producing many feasible trips:
+            # trip_late = trip_time + trip_early + random.randint(0, int(args["delay"])*60)
+            # How about fixing trip_late to delay? Will people complain?
+            trip_late = trip_time + trip_early + int(args["delay"])*60
+            # Choose a capacity
+            cap = 1;
+            if idx < m*.1:
+                cap = -7
+            elif idx < m*.6:
+                cap = -3
+            elif idx < m*.8:
+                cap = -2
+            elif idx < m:
+                cap = -1
+            f_out.write('\t'.join([str(id_count),
+                str(trip[0]), str(trip[1]), str(cap),
+                str(trip_early), str(trip_late)]) + '\n')
+            id_count += 1
+        print()
+        print("Done")
+
+
+def haversine(p1, p2):
+    radius = 6371000  # meters
+    dlat = math.radians(p2[1]-p1[1])
+    dlon = math.radians(p2[0]-p1[0])
+    a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(p1[1])) * \
+        math.cos(math.radians(p2[1])) * \
+        math.sin(dlon / 2) * math.sin(dlon / 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius * c
+
+
+def graph_from_rnet(filepath):
+    G = nx.Graph()
+    with open(filepath) as f_rnet:
+        for line in f_rnet:
+            col = line.strip().split()
+            from_id, from_x, from_y = int(col[1]), float(col[3]), float(col[4])
+            to_id, to_x, to_y = int(col[2]), float(col[5]), float(col[6])
+            G.add_node(from_id, coordinates=(from_x, from_y))
+            G.add_node(to_id, coordinates=(to_x, to_y))
+            w = haversine((from_x, from_y), (to_x, to_y))
+            G.add_edge(from_id, to_id, weight=w)
+    return G
+
+
+def random_node(G):
+    return random.sample(list(G.nodes()), 1)[0]
+
+
+def nearest_node(coord, tol, G):
+    d_min = float("inf")
+    near_node = -1
+    for node in list(G.nodes()):
+        d = haversine(G.node[node]['coordinates'], coord)
+        if d < d_min and d <= tol:
+            d_min = d
+            near_node = node
+    return near_node
+
+
+# The larger the constant under the fraction, the slower the decay.
+def exp_decay(x, c):
+    return math.exp(-x/c)
+# ------------------------------------------------------------------------------
+
+
+def load(args):
+    print("Loading the rnet")
+    G = graph_from_rnet(args["rnet_file"])
+    n, m = int(args["num_customers"]), int(args["num_vehicles"])
+    min_d = int(args["min"])
+    max_d = int(args["speed"])*int(args["delay"])*60
+    return (G, n, m, min_d, max_d)
+
+
+def pick_cluster_centers(k, min_d, G):
+    """ Returns k cluster centers
+    If k > 1, the centers will be at least min_d apart
+    """
+    print("Finding centers")
+    centers = []
+    while len(centers) < k:
+        print(len(centers))
+        c = random_node(G)
+        too_close = False
+        for i in centers:
+            h = haversine(G.node[c]['coordinates'],
+                          G.node[i]['coordinates'])
+            if h < min_d:
+                print("too close",h,"<",min_d)
+                too_close = True
+                break
+        if not too_close:
+            centers.append(c)
+    print("Done")
+    return centers
+
+
+def build_cluster(center, n, m, G, P, spread_factor):
+    """ Returns a cluster
+    The cluster is centered about center; the spread is determined by
+    the function P(dist, some_const); the cluster contains at least
+    n+m points
+    Format: cluster = [nodes]
+    """
+    print("Building cluster")
+
+    # Randomize the nodes
+    cands = list(G.nodes())
+    random.shuffle(cands)
+
+    cluster = []
+    while len(cluster) < (n+m):
+        for node in cands:
+            d = haversine(G.node[node]['coordinates'],
+                          G.node[center]['coordinates'])
+            if random.random() < P(d, spread_factor):
+                cluster.append(node)
+                if len(cluster) == m+n:
+                    break
+    print("Done")
+    return cluster
+
+
+def make_trips(cluster, min_d, max_d, n, m, G):
+    print("Making trips")
+    trips = []
+    while len(trips) < (n+m):
+        sys.stdout.write('{}\{}\r'.format(len(trips), (n+m))) # progress
+        sys.stdout.flush()
+        o = random.sample(cluster, 1)[0]
+        while True:
+            d = random_node(G)
+            h = haversine(G.node[o]['coordinates'],
+                          G.node[d]['coordinates'])
+            if (o != d and h > min_d and h < max_d):
+                break
+        trips.append((o,d))
+    print("Done")
+    return trips
+
+
+def synthetic_random(args):
+    """ Strategy for SR
+    The strategy here basically forms a "cluster", then assigns nodes in the
+    cluster as origins randomly. Destinations are chosen randomly from any
+    node in the graph (doesn't have to be in the cluster), but trip length
+    must be between min_d and max_d. The reason is because min_d is hard to
+    satisfy if d is also in the cluster.
+    """
+    G, n, m, min_d, max_d = load(args)
+    center  = pick_cluster_centers(1, min_d, G)[0]
+    cluster = build_cluster(center, n, m, G, exp_decay, 4000)
+    trips   = make_trips(cluster, min_d, max_d, n, m, G)
+    write_prob(args, trips, G)
+
+
+def synthetic_clustered(args):
+    """ Strategy for SC
+    The strategy is basically the same as for SR, except we make multiple
+    clusters instead of just one.
+    """
+    G, n, m, min_d, max_d = load(args)
+    nclus = random.randrange(2,6) # how many clusters?
+    print("nclus =", nclus)
+    centers = pick_cluster_centers(nclus, min_d, G)
+    print(centers)
+    clusters = []
+    for i in range(nclus):
+        # Clusters are tighter here than they are for SR
+        cluster = build_cluster(centers[i], n, m, G, exp_decay, 400)
+        clusters.append(cluster)
+
+    # Make trips
+    all_trips = []
+    for i in range(nclus):
+        trips = make_trips(clusters[i], min_d, max_d, math.ceil(n/nclus), math.ceil(m/nclus), G)
+        all_trips.append(trips)
+
+    folded = sum(all_trips, [])
+
+    # Trim to fit n+m
+    # (we used ceil before so will never be less)
+    random.shuffle(folded) # <-- so we aren't popping from the same cluster
+    while (len(folded) > n+m):
+        folded.pop()
+    write_prob(args, folded, G)
+
+
+def real_instance(args):
+    """ Strategy for R
+    Sample from trips file starting from "begin"
+    """
+    G, n, m, min_d, max_d = load(args)
+    i = 0
+    trips = []
+    with open(args["input"]) as f_trips:
+        begin = int(args["begin"])
+        while len(trips) != (n+m):
+            for line in f_trips:
+                sys.stdout.write('{}\{}\r'.format(i, (n+m)))
+                sys.stdout.flush()
+                col = line.strip().split(' ')
+                tm = col[2].split(':')
+                hr, mn, sc = int(tm[0]), int(tm[1]), int(tm[2])
+                base = begin*3600 # seconds
+                if hr >= begin:
+                    tmstmp = hr*3600+mn*60+sc
+                    diff = tmstmp - base
+                    o = (float(col[3]), float(col[4]))
+                    d = (float(col[7]), float(col[8]))
+                    near_o = nearest_node(o, int(args["tolerance"]), G)
+                    near_d = nearest_node(d, int(args["tolerance"]), G)
+                    if near_o != near_d and near_o != -1 and near_d != -1:
+                        h = haversine(G.node[near_o]['coordinates'],
+                                      G.node[near_d]['coordinates'])
+                        if h > min_d:
+                            trips.append((near_o, near_d))
+                            i += 1
+                if len(trips) == (n+m):
+                    break
+    write_prob(args, trips, G)
+
+
+def rspgen(args):
+    if args["type"] == "SR":
+        synthetic_random(args)
+    elif args["type"] == "SC":
+        synthetic_clustered(args)
+    elif args["type"] == "R":
+        real_instance(args)
+
+
+if __name__ == "__main__":
+    rspgen(vars(get_parser().parse_args()))
+
