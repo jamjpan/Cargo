@@ -74,7 +74,7 @@ int print_help() {
     << "\tfilename\toutput the generated instance\n"
     << "Options:\n"
     << "\n"
-    << "\t-m\tNumber of vehicles (default=5k)\n"
+    << "\t-m\tNumber of vehicles (default=5000)\n"
     << "\t-c\tVehicle capacity (default=3)\n"
     << "\t-s\tVehicle speed (default=10 m/s)\n"
     << "\t-t\tVehicle type (default=1(taxi))\n"
@@ -208,6 +208,7 @@ int rspgen_c(const std::string& out) {
               std::cout << count << "     \r";
               vehicles.push_back(trip);
               count++;
+              if (count > opt_m) break;
             }
           }
         }
