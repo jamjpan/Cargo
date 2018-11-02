@@ -25,7 +25,7 @@ short int opt_d = 6;
 short int opt_b = 18;
 short int opt_r = 30;
 short int opt_l = 1;
-short int opt_x = 1;
+float opt_x = 1.0;
 std::string opt_i = "data/bj5.rnet";
 std::string opt_e = "data/bj5.edges";
 std::string opt_f = "data/bj5.dat";
@@ -151,7 +151,7 @@ int rspgen_c(const std::string& out) {
       if (haversine(origin_lng, origin_lat, destination_lng, destination_lat) < MIN_TRIP_LENGTH)
         continue;
       Trip trip;
-      trip.early = timestamp2early(timestamp);
+      trip.early = timestamp2early(timestamp)/opt_x;
       std::cout << trip.early << "     \r";
       if (trip.early > opt_r*60) {
         std::cout << "\tDuration reached" << std::endl;
@@ -325,7 +325,6 @@ int main(int argc, char**argv) {
   if (argc < 2) return print_help();
   int i = 0;
   while (++i < argc - 1) {
-    std::cout << args.at(i) << std::endl;
     if (args.at(i) == "-m") {  // Number of vehicles
       opt_m = std::stoi(args.at(i+1));
     } else if (args.at(i) == "-c") {  // Vehicle capacity
@@ -341,9 +340,9 @@ int main(int argc, char**argv) {
     } else if (args.at(i) == "-r") {  // Sampling duration
       opt_r = std::stoi(args.at(i+1));
     } else if (args.at(i) == "-l") {  // Customer load
-        opt_l = std::stoi(args.at(i+1));
+      opt_l = std::stoi(args.at(i+1));
     } else if (args.at(i) == "-x") {  // Customer scaling
-      opt_x = std::stoi(args.at(i+1));
+      opt_x = std::stof(args.at(i+1));
     } else if (args.at(i) == "-i") {  // Input road network file
       opt_i = args.at(i+1);
     } else if (args.at(i) == "-e") {  // Input road network edges
