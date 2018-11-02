@@ -48,9 +48,9 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, NodeId owner, bool start, long 
                     double limit, bool pickupRemoved, double totalSlackTime) {
   // std::cout << "Construct TreeNode(" << loc << ") limit: " << limit << std::endl;
   if (parent == nullptr) {
-    std::cout << "Created PARENTLESS-NODE at " << loc << "; limit=" << limit << std::endl;
+    std::cout << "Created PARENTLESS-NODE at " << loc << " (owner=" << owner << "); limit=" << limit << std::endl;
   } else {
-    std::cout << "Created node at " << loc << " (parent=" << parent->loc << "; limit=" << limit << ")" << std::endl;
+    std::cout << "Created node at " << loc << " (parent=" << parent->loc << "; owner=" << owner << "); limit=" << limit << ")" << std::endl;
   }
   this->parent = parent;
   this->loc = loc;
@@ -298,13 +298,13 @@ bool TreeNode ::copyNodes(std::vector<TreeNode *> *sourcePtr,
 
   // inserted new nodes into this tree if requested
   if (doInsertPtr != nullptr) {
-    std::cout << "\tcopyNodes now trying to insert NEW NODES" << std::endl;
     std::vector<TreeNode *> doInsert = *doInsertPtr;
+    std::cout << "\tcopyNodes now trying to insert NEW NODES (" << doInsert.size() << ")" << std::endl;
 
     if (doInsert.size() > 0) {
       // take the first node to insert and put it directly underneath us
       TreeNode *insertCopy = doInsert[0]->copySafe(this);
-      std::cout << "\t\tinserting " << doInsert[0]->loc << std::endl;
+      std::cout << "\t\tinserting (" << doInsert[0]->owner << "|" << doInsert[0]->loc << ")" << std::endl;
 
       if (insertCopy) {
         std::cout << "\t\t\tcopySafe seems to have worked" << std::endl;
@@ -560,7 +560,7 @@ double TreeTaxiPath ::value(NodeId source, NodeId dest, NodeId owner,
 
   // update node values to reflect insertion
   double time = rootTemp->bestTime();
-  std::cout << "\time: " << time << std::endl;
+  std::cout << "\ttime: " << time << std::endl;
   rootTemp->calculateTotalSlackTime();
 
   if (time != 0 && copyResult)
@@ -683,7 +683,7 @@ void TreeTaxiPath::printStopSequence(std::vector<std::tuple<NodeId, NodeId, bool
     outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
     out.push_back(outbound);
   }
-  outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+  outbound = std::make_tuple(root->owner, curr->dest, curr->start);
   out.push_back(outbound); // <-- at a leaf node now
 }
 
@@ -696,7 +696,7 @@ void TreeTaxiPath::printTempStopSequence(std::vector<std::tuple<NodeId, NodeId, 
     outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
     out.push_back(outbound);
   }
-  outbound = std::make_tuple(curr->owner, curr->loc, curr->start);
+  outbound = std::make_tuple(root->owner, curr->dest, curr->start);
   out.push_back(outbound); // <-- at a leaf node now
 }
 

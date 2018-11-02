@@ -68,6 +68,8 @@ void KineticTrees::handle_customer(const Customer& cust) {
     // Speed-up heuristics: try only if vehicle has less than 8 stops
     if (cand->schedule().data().size() < 10) {
       print << "\t\tTrying " << cand->id() << std::endl;
+      print << "\t\tkt: ";
+      print_kt(this->kt_.at(cand->id()), false);
       for (const auto& sp : cand->schedule().data())
         print << "\t\t\t(" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
               << "|" << sp.late() << "|" << (int)sp.type() << ") " << std::endl;
@@ -288,7 +290,7 @@ void KineticTrees::print_kt(TreeTaxiPath* kt, bool temp) {
   if (!temp) kt->printStopSequence(seq);
   else       kt->printTempStopSequence(seq);
   for (const auto& tuple : seq)
-    print << std::get<1>(tuple) << " ";
+    print << "(" << std::get<0>(tuple) << "|" << std::get<1>(tuple) << ") ";
   print << std::endl;
 }
 

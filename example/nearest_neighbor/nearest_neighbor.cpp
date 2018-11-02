@@ -75,7 +75,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   if (matched) {
     print(MessageType::Info)<< "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
     this->assign_or_delay(                  // (rsalgorithm.h)
-        {cust.id()}, {}, rte, sch, *best_vehl, true);
+        {cust.id()}, {}, rte, sch, *best_vehl, false/*true*/);
   } else
     this->beg_delay(cust.id());             // (rsalgorithm.h)
 
@@ -110,7 +110,7 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-sm-1.instance";
   option.path_to_solution = "nearest_neighbor.sol";
   option.path_to_dataout  = "nearest_neighbor.dat";
   option.time_multiplier  = 1;

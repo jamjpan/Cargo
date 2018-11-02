@@ -35,6 +35,11 @@ GreedyInsertion::GreedyInsertion()
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
+  if (this->first) {
+    print << "batchsize=" << this->customers().size() << std::endl;
+    print << "timeout=" << this->timeout_ << std::endl;
+    this->first=false;
+  }
   this->beg_ht();
   this->reset_workspace();
   this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
@@ -65,7 +70,7 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   /* Attempt commit to db */
   if (matched) {
     print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
-    this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl);
+    this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl, true);
   } else {
     this->beg_delay(cust.id());
   }
@@ -83,6 +88,7 @@ void GreedyInsertion::end() {
 
 void GreedyInsertion::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
+  this->first = true;
   RSAlgorithm::listen(skip_assigned, skip_delayed);
 }
 
@@ -97,10 +103,11 @@ void GreedyInsertion::reset_workspace() {
 
 int main() {
   Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_roadnet  = "../../data/roadnetwork/cd1.rnet";
+  option.path_to_gtree    = "../../data/roadnetwork/cd1.gtree";
+  option.path_to_edges    = "../../data/roadnetwork/cd1.edges";
+  // option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_problem  = "../../tool/rspgen/a.instance";
   option.path_to_solution = "greedy_insertion.sol";
   option.path_to_dataout  = "greedy_insertion.dat";
   option.time_multiplier  = 1;
