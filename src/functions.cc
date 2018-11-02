@@ -323,7 +323,7 @@ DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
   vec_t<Wayp> mutrte;         // mutable route
 
   auto check = [&](DistInt cst) {
-    if (cst < mincst) {
+    if (cst <= mincst) {
       mincst = cst;
       schout = mutsch;
       rteout = mutrte;
