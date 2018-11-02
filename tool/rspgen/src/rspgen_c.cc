@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "include/gtree.h"
-#include "include/kdtree.h"
+#include "../include/gtree.h"
+#include "../include/kdtree.h"
 
 const int MAP_TOLERANCE = 100;  // meters
 const int MIN_TRIP_LENGTH = 500; // meters

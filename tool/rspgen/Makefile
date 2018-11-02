@@ -1,8 +1,8 @@
 all: rspgen_c.o gtree.o kdtree.o
 	g++ -std=c++11 -Wall -Wextra -g -O3 rspgen_c.o gtree.o kdtree.o -o rspgen_c -L/usr/local/lib -lmetis
 
-rspgen_c.o: rspgen_c.cc
-	g++ -std=c++11 -Wall -Wextra -g -c rspgen_c.cc
+rspgen_c.o: src/rspgen_c.cc
+	g++ -std=c++11 -Wall -Wextra -g -c src/rspgen_c.cc
 
 gtree.o: include/gtree.h src/gtree.cc
 	g++ -std=c++11 -Wall -Wextra -g -c src/gtree.cc
