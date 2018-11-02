@@ -35,7 +35,7 @@ data/benchmark/old
 tool/gtreebuilder/gtreebuilder
 tool/rspgen/rspgen_c
 tool/rspgen/data/
-tool/rspgen/script.sh
+tool/rspgen/script/
 test/build/
 test/run_tests
 example/greedy_insertion/greedy_insertion
