@@ -30,10 +30,10 @@ std::string opt_i = "data/bj5.rnet";
 std::string opt_e = "data/bj5.edges";
 std::string opt_f = "data/bj5.dat";
 std::string opt_g = "data/bj5.gtree";
+
 GTree::G_Tree gtree = GTree::get();
 kdtree* kd;
 
-// Types
 template <typename K, typename V> using dict = std::map<K, V>;
 template <typename T> using vec_t = std::vector<T>;
 
@@ -57,7 +57,6 @@ dict<int, vec_t<Trip>> trips_index = {};
 vec_t<Trip> customers = {};
 vec_t<Trip> vehicles = {};
 
-// Forward declarations
 int print_help();
 int rspgen_c(const std::string &);
 int point2node(const double &, const double &);
