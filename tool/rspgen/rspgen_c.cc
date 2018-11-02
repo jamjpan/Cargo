@@ -183,7 +183,11 @@ int rspgen_c(const std::string& out) {
       std::cout << "No trips match begin hour!" << std::endl;
       return 1;
     }
-    std::prev(i, 1);
+    if (i == trips_index.begin()) {
+      std::cout << "No trips available for vehicles!" << std::endl;
+      return 1;
+    }
+    i = std::prev(i, 1);
     int count = 1;
     while (count <= opt_m) {
       for (Trip& trip : i->second) {
@@ -213,11 +217,11 @@ int rspgen_c(const std::string& out) {
           }
         }
       }
+      i = std::prev(i, 1);
       if (i == trips_index.begin()) {
         std::cout << "No more trips!" << std::endl;
         return 1;
       }
-      std::prev(i, 1);
     }
     if (count < opt_m) {
       std::cout << "Not enough trips for vehicles!" << std::endl;
