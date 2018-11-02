@@ -227,10 +227,13 @@ int Cargo::step(int& ndeact) {
     /* Vehicle can visit more than one node in one stop, if its speed is large.
      * Handle each visited node. */
     while (nnd <= 0 && active) {  // O(|route|)
+      std::cout << "nnd=" << nnd << "; lvn=" << lvn << std::endl;
       lvn++;  // for each visited node, increment last-visited-node index
 
       /* Log position */
-      log_v_[vid] = rte.at(lvn).second;
+      if (log_v_.count(vid) == 0) log_v_[vid] = {};
+      // log_v_[vid] = rte.at(lvn).second;
+       log_v_[vid].push_back(rte.at(lvn).second);
 
       /* Did vehicle move to a stop?
        * (schedule[0] gives the node the vehicle is currently traveling to.
@@ -257,6 +260,7 @@ int Cargo::step(int& ndeact) {
           active = false;  // stops the while loops
           ndeact++;
           /* Log arrival */
+          std::cout << "Logged arrival at " << Cargo::now() << std::endl;
           log_a_.push_back(vid);
 
         /* Permanent taxi arrived at its "destination"
@@ -469,7 +473,6 @@ int Cargo::step(int& ndeact) {
 
   return nrows;  // return number of stepped vehicles
 }   // dblock exits scope and is released
-
 /* Returns cost of all vehicle routes, plus the base cost for each
  * unassigned customer trip */
 long int Cargo::total_route_cost() {
@@ -819,6 +822,8 @@ void Cargo::initialize(const Options& opt) {
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
 
+  this->log_v_ = {};
+
   for (const auto& kv : probset_.trips()) {
     for (const auto& trip : kv.second) {
       StopType stop_type = StopType::CustOrig;  // default
@@ -856,6 +861,9 @@ void Cargo::initialize(const Options& opt) {
           sch.push_back(a);
           sch.push_back(b);
         }
+
+        /* Log initial position */
+       log_v_[trip.id()] = {trip.orig()};
 
         /* Insert to database */
         sqlite3_bind_int(insert_vehicle_stmt, 1, trip.id());
@@ -982,6 +990,9 @@ void Cargo::initialize(const Options& opt) {
   dataout_file_ = opt.path_to_dataout;
 
   t_ = 0;  // Ready to begin!
+
+  Logger::put_v_message(log_v_);
+
   print << "\t\tDone" << std::endl;
   print << "Finished initialization sequence" << std::endl;
 }

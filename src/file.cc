@@ -146,12 +146,14 @@ void Logger::put_r_message(const vec_t<Wayp>& rte, const Vehicle& vehl) {
   push(item);
 }
 
-void Logger::put_v_message(const std::map<VehlId, NodeId>& curloc) {
-  std::string item = std::to_string(Cargo::now()) + " V";
-  for (const auto& kv : curloc)
-    item.append(" " + std::to_string(kv.first) + " " +
-                std::to_string(kv.second));
-  push(item);
+void Logger::put_v_message(const std::map<VehlId, vec_t<NodeId>>& curloc) {
+  for (const auto& kv : curloc) {
+    for (const NodeId& loc : kv.second) {
+      std::string item = std::to_string(Cargo::now()) + " V";
+      item.append(" " + std::to_string(kv.first) + " " + std::to_string(loc));
+      push(item);
+    }
+  }
 }
 
 void Logger::put_m_message(const vec_t<CustId>& cadd,

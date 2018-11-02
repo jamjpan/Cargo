@@ -58,7 +58,7 @@ class Logger {
    * put_p_message: customer pickup
    * put_d_message: customer dropoff */
   static void put_r_message(const vec_t<Wayp> &, const Vehicle &);
-  static void put_v_message(const std::map<VehlId, NodeId> &);
+  static void put_v_message(const std::map<VehlId, vec_t<NodeId>> &);
   static void put_m_message(const vec_t<CustId> &,
                             const vec_t<CustId> &,
                             const VehlId &);
