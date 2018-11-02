@@ -822,7 +822,7 @@ void Cargo::initialize(const Options& opt) {
     throw std::runtime_error(sqlite3_errmsg(db_));
   }
 
-  this->log_v_ = {};
+  // this->log_v_ = {};
 
   for (const auto& kv : probset_.trips()) {
     for (const auto& trip : kv.second) {
@@ -863,7 +863,7 @@ void Cargo::initialize(const Options& opt) {
         }
 
         /* Log initial position */
-       log_v_[trip.id()] = {trip.orig()};
+       // log_v_[trip.id()] = {trip.orig()};
 
         /* Insert to database */
         sqlite3_bind_int(insert_vehicle_stmt, 1, trip.id());
@@ -991,7 +991,7 @@ void Cargo::initialize(const Options& opt) {
 
   t_ = 0;  // Ready to begin!
 
-  Logger::put_v_message(log_v_);
+  // Logger::put_v_message(log_v_);
 
   print << "\t\tDone" << std::endl;
   print << "Finished initialization sequence" << std::endl;
