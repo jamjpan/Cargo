@@ -37,6 +37,9 @@ tool/rspgen/rspgen_c
 tool/rspgen/data/
 tool/rspgen/script/
 tool/rspgen/out/
+tool/solverify/solverify
+tool/solverify/data/
+tool/solverify/problem/
 test/build/
 test/run_tests
 example/greedy_insertion/greedy_insertion
