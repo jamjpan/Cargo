@@ -260,13 +260,15 @@ int rspgen_c(const std::string& out) {
       std::cout << "Could not open " << out << ".instance" << std::endl;
       return 1;
     }
+    auto const pos = out.find_last_of('/');
+    const auto leaf = out.substr(pos + 1);
     std::string rnet = "bj5";
     if (opt_i.find("cd1") != std::string::npos)
       rnet = "cd1";
     else if (opt_i.find("mny") != std::string::npos)
       rnet = "mny";
     f_out
-      << out << '\n'
+      << leaf << '\n'
       << rnet << (opt_t == 1 ? " TAXI" : " RS") << '\n'
       << "VEHICLES " << vehicles.size() << '\n'
       << "CUSTOMERS " << customers.size() << '\n' << '\n'
