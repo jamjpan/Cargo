@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -28,6 +29,8 @@ dict<int, int> assignments = {};
 dict<int, int> pickup_times = {};
 dict<int, int> dropoff_times = {};
 dict<int, int> arrival_times = {};
+dict<int, vec_t<std::pair<int, int>>> ranged_routes = {};
+dict<int, int> base_costs = {};
 
 int print_help();
 int solverify(const std::string &, const std::string &);
@@ -103,7 +106,9 @@ int solverify(const std::string& solfile, const std::string& datfile) {
   { int sum = 0;
     for (const auto& kv : customers) {
       const Trip& cust = kv.second;
-      sum += gtree.search(cust.origin, cust.destination);
+      int cost = gtree.search(cust.origin, cust.destination);
+      sum += cost;
+      base_costs[cust.id] = cost;
     }
     for (const auto& kv : vehicles) {
       const Trip& vehl = kv.second;
@@ -180,34 +185,96 @@ int solverify(const std::string& solfile, const std::string& datfile) {
   { int sum = 0;
     for (const auto& kv : vehicles) {
       const Trip& vehl = kv.second;
-      int local_sum = 0;
       const vec_t<int>& route = vehl.route;
       vec_t<std::pair<int, int>> ranged_route = {};
-      ranged_route.push_back(std::make_pair(0, route.front()));
-      for (size_t i = 0; i < route.size() - 1; ++i) {
+      ranged_route.push_back(std::make_pair(0, vehl.origin));
+      int local_sum = gtree.search(vehl.origin, route.front());
+      ranged_route.push_back(std::make_pair(local_sum, route.front()));
+      for (size_t i = 0; i < route.size()-1; ++i) {
         local_sum += gtree.search(route.at(i), route.at(i+1));
         ranged_route.push_back(std::make_pair(local_sum, route.at(i+1)));
       }
       // TODO When problems and sol file include variable vehicle speeds, edit this part below
-      float arrival = (float)local_sum/10.0;
+      int arrival = std::round(local_sum/10.0);  // make it precise whenever Cargo supports it
       if (vehl.late != -1 && arrival > vehl.late) {
         std::cout << "Vehicle " << vehl.id << " fails time window (" << arrival << " > " << vehl.late << ")" << std::endl;
         print_ranged_route(ranged_route);
         return 1;
       }
-      if (arrival > (float)arrival_times.at(vehl.id)+0.5  // rounding buffer
-       || arrival < (float)arrival_times.at(vehl.id)-0.5) {
+      if (arrival < arrival_times.at(vehl.id)
+       || arrival > arrival_times.at(vehl.id)+1) {
         std::cout << "Vehicle " << vehl.id << " arrival time (" << arrival_times.at(vehl.id) << ") mistmatches route (" << arrival << ")!" << std::endl;
         print_ranged_route(ranged_route);
         return 1;
       }
       sum += local_sum;
+      ranged_routes[vehl.id] = ranged_route;
     }
     if (sum != sol_cost) {
       std::cout << "Route costs (" << sum << ") mismatch solution cost (" << sol_cost << ")!" << std::endl;
       return 1;
     }
   }
+
+  std::cout << "Verifying assignments and times" << std::endl;
+  { for (const auto& kv : assignments) {
+      const int& vehl_id = kv.second;
+      const Trip& cust = customers.at(kv.first);
+      const vec_t<std::pair<int, int>>& ranged_route = ranged_routes.at(vehl_id);
+      auto i = std::find_if(ranged_route.begin(), ranged_route.end(), [&](const std::pair<int, int>& waypoint) {
+              int time_to_pickup = std::round(waypoint.first/10.0);
+              return time_to_pickup <= pickup_times.at(cust.id)+1 && time_to_pickup >= pickup_times.at(cust.id)-1; });
+      if (i == ranged_route.end()) {
+        std::cout << "Customer " << cust.id << " (" << cust.origin << ", " << cust.destination << ") matched but never picked up (vehl " << vehl_id << ")!" << std::endl;
+        print_ranged_route(ranged_route);
+        return 1;
+      }
+      int time_to_o = (int)(i->first/10.0);  // 10 is the vehicle speed
+      if (time_to_o < cust.early) {
+        std::cout << "Customer " << cust.id <<  " (" << cust.origin << ", " << cust.destination << ") picked up before early (" << time_to_o << " < " << cust.early << ")" << std::endl;
+        print_ranged_route(ranged_route);
+        return 1;
+      }
+      auto j = std::find_if(i, ranged_route.end(), [&](const std::pair<int, int>& waypoint) {
+              int time_to_dropoff= std::round(waypoint.first/10.0);
+              return time_to_dropoff <= dropoff_times.at(cust.id)+1 && time_to_dropoff >= dropoff_times.at(cust.id)-1; });
+      if (j == ranged_route.end()) {
+        std::cout << "Customer " << cust.id << " (" << cust.origin << ", " << cust.destination << ") matched but never dropped off (vehl " << vehl_id << ")!" << std::endl;
+        print_ranged_route(ranged_route);
+        return 1;
+      }
+      int time_to_d = (int)(j->first/10.0);
+      if (time_to_d > cust.late + 1) {
+        std::cout << "Customer " << cust.id << " (" << cust.origin << ", " << cust.destination << ") dropped off after late (" << time_to_d << " < " << cust.late << ")" << std::endl;
+        print_ranged_route(ranged_route);
+        return 1;
+      }
+    }
+  }
+
+  std::cout << "Verifying pickup and trip delays" << std::endl;
+  { int sum_pdel = 0;
+    for (const auto& kv : pickup_times)
+      sum_pdel += (kv.second - customers.at(kv.first).early);
+    int our_pdel = sum_pdel/n_custs;
+    if (our_pdel != pdel) {
+      std::cout << "Our pdel (" << our_pdel << ") != pdel (" << pdel << ")!" << std::endl;
+      return 1;
+    }
+    int sum_tdel = 0;
+    for (const auto& kv : dropoff_times) {
+      const int& cust_id = kv.first;
+      int delay = (kv.second - pickup_times.at(cust_id)) - (customers.at(cust_id).early + base_costs.at(cust_id)/10.0);
+      sum_tdel += delay;
+    }
+    int our_tdel = sum_tdel/n_custs;
+    if (our_tdel != tdel) {
+      std::cout << "Our tdel (" << our_tdel << ") != tdel (" << tdel << ")!" << std::endl;
+      return 1;
+    }
+  }
+
+  std::cout << "No problems. All done!" << std::endl;
 
   return 0;
 }
