@@ -86,11 +86,11 @@ int solverify(const std::string& solfile, const std::string& datfile) {
     Trip trip;
     while (f_prob >> trip.id >> trip.origin >> trip.destination >> trip.load
                   >> trip.early >> trip.late) {
-      if (trip.load < -1) vehicles[trip.id] = trip;
+      if (trip.load < 0) vehicles[trip.id] = trip;
       else customers[trip.id] = trip;
     }
     if (n_vehls != (int)vehicles.size()) {
-      std::cout << "Vehicles size mismatch!" << std::endl;
+      std::cout << "Vehicles size mismatch (" << n_vehls << " != " << (int)vehicles.size() << ")!" << std::endl;
       return 1;
     }
     if (n_custs != (int)customers.size()) {
