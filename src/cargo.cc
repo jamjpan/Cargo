@@ -979,6 +979,7 @@ void Cargo::initialize(const Options& opt) {
   tmin_ += matp_;
 
   static_mode = opt.static_mode;
+  strict_mode = opt.strict_mode;
 
   sqlite3_finalize(insert_vehicle_stmt);
   sqlite3_finalize(insert_customer_stmt);

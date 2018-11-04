@@ -99,8 +99,9 @@ bool RSAlgorithm::assign(
   const vec_t<CustId> & custs_to_del,
   const vec_t<Wayp>   & new_rte,
   const vec_t<Stop>   & new_sch,
-        MutableVehicle      & vehl,
-        bool                strict) {
+        MutableVehicle      & vehl) {
+//      bool                strict) {
+  bool strict = Cargo::strict_mode;
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);
 
   /* Get current vehicle properties */
@@ -309,11 +310,11 @@ bool RSAlgorithm::assign_or_delay(
   const vec_t<CustId> & custs_to_del,
   const vec_t<Wayp>   & new_rte,
   const vec_t<Stop>   & new_sch,
-        MutableVehicle      & vehl,
-        bool                strict) {
+        MutableVehicle      & vehl) {
+//      bool                strict) {
     bool success = false;
     if (this->assign(
-            custs_to_add, custs_to_del, new_rte, new_sch, vehl, strict)) {
+            custs_to_add, custs_to_del, new_rte, new_sch, vehl/*, strict*/)) {
       for (const CustId& cust_id : custs_to_add) {
         this->end_delay(cust_id);
       }

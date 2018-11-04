@@ -49,6 +49,9 @@ struct Options {
     // Set to TRUE for static mode
     bool static_mode = false;
 
+    // Set to TRUE to enable strict assignment mode
+    bool strict_mode = false;
+
     // Save in-memory database into file when simulation finishs
     Filepath path_to_save = "";
 };

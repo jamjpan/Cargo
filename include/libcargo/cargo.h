@@ -85,6 +85,7 @@ class Cargo {
   static std::mutex spmx;                   // protect the shortest-paths cache
   static std::mutex ofmx;                   // static mode mutex
   static bool static_mode;                  // static mode
+  static bool strict_mode;
 
  private:
   Message print;
