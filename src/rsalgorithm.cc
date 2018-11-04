@@ -398,9 +398,12 @@ RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
                   const vec_t<CustId> & cdel,
                         vec_t<Wayp>   & out_rte,
                         vec_t<Stop>   & out_sch) {
-  // HACKY BUT WORKS: IF cur_sch LOOKS LIKE IT IS A STANDBY-TAXI,
-  // THEN ALWAYS RETURN TRUE
-  if (cur_sch.size() == 2 && cur_sch.front().loc() == cur_sch.back().loc() && cur_sch.back().late() == -1) {
+  // HACKY BUT WORKS -- ALWAYS RETURN TRUE IF:
+  //   1. cur_sch LOOKS LIKE IT IS A STANDBY-TAXI
+  bool looks_like_a_taxi = (cur_sch.size() == 2 && cur_sch.front().loc() == cur_sch.back().loc() && cur_sch.back().late() == -1);
+  //   2. vehicle LOOKS LIKE IT HAS NOT MOVED
+  bool looks_like_hasnt_moved = (cur_rte.at(idx_lvn).second == cur_sch.front().loc());
+  if (looks_like_a_taxi || looks_like_hasnt_moved) {
     out_sch = new_sch;
     out_rte = new_rte;
     return SUCCESS;
