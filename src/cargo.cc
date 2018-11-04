@@ -227,7 +227,6 @@ int Cargo::step(int& ndeact) {
     /* Vehicle can visit more than one node in one stop, if its speed is large.
      * Handle each visited node. */
     while (nnd <= 0 && active) {  // O(|route|)
-      std::cout << "nnd=" << nnd << "; lvn=" << lvn << std::endl;
       lvn++;  // for each visited node, increment last-visited-node index
 
       /* Log position */
@@ -260,7 +259,6 @@ int Cargo::step(int& ndeact) {
           active = false;  // stops the while loops
           ndeact++;
           /* Log arrival */
-          std::cout << "Logged arrival at " << Cargo::now() << std::endl;
           log_a_.push_back(vid);
 
         /* Permanent taxi arrived at its "destination"
