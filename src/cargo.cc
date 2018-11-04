@@ -77,6 +77,7 @@ std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
 std::mutex Cargo::ofmx;
 bool Cargo::static_mode = false;
+bool Cargo::strict_mode = false;
 
 /* Shortest-paths cache: hash is stringified orig/dest pair */
 cache::lru_cache<std::string, vec_t<NodeId>>
