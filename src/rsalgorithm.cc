@@ -719,7 +719,8 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   if (this->customers_.size() > 0) {
     // Set default timeout (per customer!)
     this->timeout_ = (Cargo::static_mode
-          ? std::ceil((float)300000/this->customers_.size())
+          // ? std::ceil((float)300000/this->customers_.size())
+          ? InfInt
           : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
     // print << "Set timeout to " << this->timeout_ << std::endl;
     for (const auto& customer : this->customers_) {
@@ -728,7 +729,8 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
     }
     // Set default timeout (per batch!)
     this->timeout_ = (Cargo::static_mode
-          ? std::ceil((float)300000)
+          // ? std::ceil((float)300000)
+          ? InfInt
           : std::ceil((float)batch_time_*(1000.0)));
     this->match();
   }
