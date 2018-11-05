@@ -261,12 +261,19 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
 }
 
 bool chkcap(const Load& capacity, const vec_t<Stop>& sch) {
-  int q = capacity;  // REMAINING capacity
-  for (const Stop& stop : sch) {
+  DEBUG(3, { std::cout << "chkcap(2) got "; print_sch(sch); std::cout << std::endl; });
+  int q = capacity;  // REMAINING capacity (-load)
+  DEBUG(3, { std::cout << "chkcap(2) got capacity=" << capacity << std::endl; });
+  for (auto i = sch.begin()+1; i != sch.end()-1; ++i) {
+    const Stop& stop = *i;
     if (stop.type() == StopType::CustOrig) q -= 1;  // TODO: Replace 1 with customer's Load
     if (stop.type() == StopType::CustDest) q += 1;
+    DEBUG(3, {
+      std::cout << "chkcap(2) at " << stop.loc()
+                << "(" << ((int)stop.type() == 0 ? "pickup" : "dropoff") << ")"
+                << "; new q=" << q << std::endl; });
     if (q < 0) {
-      DEBUG(3, { std::cout << "chkcap failed (" << capacity << "): ";
+      DEBUG(3, { std::cout << "chkcap(2) failed (" << capacity << "): ";
         print_sch(sch);
       });
       return false;

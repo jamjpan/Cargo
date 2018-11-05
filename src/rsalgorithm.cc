@@ -120,6 +120,9 @@ bool RSAlgorithm::assign(
     return false;
   }
 
+  /* Get current capacity */
+  const int curcap = sqlite3_column_int(sov_stmt, 5)*(-1);
+
   /* Get current schedule */
   const Stop* schbuf =
     static_cast<const Stop*>(sqlite3_column_blob(sov_stmt, 11));
@@ -196,6 +199,15 @@ bool RSAlgorithm::assign(
     );
 
     DEBUG(3, { print << "assign() created re_sch:"; print_sch(re_sch); });
+
+    if (!chkcap(curcap, re_sch)) {
+      DEBUG(3, {
+        print(MessageType::Error)
+          << "assign() re_sch failed capacity check"
+          << std::endl; });
+      this->nrej_++;
+      return false;
+    }
 
     /* Re-compute the route and add the traveled distance to each new node */
     vec_t<Wayp> re_rte;
