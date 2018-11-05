@@ -22,7 +22,7 @@
 #include <tuple>
 #include <vector>
 
-#include "greedy_insertion.h"
+#include "gr.h"
 #include "libcargo.h"
 
 using namespace cargo;
@@ -30,26 +30,19 @@ using namespace cargo;
 const int BATCH = 30;
 
 GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("greedy_insertion", true), grid_(100) {
+    : RSAlgorithm("gr", true), grid_(100) {
   this->batch_time() = BATCH;
 }
 
 void GreedyInsertion::handle_customer(const Customer& cust) {
-  if (this->first) {
-    print << "batchsize=" << this->customers().size() << std::endl;
-    print << "timeout=" << this->timeout_ << std::endl;
-    this->first=false;
-  }
   this->beg_ht();
   this->reset_workspace();
   this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
 
-  print << "Handling cust " << cust.id() << " (" << this->candidates.size() << " candidates)" << std::endl;
-
   DistInt best_cost = InfInt;
 
   for (const MutableVehicleSptr& cand : this->candidates) {
-    // Speed heuristic: try only if vehicle's current schedule len < 8 customer stops
+    // Speed heuristic: try only if vehicle's current schedule has < 8 customer stops
     if (cand->schedule().data().size() < 10) {
       DistInt cost = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
       if (cost < best_cost) {
@@ -67,13 +60,13 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   if (best_vehl != nullptr)
     matched = true;
 
-  /* Attempt commit to db */
   if (matched) {
-    print << "Matched " << cust.id() << " with " << best_vehl->id() << std::endl;
-    this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl, true);
-  } else {
+    this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl);
+    best_vehl->set_rte(best_rte);
+    best_vehl->set_sch(best_sch);
+    best_vehl->reset_lvn();
+  } else
     this->beg_delay(cust.id());
-  }
 
   this->end_ht();
 }
@@ -88,7 +81,6 @@ void GreedyInsertion::end() {
 
 void GreedyInsertion::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
-  this->first = true;
   RSAlgorithm::listen(skip_assigned, skip_delayed);
 }
 
@@ -103,17 +95,17 @@ void GreedyInsertion::reset_workspace() {
 
 int main() {
   Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/cd1.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/cd1.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/cd1.edges";
-  // option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  option.path_to_problem  = "../../tool/rspgen/a.instance";
-  option.path_to_solution = "greedy_insertion.sol";
-  option.path_to_dataout  = "greedy_insertion.dat";
+  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
+  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
+  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
+   option.path_to_problem  = "../../data/benchmark/rs-m1k-c1.instance";
+  option.path_to_solution = "gr.sol";
+  option.path_to_dataout  = "gr.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode = true;
+  option.strict_mode = false;
+  option.static_mode = false;
   Cargo cargo(option);
   GreedyInsertion gr;
   cargo.start(gr);

@@ -42,9 +42,6 @@ class GreedyInsertion : public RSAlgorithm {
   bool matched;
   tick_t timeout_0;
 
-  // tmp diagnostic
-  bool first = true;
-
   void reset_workspace();
 };
 
