@@ -69,7 +69,7 @@ Schedule::Schedule(
 }
 
 const VehlId            & Schedule::owner()      const { return owner_; }
-const vec_t<Stop> & Schedule::data()       const { return data_; }
+const vec_t<Stop>       & Schedule::data()       const { return data_; }
 const Stop              & Schedule::at(SchIdx i) const { return data_.at(i); }
 const Stop              & Schedule::front()      const { return data_.front(); }
       size_t              Schedule::size()       const { return data_.size(); }
@@ -90,13 +90,13 @@ Route::Route(
   this->data_ = data;
 }
 
-const VehlId            & Route::owner()    const { return owner_; }
-const vec_t<Wayp> & Route::data()     const { return data_; }
-const NodeId     & Route::node_at(RteIdx i) const { return data_.at(i).second; }
-const DistInt    & Route::dist_at(RteIdx i) const { return data_.at(i).first; }
-const DistInt    & Route::cost()            const { return data_.back().first; }
-const Wayp       & Route::at(RteIdx i)      const { return data_.at(i); }
-      size_t       Route::size()            const { return data_.size(); }
+const VehlId      & Route::owner()           const { return owner_; }
+const vec_t<Wayp> & Route::data()            const { return data_; }
+const NodeId      & Route::node_at(RteIdx i) const { return data_.at(i).second; }
+const DistInt     & Route::dist_at(RteIdx i) const { return data_.at(i).first; }
+const DistInt     & Route::cost()            const { return data_.back().first; }
+const Wayp        & Route::at(RteIdx i)      const { return data_.at(i); }
+      size_t        Route::size()            const { return data_.size(); }
 
 void Route::print() const {
   for (const auto & wp : data_)
@@ -171,13 +171,13 @@ Vehicle::Vehicle(
   /* Initialize default route */
   Stop o(vid, oid, StopType::VehlOrig, et, lt, et);  // create origin
   Stop d(vid, did, StopType::VehlDest, et, lt);      // create destination
-  vec_t<Wayp> route_data{};                    // container for route
+  vec_t<Wayp> route_data{};                          // container for route
   route_through({o, d}, route_data, gtree);          // compute route
   Route rte(vid, route_data);                        // construct Route
 
-  /* Initialize default schedule */
-  Stop next_loc(  // create first stop equals vehicle's next location in route
-    vid, rte.at(1).second, StopType::VehlOrig, et, lt);
+  /* Initialize default schedule
+   * (first stop equals vehicle's next location in route) */
+  Stop next_loc(vid, rte.at(1).second, StopType::VehlOrig, et, lt);
   Schedule sch(vid, {next_loc, d});                  // construct Schedule
 
   this->route_ = rte;                                // set route
@@ -209,9 +209,7 @@ Vehicle::Vehicle(
   this->status_ = f;
 }
 
-const DistInt    & Vehicle::next_node_distance()    const
-{ return next_node_distance_; }
-
+const DistInt    & Vehicle::next_node_distance()    const { return next_node_distance_; }
 const Route      & Vehicle::route()                 const { return route_; }
 const Schedule   & Vehicle::schedule()              const { return schedule_; }
 const RteIdx     & Vehicle::idx_last_visited_node() const { return idx_last_visited_node_; }
@@ -221,8 +219,7 @@ const VehlStatus & Vehicle::status()                const { return status_; }
       Load         Vehicle::capacity()              const { return -load_; }
       DistInt      Vehicle::remaining()             const { return this->route().cost() - this->traveled(); }
 
-DistInt Vehicle::traveled() const
-{
+DistInt Vehicle::traveled() const {  // is this ever used??
   DistInt traveled = this->route_.dist_at(this->idx_last_visited_node_);
   NodeId lvn = this->route_.node_at(this->idx_last_visited_node_);
   NodeId next = this->route_.node_at(this->idx_last_visited_node_+1);
@@ -230,8 +227,7 @@ DistInt Vehicle::traveled() const
   return traveled + (base - this->next_node_distance_);
 }
 
-void Vehicle::print() const
-{
+void Vehicle::print() const {
   std::cout
     << "Vehicle "      << this->id()      << ":\n"
     << "origin     \t" << this->orig()    << "\n"
@@ -256,32 +252,33 @@ void Vehicle::print() const
 
 
 /* MutableVehicle ------------------------------------------------------------*/
-MutableVehicle::MutableVehicle(  // copy constructor
-  const Vehicle & veh) : Vehicle(veh)
-{}
+MutableVehicle::MutableVehicle(const Vehicle & veh) : Vehicle(veh) {}  // copy cstor
 
-void MutableVehicle::set_rte(const vec_t<Wayp> & r)
-{
+void MutableVehicle::set_rte(const vec_t<Wayp> & r) {
   Route route(this->id_, r);
   set_rte(route);
 }
 
-void MutableVehicle::set_rte(const Route & route) { this->route_ = route; }
+void MutableVehicle::set_rte(const Route & route) {
+  this->route_ = route;
+}
 
-void MutableVehicle::set_sch(const vec_t<Stop> & s)
-{
+void MutableVehicle::set_sch(const vec_t<Stop> & s) {
   Schedule schedule(this->id_, s);
   set_sch(schedule);
 }
 
-void MutableVehicle::set_sch(const Schedule & schedule)
-{ this->schedule_ = schedule; }
+void MutableVehicle::set_sch(const Schedule & schedule) {
+  this->schedule_ = schedule;
+}
 
-void MutableVehicle::set_nnd(const DistInt & sync_nnd)
-{ this->next_node_distance_ = sync_nnd; }
+void MutableVehicle::set_nnd(const DistInt & sync_nnd) {
+  this->next_node_distance_ = sync_nnd;
+}
 
-void MutableVehicle::set_lvn(const RteIdx & lvn)
-{ this->idx_last_visited_node_ = lvn; }
+void MutableVehicle::set_lvn(const RteIdx & lvn) {
+  this->idx_last_visited_node_ = lvn;
+}
 
 void MutableVehicle::reset_lvn()    { this->idx_last_visited_node_ = 0; }
 void MutableVehicle::incr_queued()  { this->queued_++; }  // when is "queued" used??
@@ -293,13 +290,13 @@ ProblemSet::ProblemSet() {}
 std::string & ProblemSet::name()            { return name_; }
 std::string & ProblemSet::road_network()    { return road_network_; }
 
-void ProblemSet::set_trips(
-    const std::unordered_map<ErlyTime,
-    vec_t<Trip>> & trips)
-{ trips_ = trips; }
+void ProblemSet::set_trips(const std::unordered_map<ErlyTime, vec_t<Trip>> & trips) {
+  trips_ = trips;
+}
 
-const std::unordered_map<ErlyTime,vec_t<Trip>> & ProblemSet::trips() const
-{ return trips_; }
+const std::unordered_map<ErlyTime,vec_t<Trip>> & ProblemSet::trips() const {
+  return trips_;
+}
 
 } // namespace cargo
 
