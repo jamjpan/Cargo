@@ -284,7 +284,7 @@ void MutableVehicle::set_lvn(const RteIdx & lvn)
 { this->idx_last_visited_node_ = lvn; }
 
 void MutableVehicle::reset_lvn()    { this->idx_last_visited_node_ = 0; }
-void MutableVehicle::incr_queued()  { this->queued_++; }
+void MutableVehicle::incr_queued()  { this->queued_++; }  // when is "queued" used??
 void MutableVehicle::decr_queued()  { this->queued_--; }
 
 

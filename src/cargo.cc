@@ -575,6 +575,7 @@ SimlDur Cargo::avg_trip_delay() {
 
   for (const CustId& cust_id : keys) {
     int delay = (dest_t.at(cust_id) - orig_t.at(cust_id)) - (trip_costs_.at(cust_id)/original_speed_);
+    if (delay == -1) delay = 0;  // hack to account for rounding error
     std::cout << "Cust " << cust_id << " arrived at o: " << orig_t.at(cust_id)
               << "; d: " << dest_t.at(cust_id)
               << "; base: " << trip_costs_.at(cust_id)
