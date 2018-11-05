@@ -4,14 +4,10 @@
 \subsection{Obtaining a Copy}
 
 There are two ways to obtain a copy.
+\begin{itemize}
+    \item Add release package to GitHub.
 
-\subsubsection{Release Package}
-
-Add release package to GitHub.
-
-\subsubsection{Sourcecode}
-
-Clone the master \code{libcargo} git repository to your local computer:
+    \item Clone the master \code{libcargo} git repository to your local computer:
 \begin{verbatim}
 git clone https://github.com/jamjpan/Cargo.git
 \end{verbatim}
@@ -19,22 +15,23 @@ git clone https://github.com/jamjpan/Cargo.git
 The source repository is roughly 78 MB. It is large because it includes problem
 instances and road networks. The problem instances together are 40.2 MB, and
 the road networks are 34.1 MB.
+\end{itemize}
 
 \subsection{Installing}
 
-The \code{libcargo} library is a \emph{static} library; it does not need
-to be installed onto your computer. But, it does need to be built in order to
-be usable. The release package already contains the pre-built library, but if
-you would like to build the library yourself, or if the pre-built version does
-not work on your machine, follow the instructions below to build from source.
+The \code{libcargo} library is a \emph{static} library; it does not need to be
+installed. But, it does need to be built in order to be usable. The release
+package already contains the pre-built library, but if you would like to build
+the library yourself, or if the pre-built version does not work on your
+machine, follow the instructions below to build from source.
 
 \subsection{Building from Source}
 
-Make sure your machine satisfies the prerequisites (Section~\ref{2. Prerequisites}).
-Then, \code{cd} into the \code{Cargo} directory and type \code{make}. The
-command will create two directories, \code{build} and \code{lib}. Temporary
-build objects will be stored in the former, and the library will be in the latter;
-its filename will be \code{libcargo.a}.
+Make sure your machine satisfies the prerequisites (Section~\ref{2.
+Prerequisites}).  Then, \code{cd} into the \code{Cargo} directory and type
+\code{make}. The command will create two directories, \code{build} and
+\code{lib}. the first directory stores temporary build objects, and the
+second stores the library with filename \code{libcargo.a}.
 
 \subsection{Usage}
 
