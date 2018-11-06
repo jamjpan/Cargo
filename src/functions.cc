@@ -243,7 +243,12 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
         throw;
       }
     }
-    float eta = (j->first-rte.front().first)/(float)Cargo::vspeed() + Cargo::now();
+    // There is a small error in KT when it computes limits because it does not
+    // know the "surplus" distance when a vehicle passes a node. So we truncate
+    // the ETA here in order to accept the error.  If we're unlucky, the max
+    // error is the distance a vehicle travels in 1 sec (10 meters).
+    //float eta = (j->first-rte.front().first)/(float)Cargo::vspeed() + Cargo::now();
+    int eta = (j->first-rte.front().first)/Cargo::vspeed() + Cargo::now();
     if (i->late() != -1 && i->late() < eta) {
       DEBUG(3, { std::cout << "chktw() found "
         << "i->late(): " << i->late()
