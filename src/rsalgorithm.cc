@@ -150,9 +150,9 @@ bool RSAlgorithm::assign(
 
   SyncResult synced = sync(
     new_rte, cur_rte, cur_lvn, new_sch, cur_sch, cadd, cdel, out_rte, out_sch);
-  if (synced == SUCCESS)
+  if (synced == SUCCESS) {
     DEBUG(3, { print(MessageType::Info) << "sync succeeded." << std::endl; });
-  if (synced != SUCCESS) {
+  } else {
     if (strict) {
       DEBUG(3, {
         print(MessageType::Error)
