@@ -6,17 +6,17 @@ LDL = -ldl
 METIS = -L/usr/local/lib -lmetis
 CARGO = -L../../lib -lcargo
 
-OBJS = kinetic_trees.o treeTaxiPath.o
+OBJS = kt.o treeTaxiPath.o
 
 all: $(OBJS)
-	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o kinetic_trees
+	$(CXX) $(LFLAGS) $(OBJS) $(CARGO) $(PTHREAD) $(METIS) $(LDL) -o kt
 
-kinetic_trees.o: ../../lib/libcargo.a kinetic_trees.h kinetic_trees.cpp
-	$(CXX) $(CFLAGS) kinetic_trees.cpp
+kt.o: ../../lib/libcargo.a kt.h kt.cpp
+	$(CXX) $(CFLAGS) kt.cpp
 
 treeTaxiPath.o: include/treeTaxiPath.h src/treeTaxiPath.cpp
 	$(CXX) $(CFLAGS) src/treeTaxiPath.cpp
 
 clean:
-	rm *.o kinetic_trees
+	rm *.o kt
 

@@ -47,8 +47,7 @@ example/nn/nn
 example/ba/ba
 example/baimproved/baimproved
 example/trip_vehicle_grouping/trip_vehicle_grouping
-example/kinetic_trees/kinetic_trees
-example/kinetic_trees/kinetic_trees.cpp.test
+example/kt/kt
 example/no_algorithm/no_algorithm
 example/simulated_annealing/simulated_annealing
 example/population_annealing_far/population_annealing_far

@@ -20,15 +20,15 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#include <algorithm> /* std::find_if */
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <exception>
-#include <iostream> /* std::endl */
+#include <iostream>
 #include <thread>
 #include <vector>
 
-#include "kinetic_trees.h"
+#include "kt.h"
 #include "treeTaxiPath.h"
 #include "libcargo.h"
 
@@ -37,7 +37,7 @@ using namespace cargo;
 const int BATCH = 30;
 
 KineticTrees::KineticTrees()
-    : RSAlgorithm("kinetic_trees", false), grid_(100) {
+    : RSAlgorithm("kt", true), grid_(100) {
   this->batch_time() = BATCH;
 }
 
@@ -51,18 +51,15 @@ void KineticTrees::handle_customer(const Customer& cust) {
   DistInt range = pickup_range(cust);
   this->beg_ht();
   this->reset_workspace();
-  this->candidates =
-    this->grid_.within(range, cust.orig());
+  this->candidates = this->grid_.within(range, cust.orig());
 
   Stop cust_orig = Stop(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   Stop cust_dest = Stop(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
 
-  DistInt max_travel = (cust.late()-Cargo::now())*Cargo::vspeed();  // distance from root
+  //DistInt max_travel = (cust.late()-Cargo::now())*Cargo::vspeed();  // distance from root
   DistInt best_cst = InfInt;
 
-  print << "At t=" << Cargo::now() << ", computed max_travel=" << max_travel << " for cust " << cust.id() << std::endl;
-
-  // print << "\tGot " << this->candidates.size() << " candidates." << std::endl;
+  //print << "At t=" << Cargo::now() << ", computed max_travel=" << max_travel << " for cust " << cust.id() << std::endl;
 
   for (const MutableVehicleSptr& cand : this->candidates) {
     // Speed-up heuristics: try only if vehicle has less than 8 stops
@@ -75,8 +72,10 @@ void KineticTrees::handle_customer(const Customer& cust) {
               << "|" << sp.late() << "|" << (int)sp.type() << ") " << std::endl;
 
       // Function value() returns cost from cand's next stop to end
+      //DistInt new_cost = this->kt_.at(cand->id())->value(  // here is the bottleneck
+      //  cust.orig(), cust.dest(), cust.id(), range/Cargo::vspeed(), max_travel/Cargo::vspeed());
       DistInt new_cost = this->kt_.at(cand->id())->value(  // here is the bottleneck
-        cust.orig(), cust.dest(), cust.id(), range, max_travel);
+        cust.orig(), cust.dest(), cust.id(), range/Cargo::vspeed()+Cargo::now(), cust.late());
 
       print << "\t\t\tGot new route cost " << new_cost << " and sch: ";
       print_kt(this->kt_.at(cand->id()), true);
@@ -85,18 +84,25 @@ void KineticTrees::handle_customer(const Customer& cust) {
       print << "\t\t\tCurrent sch: ";
       for (const Stop& a : cand->schedule().data())
         print << a.loc() << " ";
-      // print << std::endl;
+      print << std::endl;
       if (new_cost > -1) {
-        DistInt cst = new_cost + cand->next_node_distance();
-        cst -= cand->remaining();
+        DistInt cst = new_cost - (cand->route().cost() - cand->route().dist_at(cand->idx_last_visited_node()+1));
         // print << "\t\tVehl " << cand->id() << ": " << cst << std::endl;
-        if (cst < 0) {
+        if (cst < -1) {  // 1 m buffer due to rounding error
           // HACK: recompute the current cost and subtract from new cost
-          vec_t<Wayp> hack_rte = {};
-          route_through(cand->schedule().data(), hack_rte);
-          cst = new_cost = hack_rte.back().first;
-          // print(MessageType::Error) << "Got negative detour!" << std::endl;
-          // throw;
+          // vec_t<Wayp> hack_rte = {};
+          // route_through(cand->schedule().data(), hack_rte);
+          // cst = new_cost = hack_rte.back().first;
+          print(MessageType::Error) << "Got negative detour!" << std::endl;
+          print << "detour: " << cst << std::endl;
+          print << "Vehicle " << cand->id() << std::endl;
+          print << "new cost: " << new_cost << std::endl;
+          print << "current cost: " << cand->route().cost() << std::endl;
+          print << "last-visited node index: " << cand->idx_last_visited_node() << std::endl;
+          print << "last-visited node: " << cand->last_visited_node() << std::endl;
+          print << "dist at last-visited node+1: " << cand->route().dist_at(cand->idx_last_visited_node()+1) << std::endl;
+          print << "next-node dist: " << cand->next_node_distance() << std::endl;
+          throw;
         }
         if (cst < best_cst) {
           print << "kt+: ";
@@ -106,7 +112,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
           for (const Stop& a : sch)
             print << a.loc() << " ";
           print << std::endl;
-          // VALIDATE
+          // VALIDATE (remove in production)
           route_through(sch, rte);
           if (!chktw(sch, rte)) {
             print << "FAILS TIME CONSTRAINTS" << std::endl;
@@ -142,8 +148,7 @@ void KineticTrees::handle_customer(const Customer& cust) {
       wp.first += head;
     // best_rte.insert(best_rte.begin(),
     //       best_vehl->route().at(best_vehl->idx_last_visited_node()));
-    if (this->assign(
-      {cust.id()}, {}, best_rte, best_sch, *best_vehl, false/*true*/)) {
+    if (this->assign({cust.id()}, {}, best_rte, best_sch, *best_vehl)) {  // <-- best_vehl is synced now if assign succeeds
       // print << "\tAssigned." << std::endl;
       this->kt_.at(best_vehl->id())->push();
       print << "kt* (unsync): ";
@@ -201,8 +206,10 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
 
   // Synchronize kinetic tree distances with elapsed time
   int dur = Cargo::now() - last_modified_.at(vehl.id());
-  if (dur > 0)
-    this->kt_.at(vehl.id())->moved(dur * Cargo::vspeed());
+  if (dur > 0) {
+    //this->kt_.at(vehl.id())->moved(dur*Cargo::vspeed());
+    this->kt_.at(vehl.id())->moved(dur);
+  }
 
   // Update last-modified
   this->last_modified_[vehl.id()] = Cargo::now();
@@ -219,6 +226,12 @@ void KineticTrees::listen(bool skip_assigned, bool skip_delayed) {
 }
 
 void KineticTrees::sync_kt(TreeTaxiPath* kt, const std::vector<Stop>& cur_sch) {
+  print << "sync_kt() got kt:" << std::endl;
+  print_kt(kt, false);
+  print << "sync_kt() got cur_sch:" << std::endl;
+  for (const auto& sp : cur_sch)
+    print << "(" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
+          << "|" << sp.late() << "|" << (int)sp.type() << ") " << std::endl;
   std::vector<std::tuple<NodeId, NodeId, bool>> seq;
   kt->printStopSequence(seq);
   // Why did I add +1 here? Answer: the first stop in the schedule is fixed?
@@ -229,6 +242,8 @@ void KineticTrees::sync_kt(TreeTaxiPath* kt, const std::vector<Stop>& cur_sch) {
     i = kt->next();
   }
   kt->move(cur_sch.begin()->loc());
+  print << "sync_kt() got new kt:" << std::endl;
+  print_kt(kt, false);
 }
 
 std::vector<Stop> KineticTrees::kt2sch(const MutableVehicleSptr& cand,
@@ -299,13 +314,14 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-sm-1.instance";
-  option.path_to_solution = "kinetic_trees.sol";
-  option.path_to_dataout  = "kinetic_trees.dat";
+  option.path_to_problem  = "../../data/benchmark/rs-m1k-c1.instance";
+  option.path_to_solution = "kt.sol";
+  option.path_to_dataout  = "kt.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode=true;
+  option.strict_mode = false;
+  option.static_mode = false;
   Cargo cargo(option);
   KineticTrees kt;
   cargo.start(kt);

@@ -34,7 +34,8 @@ TreeNode::TreeNode(NodeId orig, NodeId dest, NodeId owner) {
 
   time = 0;
   absoluteTime = 0;
-  rootTime = 0;
+  //rootTime = 0;
+  rootTime = Cargo::now();
   pickupRemoved = false;
   limit = -1;
   totalSlackTime = 0;
@@ -65,20 +66,25 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, NodeId owner, bool start, long 
                                          // later
   //this->shortestPath = shortestPath;
 
-  if (parent) {
+  if (this->parent != nullptr) {
     //time = shortestPath->shortestDistance(parent->vert, vert);
-    time = shortest_path_dist(parent->loc, loc); // <-- libcargo/distance.h
-    absoluteTime = parent->absoluteTime + time;
-    rootTime = parent->rootTime + time;
+    time = shortest_path_dist(this->parent->loc, loc)/Cargo::vspeed(); // <-- libcargo/distance.h
+    absoluteTime = this->parent->absoluteTime + time;
 
-    std::cout << "\tdist from " << parent->loc << " (parent) = " << time << std::endl;
-    std::cout << "\tabsolute dist(?) = " << absoluteTime << std::endl;
-    std::cout << "\tdist from root = " << rootTime << std::endl;
+    // Really hacky...
+    if ((this->parent)->parent == nullptr)
+      rootTime = time + Cargo::now();
+    else
+      rootTime = this->parent->rootTime + time;
+
+    std::cout << "\ttime from " << this->parent->loc << " (parent) = " << time << std::endl;
+    std::cout << "\tabsolute time(?) = " << absoluteTime << std::endl;
+    std::cout << "\ttime from root = " << rootTime << std::endl;
 
     // find our pairTime if this is a dropoff who's pair is still a sub-root
     // tree node
     if (!start && !pickupRemoved) {
-      TreeNode *n = parent;
+      TreeNode *n = this->parent;
       while (n->insert_uid != insert_uid) {
         n = n->parent;
       }
@@ -91,9 +97,10 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, NodeId owner, bool start, long 
   } else {
     time = 0;
     absoluteTime = 0;
-    // rootTime = 0;
+    //rootTime = 0;
     rootTime = Cargo::now();
     pairTime = 0;
+    std::cout << "\troot time = " << rootTime << std::endl;
   }
 }
 
@@ -142,11 +149,11 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, NodeId owner
                                       bool pickupRemoved,
                                       double totalSlackTime) {
   //double time = shortestPath->shortestDistance(parent->vert, vert);
-  double time = shortest_path_dist(parent->loc, loc);
+  double time = shortest_path_dist(parent->loc, loc)/Cargo::vspeed();
 
   std::cout << "copySafe " << loc << " into " << parent->loc << " is feasible?" << std::endl;
   if (start || pickupRemoved) {
-    std::cout << "\tstart or pickupRemoved, and " << parent->rootTime << " + " << time << " = " << parent->rootTime + time << " > " << limit << "?" << std::endl;
+    std::cout << "\tstart or pickupRemoved, and " << parent->rootTime << " + " << time << " = " << parent->rootTime + time << " < " << limit << "?" << std::endl;
     if (parent->rootTime + time > limit) {
       std::cout << "safeConstructNode fail: (" << parent->rootTime << "+" << time << " > " << limit << ")" << std::endl;
       return NULL;
@@ -165,12 +172,14 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, NodeId owner
     }
 
     // double pairTime = time + parent->absoluteTime - n->absoluteTime;
-    double pairTime = time + parent->absoluteTime;
+    //double pairTime = time + parent->absoluteTime;
+    double pairTime = time + parent->rootTime;
 
     // std::cout << "\tparTime = time + parent->absoluteTime - n->absoluteTime ==>> " << std::endl;
     // std::cout << "\t\t" << time << " + " << parent->absoluteTime << " - " << n->absoluteTime << " > " << limit << "?" << std::endl;
-    std::cout << "\tparTime = time + parent->absoluteTime ==>> " << std::endl;
-    std::cout << "\t\t" << time << " + " << parent->absoluteTime << " > " << limit << "?" << std::endl;
+    //std::cout << "\tparTime = time + parent->absoluteTime ==>> " << std::endl;
+    std::cout << "\tparTime = time + parent->rootTime ==>> " << std::endl;
+    std::cout << "\t\t" << time << " + " << parent->rootTime << " = " << time + parent->rootTime << " < " << limit << "?" << std::endl;
     if (pairTime > limit) {
       std::cout << "safeConstructNode fail: (" << pairTime << " > " << limit << ")" << std::endl;
       return NULL;
@@ -191,7 +200,8 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, NodeId owner
 // points whose corresponding pickup has been reached
 /** Adjusts the "time" properties of each node and their children to match
  * vehicle's motion */
-void TreeNode ::step(double distanceTraveled, long pair) {
+//void TreeNode ::step(double distanceTraveled, long pair) {
+void TreeNode ::step(double elapsed, long pair) {
   if (limit > -1) {
     // rootTime -= distanceTraveled;    // dont need because we move it in handle_vehicle
 
@@ -203,11 +213,14 @@ void TreeNode ::step(double distanceTraveled, long pair) {
     // }
     if (pair == insert_uid)
       pickupRemoved = true;
-    limit -= distanceTraveled;
+    //limit -= (distanceTraveled/Cargo::vspeed());
   }
 
+  this->rootTime += elapsed;
+
   for (size_t i = 0; i < children.size(); i++) {
-    children[i]->step(distanceTraveled, pair);
+    //children[i]->step(distanceTraveled, pair);
+    children[i]->step(elapsed, pair);
   }
 }
 
@@ -222,7 +235,9 @@ double TreeNode ::bestTime() {
     bestChild = -1;
 
     for (size_t i = 0; i < children.size(); i++) {
-      double childBestTime = children[i]->bestTime() + children[i]->time;
+      double child_best = children[i]->bestTime();
+      double child_time = children[i]->time;
+      double childBestTime = child_best + child_time;
 
       if (childBestTime < bestTime) {
         bestTime = childBestTime;
@@ -231,6 +246,8 @@ double TreeNode ::bestTime() {
           //std::cout << "errrrrr " << children[i]->bestTime() << "," << children[i]->time << "," << bestTime << std::endl;
       }
     }
+    std::cout << "bestTime() " << bestTime << " from child(o=" << children.at(bestChild)->owner << "; loc=" << children.at(bestChild)->loc
+              << "); child_best=" << children.at(bestChild)->bestTime() << "; child_time=" << children.at(bestChild)->time << std::endl;
 
     return bestTime;
   } else { // <-- no children; we are at a leaf node
@@ -239,7 +256,7 @@ double TreeNode ::bestTime() {
     if (this->dest == -1)
       return 0;
     else
-      return shortest_path_dist(this->loc, this->dest);
+      return shortest_path_dist(this->loc, this->dest)/Cargo::vspeed();
 
   }
 }
@@ -386,7 +403,7 @@ bool TreeNode ::feasible() {
   //   return pairTime <= limit;
   // }
   std::cout << "\t" << rootTime << " <= " << limit << "?" << std::endl;
-  return rootTime <= limit;
+  return rootTime < limit;
 }
 
 // this is this node's slack time
@@ -428,8 +445,8 @@ bool TreeNode ::checkSlack(TreeNode *newNode) {
     //        shortestPath->shortestDistance(newNode->vert, children[i]->vert) -
     //        children[i]->time) {
     if (children[i]->totalSlackTime >
-        shortest_path_dist(loc, newNode->loc) +
-        shortest_path_dist(newNode->loc, children[i]->loc) -
+        shortest_path_dist(loc, newNode->loc)/Cargo::vspeed() +
+        shortest_path_dist(newNode->loc, children[i]->loc)/Cargo::vspeed() -
         children[i]->time) {
       return true;
     }
@@ -462,17 +479,30 @@ TreeNode *TreeNode ::copySafe(TreeNode *new_parent) {
 TreeNode *TreeNode ::clone() {
   //TreeNode *clone = new TreeNode(parent, vert, start, insert_uid, limit,
   //                               pickupRemoved, totalSlackTime, shortestPath);
-  TreeNode *clone = new TreeNode(parent, loc, owner, start, insert_uid, limit,
+  std::cout
+    << "Cloning node at " << this->loc
+    << "(owner=" << this->owner << "; parent=" << (this->parent != nullptr ? this->parent->loc : -1)
+    << "; root_time=" << this->rootTime << ")" << std::endl;
+  TreeNode *copy = new TreeNode(parent, loc, owner, start, insert_uid, limit,
                                  pickupRemoved, totalSlackTime);
 
-  for (size_t i = 0; i < children.size(); i++) {
-    clone->children.push_back(children[i]->clone());
-    clone->children[i]->parent = clone;
+  // Propogate the new rootTime to the child copies
+  for (size_t i = 0; i < this->children.size(); i++) {
+    TreeNode* child_copy = this->children.at(i)->clone();
+    child_copy->parent = copy;
+    std::cout << "\tSet child_copy " << child_copy->loc << " parent to " << copy->loc << std::endl;
+    child_copy->rootTime = child_copy->time + copy->rootTime;
+    std::cout << "\tSet child_copy " << child_copy->loc << " rootTime to " << child_copy->rootTime << std::endl;
+    copy->children.push_back(child_copy);
+    // copy->children.push_back(this->children[i]->clone());
+    // copy->children[i]->parent = copy;
+    // copy->children[i]->rootTime
+    //   = copy->children[i]->parent->rootTime + copy->children[i]->time;;  // <--
   }
 
-  clone->dest = this->dest;
+  copy->dest = this->dest;
 
-  return clone;
+  return copy;
 }
 
 void TreeNode ::print() {
@@ -503,7 +533,9 @@ TreeTaxiPath ::TreeTaxiPath(NodeId orig, NodeId dest, NodeId owner) {
 
 TreeTaxiPath ::~TreeTaxiPath() { delete root; }
 
-void TreeTaxiPath ::moved(double distance) { root->step(distance, -1); }
+void TreeTaxiPath ::moved(double distance) {
+  root->step(distance, -1);
+}
 
 void TreeTaxiPath::move(const NodeId& curloc) {
   root->loc = curloc;
@@ -563,9 +595,12 @@ double TreeTaxiPath ::value(NodeId source, NodeId dest, NodeId owner,
   std::cout << "\ttime: " << time << std::endl;
   rootTemp->calculateTotalSlackTime();
 
-  if (time != 0 && copyResult)
-    return time;
-  else
+  // bestTime() does not compensate for current time,
+  // so we don't have to here either!
+  if (time != 0 && copyResult) {
+    // return (time-Cargo::now())*Cargo::vspeed();
+    return time*Cargo::vspeed();
+  } else
     return -1;
 }
 
