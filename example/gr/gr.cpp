@@ -62,9 +62,6 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
 
   if (matched) {
     this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl);
-    best_vehl->set_rte(best_rte);
-    best_vehl->set_sch(best_sch);
-    best_vehl->reset_lvn();
   } else
     this->beg_delay(cust.id());
 

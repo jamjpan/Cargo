@@ -70,10 +70,6 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
   if (matched) {
     this->assign_or_delay(                  // (rsalgorithm.h)
         {cust.id()}, {}, rte, sch, *best_vehl);
-    /* Update local grid copy of the vehicle */
-    best_vehl->set_rte(rte);                // (classes.h)
-    best_vehl->set_sch(sch);
-    best_vehl->reset_lvn();
   } else
     this->beg_delay(cust.id());             // (rsalgorithm.h)
 
@@ -108,14 +104,14 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m1k-c1.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m35k-c1.instance";
   option.path_to_solution = "nn.sol";
   option.path_to_dataout  = "nn.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.strict_mode = false;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);                      // (cargo.h)
   NearestNeighbor nn;
   cargo.start(nn);
