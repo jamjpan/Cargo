@@ -17,7 +17,7 @@ const int MIN_TRIP_LENGTH = 500; // meters
 const int EARTH_RADIUS = 6371008;  // meters
 
 // Default parameters
-short int opt_m = 5000;
+int opt_m = 5000;
 short int opt_c = 3;
 short int opt_s = 10;
 short int opt_t = 1;
@@ -206,7 +206,7 @@ int rspgen_c(const std::string& out) {
                 trip.late = -1;
               } else {
                 trip.early = (-1)*trip.early;
-                trip.late = trip.early + gtree.search(trip.origin, trip.destination) + opt_d*60;
+                trip.late = trip.early + gtree.search(trip.origin, trip.destination)/opt_s + opt_d*60;
               }
               std::cout << count << "     \r";
               vehicles.push_back(trip);
@@ -239,7 +239,7 @@ int rspgen_c(const std::string& out) {
           if (trip.origin != -1) {
             trip.destination = point2node(trip.destination_lng, trip.destination_lat);
             if (trip.destination != -1) {
-              trip.late = trip.early + gtree.search(trip.origin, trip.destination) + opt_d*60;
+              trip.late = trip.early + gtree.search(trip.origin, trip.destination)/opt_s + opt_d*60;
               std::cout << count << "     \r";
               customers.push_back(trip);
               count++;
