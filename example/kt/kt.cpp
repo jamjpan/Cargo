@@ -86,24 +86,26 @@ void KineticTrees::handle_customer(const Customer& cust) {
         print << a.loc() << " ";
       print << std::endl;
       if (new_cost > -1) {
+        // The new cost can be LESS THAN the old cost if the
+        // current schedule was not fully optimized due to timeout
         DistInt cst = new_cost - (cand->route().cost() - cand->route().dist_at(cand->idx_last_visited_node()+1));
         // print << "\t\tVehl " << cand->id() << ": " << cst << std::endl;
-        if (cst < -1) {  // 1 m buffer due to rounding error
-          // HACK: recompute the current cost and subtract from new cost
-          // vec_t<Wayp> hack_rte = {};
-          // route_through(cand->schedule().data(), hack_rte);
-          // cst = new_cost = hack_rte.back().first;
-          print(MessageType::Error) << "Got negative detour!" << std::endl;
-          print << "detour: " << cst << std::endl;
-          print << "Vehicle " << cand->id() << std::endl;
-          print << "new cost: " << new_cost << std::endl;
-          print << "current cost: " << cand->route().cost() << std::endl;
-          print << "last-visited node index: " << cand->idx_last_visited_node() << std::endl;
-          print << "last-visited node: " << cand->last_visited_node() << std::endl;
-          print << "dist at last-visited node+1: " << cand->route().dist_at(cand->idx_last_visited_node()+1) << std::endl;
-          print << "next-node dist: " << cand->next_node_distance() << std::endl;
-          throw;
-        }
+        // if (cst < -1) {  // 1 m buffer due to rounding error
+        //   // HACK: recompute the current cost and subtract from new cost
+        //   // vec_t<Wayp> hack_rte = {};
+        //   // route_through(cand->schedule().data(), hack_rte);
+        //   // cst = new_cost = hack_rte.back().first;
+        //   print(MessageType::Error) << "Got negative detour!" << std::endl;
+        //   print << "detour: " << cst << std::endl;
+        //   print << "Vehicle " << cand->id() << std::endl;
+        //   print << "new cost: " << new_cost << std::endl;
+        //   print << "current cost: " << cand->route().cost() << std::endl;
+        //   print << "last-visited node index: " << cand->idx_last_visited_node() << std::endl;
+        //   print << "last-visited node: " << cand->last_visited_node() << std::endl;
+        //   print << "dist at last-visited node+1: " << cand->route().dist_at(cand->idx_last_visited_node()+1) << std::endl;
+        //   print << "next-node dist: " << cand->next_node_distance() << std::endl;
+        //   throw;
+        // }
         if (cst < best_cst) {
           print << "kt+: ";
           print_kt(this->kt_.at(cand->id()), true);
@@ -114,12 +116,14 @@ void KineticTrees::handle_customer(const Customer& cust) {
           print << std::endl;
           // VALIDATE (remove in production)
           route_through(sch, rte);
-          if (!chktw(sch, rte)) {
-            print << "FAILS TIME CONSTRAINTS" << std::endl;
-            print_sch(sch);
-            print_rte(rte);
-            throw;
-          }
+          // if (!chktw(sch, rte)) {  // <-- might fail because the sch is computed at a time BEFORE match latency,
+          //                          // but chktw is using the CURRENT TIME. Instead, chktw should be passed the
+          //                          // adjusted sch that accounts for match latency. Let assign() do that work!
+          //   print << "FAILS TIME CONSTRAINTS" << std::endl;
+          //   print_sch(sch);
+          //   print_rte(rte);
+          //   throw;
+          // }
           if (chkcap(cand->capacity(), sch)) {
            // && chktw(sch, rte)) {
             best_vehl = cand;
@@ -314,14 +318,14 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m1k-c1.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
   option.path_to_solution = "kt.sol";
   option.path_to_dataout  = "kt.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.strict_mode = false;
-  option.static_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   KineticTrees kt;
   cargo.start(kt);
