@@ -81,9 +81,9 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
   rteout.push_back({0, sch.front().loc()});
 
   vec_t<NodeId> seg {};
-  for (SchIdx i = 0; i < sch.size()-1; ++i) {
-    const NodeId& from = sch.at(i).loc();
-    const NodeId& to = sch.at(i+1).loc();
+  for (auto i = sch.cbegin(); i != sch.cend()-1; ++i) {
+    const NodeId& from = i->loc();
+    const NodeId& to = (std::next(i,1))->loc();
 
     if (from != to) {
       if (!Cargo::spexist(from, to)) {  // <-- spexist is thread safe
@@ -98,7 +98,7 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
         catch (...) {
           std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
           print_sch(sch);
-          std::cout << "index: " << i << std::endl;
+          //std::cout << "index: " << i << std::endl;
           throw;
         }
         std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
@@ -108,9 +108,9 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
         seg = Cargo::spget(from, to);
       }
 
-      for (size_t i = 1; i < seg.size(); ++i) {
-        cst += Cargo::edgew(seg.at(i-1), seg.at(i));
-        rteout.push_back({cst, seg.at(i)});
+      for (auto i = seg.cbegin()+1; i != seg.cend(); ++i) {
+        cst += Cargo::edgew(*(std::prev(i, 1)), *i);
+        rteout.push_back({cst, *i});
       }
     } else
       rteout.push_back({cst, to});
@@ -213,11 +213,11 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   //DistInt remaining_distance = (rte.back().first - rte.front().first);
   //float remaining_time = remaining_distance/(float)Cargo::vspeed();
   //float arrival_time = remaining_time + Cargo::now();
-  int arrival_time = (rte.back().first - rte.front().first)/Cargo::vspeed() + Cargo::now();
+  const int arrival_time =
+    (rte.back().first - rte.front().first)/Cargo::vspeed() + Cargo::now();
 
   // Check the end point first
-  if (sch.back().late() != -1 &&
-      sch.back().late() < arrival_time) {
+  if (sch.back().late() != -1 && sch.back().late() < arrival_time) {
     DEBUG(3, { std::cout << "chktw() found "
       << "sch.back().late(): " << sch.back().late()
       //<< "; remaining_distance: " << remaining_distance
@@ -230,34 +230,33 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   }
 
   // Walk along the schedule and the route. O(|schedule|+|route|)
-  auto j = rte.begin();
-  for (auto i = sch.begin(); i != sch.end(); ++i) {
-    while (j->second != i->loc()) {
-      ++j;
-      if (j == rte.end()) {
-        std::cout << "chktw reached end before schedule" << std::endl;
-        print_sch(sch);
-        print_rte(rte);
-        throw;
+  auto j = rte.cbegin();
+  for (auto i = sch.cbegin(); i != sch.cend(); ++i) {
+    while (j->second != i->loc() && j != rte.cend()) ++j;
+    if (j != rte.cend()) {
+      // There is a small error in KT when it computes limits because it does
+      // not know the "surplus" distance when a vehicle passes a node. So we
+      // truncate the ETA here in order to accept the error.  If we're unlucky,
+      // the max error is the distance a vehicle travels in 1 sec (10 meters).
+      //float eta = (j->first-rte.front().first)/(float)Cargo::vspeed() + Cargo::now();
+      const int eta = (j->first-rte.front().first)/Cargo::vspeed() + Cargo::now();
+      if (i->late() < eta && i->late() != -1) {
+        DEBUG(3, { std::cout << "chktw() found "
+          << "i->late(): " << i->late()
+          << "; j->first: " << j->first
+          << "; rte.front().first: " << rte.front().first
+          << "; speed: " << Cargo::vspeed()
+          << "; current time: " << Cargo::now()
+          << "; eta: " << eta
+          << std::endl;
+        });
+        return false;
       }
-    }
-    // There is a small error in KT when it computes limits because it does not
-    // know the "surplus" distance when a vehicle passes a node. So we truncate
-    // the ETA here in order to accept the error.  If we're unlucky, the max
-    // error is the distance a vehicle travels in 1 sec (10 meters).
-    //float eta = (j->first-rte.front().first)/(float)Cargo::vspeed() + Cargo::now();
-    int eta = (j->first-rte.front().first)/Cargo::vspeed() + Cargo::now();
-    if (i->late() != -1 && i->late() < eta) {
-      DEBUG(3, { std::cout << "chktw() found "
-        << "i->late(): " << i->late()
-        << "; j->first: " << j->first
-        << "; rte.front().first: " << rte.front().first
-        << "; speed: " << Cargo::vspeed()
-        << "; current time: " << Cargo::now()
-        << "; eta: " << eta
-        << std::endl;
-      });
-      return false;
+    } else {
+      std::cout << "chktw reached end before schedule" << std::endl;
+      print_sch(sch);
+      print_rte(rte);
+      throw;
     }
   }
   return true;
@@ -267,7 +266,7 @@ bool chkcap(const Load& capacity, const vec_t<Stop>& sch) {
   DEBUG(3, { std::cout << "chkcap(2) got "; print_sch(sch); std::cout << std::endl; });
   int q = capacity;  // REMAINING capacity (-load)
   DEBUG(3, { std::cout << "chkcap(2) got capacity=" << capacity << std::endl; });
-  for (auto i = sch.begin()+1; i != sch.end()-1; ++i) {
+  for (auto i = sch.cbegin()+1; i != sch.cend()-1; ++i) {
     const Stop& stop = *i;
     if (stop.type() == StopType::CustOrig || stop.type() == StopType::CustDest)
       q = q + (stop.type() == StopType::CustOrig ? -1 : 1);  // TODO: Replace 1 with customer's Load
@@ -369,13 +368,13 @@ DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
         rst = false;
       } else
         std::iter_swap(j, j + inc);
-      check(route_through(mutsch, mutrte, gtree));
       //check(cost_through(mutsch, gtree));
+      check(route_through(mutsch, mutrte, gtree));
     }
     std::iter_swap(i, i + 1);
     if (inc == 1 && i < mutsch.end() - 2 - fix_end) {
-      check(route_through(mutsch, mutrte, gtree));
       //check(cost_through(mutsch, gtree));
+      check(route_through(mutsch, mutrte, gtree));
     }
     if ((inc = -inc) == 1) rst = true;
   }
@@ -479,7 +478,7 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   });
 
   // Add head to the new nodes in the route
-  for (auto& wp : rteout) wp.first += head;
+  for (Wayp& wp : rteout) { wp.first += head; }
 
   DEBUG(3, {
     std::cout << "After adding head: " << std::endl;
