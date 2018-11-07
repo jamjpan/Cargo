@@ -30,7 +30,7 @@ using namespace cargo;
 const int BATCH = 30;
 
 GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("gr", true), grid_(100) {
+    : RSAlgorithm("gr", false), grid_(100) {
   this->batch_time() = BATCH;
 }
 
@@ -39,31 +39,31 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   this->reset_workspace();
   this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
 
-  DistInt best_cost = InfInt;
-
   for (const MutableVehicleSptr& cand : this->candidates) {
     // Speed heuristic: try only if vehicle's current schedule has < 8 customer stops
     if (cand->schedule().data().size() < 10) {
-      DistInt cost = sop_insert(*cand, cust, sch, rte) - cand->route().cost();
-      if (cost < best_cost) {
+      DistInt cost = sop_insert(*cand, cust, sch, rte, Cargo::gtree()) - cand->route().cost();
+      if (cost < this->best_cost) {
         if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
-          best_vehl = cand;
-          best_sch = sch;
-          best_rte = rte;
-          best_cost = cost;
+          this->best_vehl = cand;
+          this->best_sch = sch;
+          this->best_rte = rte;
+          this->best_cost = cost;
         }
       }
     }
     if (this->timeout(this->timeout_0))
       break;
   }
-  if (best_vehl != nullptr)
-    matched = true;
+  if (this->best_vehl != nullptr)
+    this->matched = true;
 
-  if (matched) {
-    this->assign_or_delay({cust.id()}, {}, best_rte, best_sch, *best_vehl);
-  } else
+  if (this->matched) {
+    this->assign_or_delay(
+      {cust.id()}, {}, this->best_rte, this->best_sch, *(this->best_vehl));
+  } else {
     this->beg_delay(cust.id());
+  }
 
   this->end_ht();
 }
@@ -82,6 +82,7 @@ void GreedyInsertion::listen(bool skip_assigned, bool skip_delayed) {
 }
 
 void GreedyInsertion::reset_workspace() {
+  this->best_cost = InfInt;
   this->sch = this->best_sch = {};
   this->rte = this->best_rte = {};
   this->candidates = {};
@@ -95,7 +96,7 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-   option.path_to_problem  = "../../data/benchmark/rs-m1k-c1.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m35k-c1.instance";
   option.path_to_solution = "gr.sol";
   option.path_to_dataout  = "gr.dat";
   option.time_multiplier  = 1;

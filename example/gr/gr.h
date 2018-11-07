@@ -35,6 +35,7 @@ class GreedyInsertion : public RSAlgorithm {
   Grid grid_;
 
   /* Workspace variables */
+  DistInt best_cost;
   vec_t<Stop> sch, best_sch;
   vec_t<Wayp> rte, best_rte;
   MutableVehicleSptr best_vehl;
