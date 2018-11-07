@@ -46,7 +46,8 @@
 namespace cargo {
 
 /* Set the size (number of elements) of the shortest-paths cache */
-const int LRU_CACHE_SIZE = 1000000;
+const int LRU_SP_CACHE_SIZE = 1000000;
+const int LRU_SC_CACHE_SIZE = 0;  // <-- not useful in testing
 
 /* Initialize global vars */
 /* Containers for quick node/edge lookup */
@@ -75,13 +76,14 @@ SimlTime Cargo::t_ = 0;
 /* Global mutexes */
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
+std::mutex Cargo::scmx;
 std::mutex Cargo::ofmx;
 bool Cargo::static_mode = false;
 bool Cargo::strict_mode = false;
 
 /* Shortest-paths cache: hash is stringified orig/dest pair */
-cache::lru_cache<std::string, vec_t<NodeId>>
-Cargo::spcache_(LRU_CACHE_SIZE);
+cache::lru_cache<std::string, vec_t<NodeId>> Cargo::spcache_(LRU_SP_CACHE_SIZE);
+cache::lru_cache<std::string, DistInt>       Cargo::sccache_(LRU_SC_CACHE_SIZE);
 
 /* Cargo class constructor:
  * Set options, initialize Message; prepare the db */

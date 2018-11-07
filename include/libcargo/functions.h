@@ -66,6 +66,10 @@ bool chkcap(const Load &, const vec_t<Stop> &);
 void opdel(vec_t<Stop> &, const CustId &);
 void opdel_any(vec_t<Stop> &, const CustId &);
 
+// Like route_through but only returns the cost (maybe be slightly faster?)
+DistInt cost_through(const vec_t<Stop> &, GTree::G_Tree &);
+DistInt cost_through(const vec_t<Stop> &);
+
 // TODO: Having all of these is horrible. Clean this up.
 DistInt sop_insert(
   const vec_t<Stop> &,
@@ -99,12 +103,13 @@ DistInt sop_insert(
         vec_t<Stop> &,
         vec_t<Wayp> &
 );
-DistInt sop_insert(
-  const std::shared_ptr<MutableVehicle> &,
-  const Customer &,
-        vec_t<Stop> &,
-        vec_t<Wayp> &
-);
+inline DistInt sop_insert(
+  const std::shared_ptr<MutableVehicle>& mutvehl,
+  const Customer& cust,
+        vec_t<Stop>& schout,
+        vec_t<Wayp>& rteout) {
+  return sop_insert(*mutvehl, cust, schout, rteout);
+}
 DistInt sop_replace(
   const MutableVehicle &,
   const CustId &,

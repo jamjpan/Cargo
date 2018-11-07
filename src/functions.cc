@@ -80,45 +80,42 @@ DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
   rteout.clear();
   rteout.push_back({0, sch.front().loc()});
 
-  // if ((sch.front().loc() == sch.back().loc()) && sch.size() == 2) {
-  //   rteout.push_back({cst, sch.back().loc()});
-  // }
-
+  vec_t<NodeId> seg {};
   for (SchIdx i = 0; i < sch.size()-1; ++i) {
     const NodeId& from = sch.at(i).loc();
     const NodeId& to = sch.at(i+1).loc();
 
-    if (from == to) {
-      rteout.push_back({cst, to});
-      continue;
-    }
-
-    vec_t<NodeId> seg {};
-    bool in_cache = false;
-    { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-    in_cache = Cargo::spexist(from, to);
-    if (in_cache) {
-      seg = Cargo::spget(from, to);
-      // std::cout << "CACHE HIT" << std::endl;
-    }
-    } // Lock released
-    if(!in_cache) {
-      // std::cout << "CACHE MISS" << std::endl;
-      try { gtree.find_path(from, to, seg); }
-      catch (...) {
-        std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
-        print_sch(sch);
-        std::cout << "index: " << i << std::endl;
-        throw;
+    if (from != to) {
+      if (!Cargo::spexist(from, to)) {  // <-- spexist is thread safe
+        try {
+          //DistInt seg_cost = gtree.find_path(from, to, seg);
+          //if (!Cargo::scexist(from, to)) {
+          //  std::lock_guard<std::mutex> sclock(Cargo::scmx); // Lock acquired
+          //  Cargo::scput(from, to, seg_cost);
+          //}
+          gtree.find_path(from, to, seg);
+        }
+        catch (...) {
+          std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
+          print_sch(sch);
+          std::cout << "index: " << i << std::endl;
+          throw;
+        }
+        std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+        Cargo::spput(from, to, seg);
+      } else {
+        std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
+        seg = Cargo::spget(from, to);
       }
-      std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-      Cargo::spput(from, to, seg);
-    } // Lock released
-    for (size_t i = 1; i < seg.size(); ++i) {
-      cst += Cargo::edgew(seg.at(i-1), seg.at(i));
-      rteout.push_back({cst, seg.at(i)});
-    }
+
+      for (size_t i = 1; i < seg.size(); ++i) {
+        cst += Cargo::edgew(seg.at(i-1), seg.at(i));
+        rteout.push_back({cst, seg.at(i)});
+      }
+    } else
+      rteout.push_back({cst, to});
   }
+
   return cst;
 }
 
@@ -213,17 +210,18 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   DEBUG(3, { std::cout << "chktw() got sch:"; print_sch(sch); });
   DEBUG(3, { std::cout << "chktw() got rte:"; print_rte(rte); });
 
-  DistInt remaining_distance = (rte.back().first - rte.front().first);
-  float remaining_time = remaining_distance/(float)Cargo::vspeed();
-  float arrival_time = remaining_time + Cargo::now();
+  //DistInt remaining_distance = (rte.back().first - rte.front().first);
+  //float remaining_time = remaining_distance/(float)Cargo::vspeed();
+  //float arrival_time = remaining_time + Cargo::now();
+  int arrival_time = (rte.back().first - rte.front().first)/Cargo::vspeed() + Cargo::now();
 
   // Check the end point first
   if (sch.back().late() != -1 &&
       sch.back().late() < arrival_time) {
     DEBUG(3, { std::cout << "chktw() found "
       << "sch.back().late(): " << sch.back().late()
-      << "; remaining_distance: " << remaining_distance
-      << "; remaining_time: " << remaining_time
+      //<< "; remaining_distance: " << remaining_distance
+      //<< "; remaining_time: " << remaining_time
       << "; current_time: " << Cargo::now()
       << "; arrival_time: " << arrival_time
       << std::endl;
@@ -271,8 +269,8 @@ bool chkcap(const Load& capacity, const vec_t<Stop>& sch) {
   DEBUG(3, { std::cout << "chkcap(2) got capacity=" << capacity << std::endl; });
   for (auto i = sch.begin()+1; i != sch.end()-1; ++i) {
     const Stop& stop = *i;
-    if (stop.type() == StopType::CustOrig) q -= 1;  // TODO: Replace 1 with customer's Load
-    if (stop.type() == StopType::CustDest) q += 1;
+    if (stop.type() == StopType::CustOrig || stop.type() == StopType::CustDest)
+      q = q + (stop.type() == StopType::CustOrig ? -1 : 1);  // TODO: Replace 1 with customer's Load
     DEBUG(3, {
       std::cout << "chkcap(2) at " << stop.loc()
                 << "(" << ((int)stop.type() == 0 ? "pickup" : "dropoff") << ")"
@@ -367,19 +365,74 @@ DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
     end = (inc == 1) ? mutsch.end() - 1 - fix_end : i + 1;
     for (auto j = beg; j != end; j += inc) {
       if (rst) {
-        std::iter_swap(i - 1, i + 1);  // <-- O(1)
+        std::iter_swap(i - 1, i + 1);
         rst = false;
       } else
         std::iter_swap(j, j + inc);
       check(route_through(mutsch, mutrte, gtree));
+      //check(cost_through(mutsch, gtree));
     }
     std::iter_swap(i, i + 1);
     if (inc == 1 && i < mutsch.end() - 2 - fix_end) {
       check(route_through(mutsch, mutrte, gtree));
+      //check(cost_through(mutsch, gtree));
     }
     if ((inc = -inc) == 1) rst = true;
   }
+
+  // After got the best, THEN resolve the full route
+  //route_through(schout, rteout, gtree);
+
   return mincst;
+}
+
+DistInt cost_through(const vec_t<Stop>& sch, GTree::G_Tree& gtree) {
+  DistInt cst = 0;
+  for (SchIdx i = 0; i < sch.size()-1; ++i) {
+    const NodeId& from = sch.at(i).loc();
+    const NodeId& to = sch.at(i+1).loc();
+
+    if (from != to) {
+      if (!Cargo::scexist(from, to)) {
+        try { cst += gtree.search(from, to); }
+        catch (...) {
+          std::cout << "gtree.search(" << from << "," << to << ") failed" << std::endl;
+          print_sch(sch);
+          std::cout << "index: " << i << std::endl;
+          throw;
+        }
+        std::lock_guard<std::mutex> sclock(Cargo::scmx); // Lock acquired
+        Cargo::scput(from, to, cst);
+      } else {
+        std::lock_guard<std::mutex> sclock(Cargo::spmx); // Lock acquired
+        cst += Cargo::scget(from, to);
+      }
+    } else
+      cst = 0;
+  }
+  return cst;
+
+  //DistInt cost = 0;
+
+  //for (SchIdx i = 0; i < sch.size()-1; ++i) {
+  //  const NodeId& from = sch.at(i).loc();
+  //  const NodeId& to = sch.at(i+1).loc();
+
+  //  if (from == to) continue;
+
+  //  try { cost += gtree.search(from, to); }
+  //  catch (...) {
+  //    std::cout << "gtree.search(" << from << "," << to << ") failed" << std::endl;
+  //    print_sch(sch);
+  //    std::cout << "index: " << i << std::endl;
+  //    throw;
+  //  }
+  //}
+  //return cost;
+}
+
+DistInt cost_through(const vec_t<Stop>& sch) {
+  return cost_through(sch, Cargo::gtree());
 }
 
 DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
@@ -400,24 +453,22 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   // The distances to other stops in the augmented schedule passed to
   // route_through will be relative to this first stop. The already-traveled
   // distance TO THIS FIRST STOP (the next node) should be added.
-  DistInt head = vehl.route().data().at(vehl.idx_last_visited_node()+1).first;
+  const DistInt& head = vehl.route().data().at(vehl.idx_last_visited_node()+1).first;
 
-  Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
-  Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
+  const Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
+  const Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
 
   DistInt mincst = 0;
 
   // If vehl is a taxi, it's last stop is NOT fixed.
   if (vehl.late() == -1) {
-    vec_t<Stop> schin = vehl.schedule().data();
-    schin.pop_back();  // remove the fake destination
-    mincst = sop_insert(schin, cust_o, cust_d, true, false, schout, rteout, gtree);
-    Stop last = schout.back();
-    Stop fake_dest(vehl.id(), last.loc(), StopType::VehlDest, last.early(), -1, -1);
-    schout.push_back(fake_dest);  // add a fake destination
-  } else {
-    mincst = sop_insert(vehl.schedule().data(), cust_o, cust_d, true, true, schout, rteout, gtree);
-  }
+    vec_t<Stop> schin(vehl.schedule().data().begin(), vehl.schedule().data().end()-1);
+    mincst = sop_insert(
+      schin, cust_o, cust_d, true, false, schout, rteout, gtree);
+    schout.push_back({vehl.id(), schout.back().loc(), StopType::VehlDest, schout.back().early(), -1, -1});
+  } else
+    mincst = sop_insert(
+      vehl.schedule().data(), cust_o, cust_d, true, true, schout, rteout, gtree);
 
   DEBUG(3, {
     std::cout << "Before insert " << cust.id() << " into " << vehl.id() << ": " << std::endl;
@@ -428,8 +479,7 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
   });
 
   // Add head to the new nodes in the route
-  for (auto& wp : rteout)
-    wp.first += head;
+  for (auto& wp : rteout) wp.first += head;
 
   DEBUG(3, {
     std::cout << "After adding head: " << std::endl;
@@ -444,19 +494,13 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
     std::cout << "Returning cost: " << mincst+head << std::endl;
   });
 
-  return mincst+head;
+  return mincst + head;
 }
 
 DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
                        vec_t<Stop>& schout,
                        vec_t<Wayp>& rteout) {
   return sop_insert(vehl, cust, schout, rteout, Cargo::gtree());
-}
-
-DistInt sop_insert(const std::shared_ptr<MutableVehicle>& mutvehl,
-                       const Customer& cust, vec_t<Stop>& schout,
-                       vec_t<Wayp>& rteout) {
-  return sop_insert(*mutvehl, cust, schout, rteout);
 }
 
 DistInt sop_replace(const MutableVehicle& mutvehl,

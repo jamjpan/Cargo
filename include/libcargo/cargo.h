@@ -65,24 +65,37 @@ class Cargo {
 
   static vec_t<NodeId>                      // get from spcache
   spget(const NodeId& u, const NodeId& v) {
-    std::string k = std::to_string(u)+"|"+std::to_string(v);
-    return spcache_.get(k);
+    return spcache_.get(std::to_string(u)+"|"+std::to_string(v));
   }
 
   static void spput(                        // put into spcache
   const NodeId& u, const NodeId& v, vec_t<NodeId>& path) {
-    std::string k = std::to_string(u)+"|"+std::to_string(v);
-    spcache_.put(k, path);
+    spcache_.put(std::to_string(u)+"|"+std::to_string(v), path);
   }
 
   static bool                               // check if exists
   spexist(const NodeId& u, const NodeId& v) {
-    std::string k = std::to_string(u)+"|"+std::to_string(v);
-    return spcache_.exists(k);
+    return spcache_.exists(std::to_string(u)+"|"+std::to_string(v));
+  }
+
+  static DistInt
+  scget(const NodeId& u, const NodeId& v) {
+    return sccache_.get(std::to_string(u)+"|"+std::to_string(v));
+  }
+
+  static void scput(
+  const NodeId& u, const NodeId& v, const DistInt& cost) {
+    sccache_.put(std::to_string(u)+"|"+std::to_string(v), cost);
+  }
+
+  static bool
+  scexist(const NodeId& u, const NodeId& v) {
+    return sccache_.exists(std::to_string(u)+"|"+std::to_string(v));
   }
 
   static std::mutex dbmx;                   // protect the db
   static std::mutex spmx;                   // protect the shortest-paths cache
+  static std::mutex scmx;
   static std::mutex ofmx;                   // static mode mutex
   static bool static_mode;                  // static mode
   static bool strict_mode;
@@ -115,6 +128,7 @@ class Cargo {
   static SimlTime t_;                       // current sim time
   static dict<TripId, DistInt> trip_costs_;
   static cache::lru_cache<std::string, vec_t<NodeId>> spcache_;
+  static cache::lru_cache<std::string, DistInt>       sccache_;
 
   Speed original_speed_; // hack
 
