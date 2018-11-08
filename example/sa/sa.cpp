@@ -49,19 +49,19 @@ void SimulatedAnnealing::match() {
 
   Grid local_grid(this->grid_);  // make a deep copy
 
-  auto init_0 = hiclock::now();
+  // auto init_0 = hiclock::now();
   this->initialize(local_grid);
-  auto init_1 = hiclock::now();
-  print << "init: " << std::round(dur_milli(init_1-init_0).count()) << std::endl;
+  // auto init_1 = hiclock::now();
+  // print << "init: " << std::round(dur_milli(init_1-init_0).count()) << std::endl;
 
   if (!this->sol.empty()) {
     std::uniform_int_distribution<>::param_type sol_size_range(1, this->sol.size());
     this->n.param(sol_size_range);
 
-    auto pert_0 = hiclock::now();
+    // auto pert_0 = hiclock::now();
     this->anneal(T_MAX, P_MAX);
-    auto pert_1 = hiclock::now();
-    print << "pert: " << std::round(dur_milli(pert_1-pert_0).count()) << std::endl;
+    // auto pert_1 = hiclock::now();
+    // print << "pert: " << std::round(dur_milli(pert_1-pert_0).count()) << std::endl;
 
     this->end_batch_ht();
     this->commit();
