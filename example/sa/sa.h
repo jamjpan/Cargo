@@ -19,6 +19,7 @@
 // SOFTWARE.
 #include <memory>
 #include <unordered_map>
+#include <utility>
 #include <random>
 
 #include "libcargo.h"
@@ -45,24 +46,36 @@ class SimulatedAnnealing : public RSAlgorithm {
   int ndrops_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
+  std::uniform_int_distribution<> n;
 
   /* Workspace variables */
+  Solution sol;
   dict<CustId, vec_t<MutableVehicleSptr>> candidates_list;
   dict<VehlId, MutableVehicleSptr> vehicle_lookup;
   tick_t timeout_0;
-  std::unordered_map<CustId, bool> is_matched;
-  std::vector<Stop> sch;
-  std::vector<Wayp> rte;
+  std::vector<Stop> sch, sch_after_rem, sch_after_add;
+  std::vector<Wayp> rte, rte_after_rem, rte_after_add;
   std::vector<std::tuple<Customer, MutableVehicle, DistInt>> best_sol;
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
-  Solution initialize(Grid &);
+  void initialize(Grid &);
   Solution perturb(const Solution &, const Temperature &);
-  void commit(const Solution &);
+  void commit();
 
-  bool hillclimb(const int &);
+  bool hillclimb(const int& T) {
+    return this->d(this->gen) < std::exp(-1.2*(float)T);
+  }
+
+  void anneal(const int& T_MAX, const int& P_MAX) {
+    for (int t = T_MAX; t--;)
+      for (int p = P_MAX; p--;) {
+        this->sol = std::move(this->perturb(this->sol, t));
+        if (this->timeout(this->timeout_0))
+          return;
+      }
+  }
 
   void reset_workspace();
 };
