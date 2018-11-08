@@ -27,7 +27,6 @@
 using namespace cargo;
 
 typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> Solution;
-typedef int Temperature;
 
 class SimulatedAnnealing : public RSAlgorithm {
  public:
@@ -61,7 +60,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
   void initialize(Grid &);
-  Solution perturb(const Solution &, const Temperature &);
+  Solution perturb(const Solution &, const int &);
   void commit();
 
   bool hillclimb(const int& T) {

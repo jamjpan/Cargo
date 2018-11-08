@@ -109,7 +109,7 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
 }
 
 Solution SimulatedAnnealing::perturb(const Solution& sol,
-                                     const Temperature& temperature) {
+                                     const int& temperature) {
   auto i = sol.cbegin();                    // 1. Select random vehicle
   std::advance(i, this->n(this->gen)-1);
   if (i->second.second.empty()) return sol;
