@@ -28,10 +28,10 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 1;
+const int MAX_ITER = 2;
 
 GRASP::GRASP()
-    : RSAlgorithm("grasp", true), grid_(100), d(0,1) {
+    : RSAlgorithm("grasp", false), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   std::random_device rd;
   this->gen.seed(rd());
@@ -40,42 +40,58 @@ GRASP::GRASP()
 
 void GRASP::match() {
   this->beg_batch_ht();
+  this->timeout_0 = hiclock::now();
   Solution best_solution = {};
   DistInt best_cost = InfInt;
 
   for (int count = 0; count < MAX_ITER; ++count) {
+    auto pert_0 = hiclock::now();
     Grid local_grid(this->grid_);  // deep copy
     vec_t<Customer> local_customers = this->customers();
 
+    // bottleneck
+    auto init_0 = hiclock::now();
     Solution initial_solution = this->initialize(local_grid, local_customers);
+    auto init_1 = hiclock::now();
+    print << "init: " << std::round(dur_milli(init_1-init_0).count()) << std::endl;
+
     DistInt local_cost = this->cost(initial_solution);
     bool has_improvement = false;
     Solution local_best = initial_solution;
-    print << "Initialized (cost=" << local_cost << ")" << std::endl;
+    //print << "Initialized (cost=" << local_cost << ")" << std::endl;
     do {
       has_improvement = false;
+      auto repl_0 = hiclock::now();
       Solution sol_replace      = this->replace(local_best, local_customers);
+      auto repl_1 = hiclock::now();
+      print << "repl: " << std::round(dur_milli(repl_1-repl_0).count()) << std::endl;
+      auto swap_0 = hiclock::now();
       Solution sol_swap         = this->swap(local_best);
+      auto swap_1 = hiclock::now();
+      print << "swap: " << std::round(dur_milli(swap_1-swap_0).count()) << std::endl;
+      auto arrg_0 = hiclock::now();
       Solution sol_rearrange    = this->rearrange(local_best);
+      auto arrg_1 = hiclock::now();
+      print << "arrg: " << std::round(dur_milli(arrg_1-arrg_0).count()) << std::endl;
       DistInt replace_cost      = this->cost(sol_replace);
       DistInt swap_cost         = this->cost(sol_swap);
       DistInt rearrange_cost    = this->cost(sol_rearrange);
       if (replace_cost < local_cost) {
-        print << "\tAccepted replace (" << replace_cost << ")" << std::endl;
+        //print << "\tAccepted replace (" << replace_cost << ")" << std::endl;
         local_best = sol_replace;
         local_cost = replace_cost;
         has_improvement = true;
         this->nreplace_++;
       }
       if (swap_cost < local_cost) {
-        print << "\tAccepted swap (" << swap_cost << ")" << std::endl;
+        //print << "\tAccepted swap (" << swap_cost << ")" << std::endl;
         local_best = sol_swap;
         local_cost = swap_cost;
         has_improvement = true;
         this->nswap_++;
       }
       if (rearrange_cost < local_cost) {
-        print << "\tAccepted rearrange (" << rearrange_cost << ")" << std::endl;
+        //print << "\tAccepted rearrange (" << rearrange_cost << ")" << std::endl;
         local_best = sol_rearrange;
         local_cost = rearrange_cost;
         has_improvement = true;
@@ -86,6 +102,8 @@ void GRASP::match() {
       best_solution = local_best;
       best_cost = local_cost;
     }
+    auto pert_1 = hiclock::now();
+    print << "  pert: " << std::round(dur_milli(pert_1-pert_0).count()) << std::endl;
   }
   // best_solution = initial_solution;  // for testing
   this->commit(best_solution);
@@ -96,7 +114,8 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
   Solution initial_solution = {};
   this->candidates_list = {};
 
-  // 1. List all the candidates for each customer
+  // 1. List all the candidates for each customer (0-500 ms)
+  auto cand_0 = hiclock::now();
   vec_t<MutableVehicleSptr> vehicles = {};
   for (const Customer& cust : customers) {
     this->candidates_index[cust] = {};
@@ -109,6 +128,8 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
       this->candidates_list[cand].push_back(cust);
     }
   }
+  auto cand_1 = hiclock::now();
+  print << "  cand: " << std::round(dur_milli(cand_1-cand_0).count()) << std::endl;
 
   // 2. Greedily Randomly Adaptively assign!
   while (!vehicles.empty() && !customers.empty()) {
@@ -123,17 +144,15 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
       this->fitness[cand] = {};
       this->schedules[cand] = {};
       this->routes[cand] = {};
+      // bottleneck -- recompute fitness for every customer!
       for (const Customer& cust : this->candidates_list.at(cand)) {
+        if (this->timeout(this->timeout_0))
+          return initial_solution;
         this->fitness[cand][cust] = sop_insert(cand, cust, sch, rte);
         this->schedules[cand][cust] = sch;
         this->routes[cand][cust] = rte;
       }
       Customer cust_to_add = this->roulette(this->fitness.at(cand));
-      // print << "roulette returned " << cust_to_add.id() << std::endl;
-      // print << "all custs: ";
-      // for (const auto& kv : this->fitness.at(cand))
-      //   print << kv.first.id() << std::endl;
-      // print << std::endl;
       sch = this->schedules.at(cand).at(cust_to_add);
       rte = this->routes.at(cand).at(cust_to_add);
       if (chktw(sch, rte) && chkcap(cand->capacity(), sch)) {
@@ -160,17 +179,19 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
         cand_done = true;
       }
     }
+    if (this->timeout(this->timeout_0))
+      return initial_solution;
   }
   return initial_solution;
 }
 
 Solution GRASP::replace(const Solution& solution, vec_t<Customer>& customers) {
   if (customers.size() == 0) {
-    print << "\tReplace found no unassigned" << std::endl;
+    //print << "\tReplace found no unassigned" << std::endl;
     return solution;
   }
   if (solution.size() == 0) {
-    print << "\tReplace found no assigned" << std::endl;
+    //print << "\tReplace found no assigned" << std::endl;
     return solution;
   }
 
@@ -189,11 +210,11 @@ Solution GRASP::replace(const Solution& solution, vec_t<Customer>& customers) {
   std::uniform_int_distribution<> n(0, customers.size() - 1);
   std::advance(i, n(this->gen));
   Customer replacement = *i;
-  print << "\tReplace got " << replacement.id() << " as replacement" << std::endl;
+  //print << "\tReplace got " << replacement.id() << " as replacement" << std::endl;
 
   vec_t<MutableVehicleSptr>& candidates = candidates_index.at(replacement);
   if (candidates.size() == 0) {
-    print << "\tReplacement " << replacement.id() << " has no candidates!" << std::endl;
+    //print << "\tReplacement " << replacement.id() << " has no candidates!" << std::endl;
     return solution;
   }
   auto j = candidates.begin();
@@ -203,14 +224,14 @@ Solution GRASP::replace(const Solution& solution, vec_t<Customer>& customers) {
 
   CustId to_replace = randcust(cand.schedule().data());
   if (to_replace == -1) {
-    print << "\tVehicle " << cand.id() << " has no replaceables!" << std::endl;
+    //print << "\tVehicle " << cand.id() << " has no replaceables!" << std::endl;
     return solution;
   }
   vec_t<Stop> new_sch;
   vec_t<Wayp> new_rte;
   sop_replace(cand, to_replace, replacement, new_sch, new_rte);
   if (chkcap(cand.capacity(), new_sch) && chktw(new_sch, new_rte)) {
-    print << "\tReplacement feasible" << std::endl;
+    //print << "\tReplacement feasible" << std::endl;
     cand.set_sch(new_sch);
     cand.set_rte(new_rte);
     cand.reset_lvn();
@@ -245,14 +266,14 @@ Solution GRASP::replace(const Solution& solution, vec_t<Customer>& customers) {
     }
     return sol_replace;
   } else {
-    print << "\tReplacement not feasible" << std::endl;
+    //print << "\tReplacement not feasible" << std::endl;
     return solution;
   }
 }
 
 Solution GRASP::swap(const Solution& solution) {
   if (solution.size() < 2) {
-    print << "\tSwap found not enough assignments" << std::endl;
+    //print << "\tSwap found not enough assignments" << std::endl;
     return solution;
   }
 
@@ -267,7 +288,7 @@ Solution GRASP::swap(const Solution& solution) {
   vec_t<CustId> k1_assignments = k1->second.first;
   vec_t<CustId> k2_assignments = k2->second.first;
   if (k1_assignments.empty() || k2_assignments.empty()) {
-    print << "\tSwap giving up" << std::endl;
+    //print << "\tSwap giving up" << std::endl;
     return solution;
   }
   MutableVehicle vehl_1 = *k1->first;
@@ -288,8 +309,8 @@ Solution GRASP::swap(const Solution& solution) {
     *(std::find_if(this->customers().begin(), this->customers().end(),
       [&](const Customer& a) { return a.id() == *from_2; }));
 
-  print << "\tSwapping " << cust_from_1.id() << " from " << vehl_1.id()
-        << " with " << cust_from_2.id() << " from " << vehl_2.id() << std::endl;
+  //print << "\tSwapping " << cust_from_1.id() << " from " << vehl_1.id()
+  //      << " with " << cust_from_2.id() << " from " << vehl_2.id() << std::endl;
 
   vec_t<Stop> sch_1, sch_2;
   vec_t<Wayp> rte_1, rte_2;
@@ -297,7 +318,7 @@ Solution GRASP::swap(const Solution& solution) {
   sop_replace(vehl_2, *from_2, cust_from_1, sch_2, rte_2);
   if (chkcap(vehl_1.capacity(), sch_1) && chktw(sch_1, rte_1)
    && chkcap(vehl_2.capacity(), sch_2) && chktw(sch_2, rte_2)) {
-    print << "\tSwap feasible" << std::endl;
+    //print << "\tSwap feasible" << std::endl;
     vehl_1.set_sch(sch_1);
     vehl_2.set_sch(sch_2);
     vehl_1.set_rte(rte_1);
@@ -326,14 +347,14 @@ Solution GRASP::swap(const Solution& solution) {
     sol_swap[cand_2] = pair2;
     return sol_swap;
   } else {
-    print << "\tSwap not feasible" << std::endl;
+    //print << "\tSwap not feasible" << std::endl;
     return solution;
   }
 }
 
 Solution GRASP::rearrange(const Solution& solution) {
   if (solution.empty()) {
-    print << "\tRearrange found empty solution" << std::endl;
+    //print << "\tRearrange found empty solution" << std::endl;
     return solution;
   }
 
@@ -342,11 +363,11 @@ Solution GRASP::rearrange(const Solution& solution) {
   std::advance(i, n(this->gen));
   MutableVehicle vehl = *(i->first);
 
-  print << "\tRearranging vehl " << vehl.id() << std::endl;
+  //print << "\tRearranging vehl " << vehl.id() << std::endl;
 
   vec_t<Stop> schedule = vehl.schedule().data();
   if (schedule.size() < 5) {
-    print << "\tNot enough to rearrange" << std::endl;
+    //print << "\tNot enough to rearrange" << std::endl;
   }
 
   auto j = schedule.begin();
@@ -369,7 +390,7 @@ Solution GRASP::rearrange(const Solution& solution) {
   vec_t<Wayp> route;
   route_through(schedule, route);
   if (chkcap(vehl.capacity(), schedule) && chktw(schedule, route)) {
-    print << "\tRearrange feasible" << std::endl;
+    //print << "\tRearrange feasible" << std::endl;
     vehl.set_sch(schedule);
     vehl.set_rte(route);
     vehl.reset_lvn();
@@ -386,7 +407,7 @@ Solution GRASP::rearrange(const Solution& solution) {
     sol_rearrange[cand] = pair;
     return sol_rearrange;
   } else {
-    print << "\tRearrange not feasible" << std::endl;
+    //print << "\tRearrange not feasible" << std::endl;
     return solution;
   }
 }
@@ -439,12 +460,12 @@ void GRASP::commit(const Solution& solution) {
     const vec_t<CustId>& cadd = kv.second.first;
     const vec_t<CustId>& cdel = kv.second.second;
     cand->reset_lvn();
-    this->assign_or_delay(cadd, cdel, cand->route().data(), cand->schedule().data(), *cand, false/*true*/);
-    for (const CustId& cid : cadd) print << "Matched " << cid << " to vehl " << cand->id() << std::endl;
-    for (const CustId& cid : cdel) {
-      print << "Removed " << cid << " from vehl " << cand->id() << std::endl;
-      this->beg_delay(cid);
-    }
+    this->assign_or_delay(cadd, cdel, cand->route().data(), cand->schedule().data(), *cand);
+    //for (const CustId& cid : cadd) print << "Matched " << cid << " to vehl " << cand->id() << std::endl;
+    //for (const CustId& cid : cdel) {
+    //  print << "Removed " << cid << " from vehl " << cand->id() << std::endl;
+    //  this->beg_delay(cid);
+    //}
   }
 }
 
@@ -470,12 +491,13 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
   option.path_to_solution = "grasp.sol";
   option.path_to_dataout  = "grasp.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
+  option.strict_mode = false;
   option.static_mode = true;
   Cargo cargo(option);
   GRASP grasp;
