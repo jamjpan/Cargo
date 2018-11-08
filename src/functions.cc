@@ -24,6 +24,7 @@
 #include <iterator>
 #include <memory> /* shared_ptr */
 #include <mutex> /* lock_guard */
+#include <utility>
 
 #include "libcargo/cargo.h" /* Cargo::gtree() */
 #include "libcargo/classes.h"
@@ -232,7 +233,8 @@ bool chktw(const vec_t<Stop>& sch, const vec_t<Wayp>& rte) {
   // Walk along the schedule and the route. O(|schedule|+|route|)
   auto j = rte.cbegin();
   for (auto i = sch.cbegin(); i != sch.cend(); ++i) {
-    while (j->second != i->loc() && j != rte.cend()) ++j;
+    j = std::find_if(rte.cbegin(), rte.cend(), [&](const Wayp& wp) {
+      return wp.second == i->loc(); });
     if (j != rte.cend()) {
       // There is a small error in KT when it computes limits because it does
       // not know the "surplus" distance when a vehicle passes a node. So we
@@ -269,7 +271,7 @@ bool chkcap(const Load& capacity, const vec_t<Stop>& sch) {
   for (auto i = sch.cbegin()+1; i != sch.cend()-1; ++i) {
     const Stop& stop = *i;
     if (stop.type() == StopType::CustOrig || stop.type() == StopType::CustDest)
-      q = q + (stop.type() == StopType::CustOrig ? -1 : 1);  // TODO: Replace 1 with customer's Load
+      q = std::move(q) + (stop.type() == StopType::CustOrig ? -1 : 1);  // TODO: Replace 1 with customer's Load
     DEBUG(3, {
       std::cout << "chkcap(2) at " << stop.loc()
                 << "(" << ((int)stop.type() == 0 ? "pickup" : "dropoff") << ")"

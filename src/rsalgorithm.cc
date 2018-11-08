@@ -24,6 +24,7 @@
 #include <cmath>
 #include <iterator> /* std::back_inserter */
 #include <mutex>
+#include <numeric>
 #include <thread>
 
 #include "libcargo/cargo.h"
@@ -38,14 +39,15 @@ namespace cargo {
 
 RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
     : print(name, fifo) {
-  name_ = name;
-  done_ = false;
-  batch_time_ = 1;
-  nmat_ = 0;
-  nrej_ = 0;
-  delay_ = {};
-  retry_ = 0;
-  timeout_ = 1;
+  this->name_ = name;
+  this->done_ = false;
+  this->batch_time_ = 1;
+  this->nmat_ = 0;
+  this->nrej_ = 0;
+  this->delay_ = {};
+  this->retry_ = 0;
+  this->timeout_ = 1;
+  this->handling_times_ = {};
   prepare_stmt(sql::ssr_stmt, &ssr_stmt);
   prepare_stmt(sql::sss_stmt, &sss_stmt);
   prepare_stmt(sql::uro_stmt, &uro_stmt);
@@ -85,10 +87,9 @@ const int         & RSAlgorithm::rejected()    const { return nrej_; }
       void          RSAlgorithm::kill()              { done_ = true; }
 
 float RSAlgorithm::avg_cust_ht() {
-  float sum = 0;
-  for (const float& ht : handling_times_)
-    sum += ht;
-  return sum/(float)handling_times_.size();
+  //for (const float& ht : this->handling_times_) print << ht << std::endl;
+  return (float)std::accumulate(
+    this->handling_times_.begin(), this->handling_times_.end(), 0)/(int)handling_times_.size();
 }
 
 vec_t<Customer> & RSAlgorithm::customers() { return customers_; }
@@ -364,7 +365,6 @@ void RSAlgorithm::beg_batch_ht() {
 void RSAlgorithm::end_ht() {
   this->ht_1 = hiclock::now();
   handling_times_.push_back(std::round(dur_milli(ht_1-ht_0).count()));
-  print << "Elapsed: " << std::round(dur_milli(ht_1-ht_0).count()) << " ms" << std::endl;
 }
 
 void RSAlgorithm::end_batch_ht() {
@@ -731,22 +731,16 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   this->select_waiting_customers(skip_assigned, skip_delayed);
   if (this->customers_.size() > 0) {
     // Set default timeout (per customer!)
-    // this->timeout_ = (Cargo::static_mode
-    //       // ? std::ceil((float)300000/this->customers_.size())
-    //       ? InfInt
-    //       : std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
-    this->timeout_ = InfInt;
+    this->timeout_ = (Cargo::static_mode ? InfInt : 30000);
+          //: std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
     // print << "Set timeout to " << this->timeout_ << std::endl;
     for (const auto& customer : this->customers_) {
       this->handle_customer(customer);
       ncusts++;
     }
     // Set default timeout (per batch!)
-    // this->timeout_ = (Cargo::static_mode
-    //       // ? std::ceil((float)300000)
-    //       ? InfInt
-    //       : std::ceil((float)batch_time_*(1000.0)));
-    this->timeout_ = InfInt;
+    this->timeout_ = (Cargo::static_mode ? InfInt : 30000);
+          //: std::ceil((float)batch_time_*(1000.0)));
     this->match();
   }
 
