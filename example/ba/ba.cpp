@@ -21,6 +21,7 @@
 #include <iostream> /* std::endl */
 #include <queue>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "ba.h"
@@ -31,39 +32,23 @@ using namespace cargo;
 const int BATCH = 30;
 
 BilateralArrangement::BilateralArrangement()
-    : RSAlgorithm("ba", true), grid_(100) {
+    : RSAlgorithm("ba", false), grid_(100) {
   this->batch_time() = BATCH;
   this->nswapped_ = 0;
 }
 
 void BilateralArrangement::match() {
   this->beg_batch_ht();
-  this->timeout_0 = hiclock::now();
-
-  print << "Prepare..." << std::endl;
+  this->clear();
   this->prepare();
-  print << "Prepare done" << std::endl;
-  // Now lookup, schedules, routes, modified are all populated
 
   for (const Customer& cust : this->customers()) {
     vec_t<rank_cand>& candidates = lookup.at(cust.id());
-    print << "Handling cust " << cust.id() << " (" << candidates.size() << " candidates)" << std::endl;
-    if (candidates.size() == 0) {
-      print << "\tNo candidates" << std::endl;
-      continue;
-    }
-    // Order the candidates in order to access by greedy
-    std::sort(candidates.begin(), candidates.end(),
-      [](const rank_cand& a, const rank_cand& b) {
-        return a.first < b.first;
-    });
     bool matched = false;
-    auto i = candidates.begin();
-    while (!matched && i != candidates.end()) {
+    auto i = candidates.cbegin();
+    while (!matched && i != candidates.cend()) {
       MutableVehicleSptr cand = i->second;
-      print << "\tTrying vehl " << cand->id() << std::endl;
       if (!modified.at(cand)) {
-        print << "\t\tNot modified, directly added" << std::endl;
         this->to_assign[cand].push_back(cust.id());
         this->modified[cand] = true;
         cand->set_sch(schedules.at(cust.id()).at(cand->id()));
@@ -71,30 +56,25 @@ void BilateralArrangement::match() {
         cand->reset_lvn();
         matched = true;
       } else {
-        vec_t<Stop> retry_sch;
-        vec_t<Wayp> retry_rte;
-        sop_insert(cand, cust, retry_sch, retry_rte);
-        if (chktw(retry_sch, retry_rte) && chkcap(cand->capacity(), retry_sch)) {
-          print << "\t\tModified but feasible, added" << std::endl;
+        sop_insert(cand, cust, this->retry_sch, this->retry_rte);
+        if (chktw(this->retry_sch, this->retry_rte)
+         && chkcap(cand->capacity(), this->retry_sch)) {
           this->to_assign[cand].push_back(cust.id());
           this->modified[cand] = true;
-          cand->set_sch(retry_sch);
-          cand->set_rte(retry_rte);
+          cand->set_sch(this->retry_sch);
+          cand->set_rte(this->retry_rte);
           cand->reset_lvn();
           matched = true;
         } else {  // Replace procedure
           CustId cust_to_remove = randcust(cand->schedule().data());
-          print << "\t\tModified and now infeasible, trying to replace" << std::endl;
           if (cust_to_remove != -1) {
-            vec_t<Stop> replace_sch;
-            vec_t<Wayp> replace_rte;
-            sop_replace(cand, cust_to_remove, cust, replace_sch, replace_rte);
-            if (chktw(replace_sch, replace_rte) && chkcap(cand->capacity(), replace_sch)) {
-              print << "\t\t\tReplace " << cust_to_remove << " feasible, added" << std::endl;
+            sop_replace(cand, cust_to_remove, cust, this->replace_sch, this->replace_rte);
+            if (chktw(this->replace_sch, this->replace_rte)
+             && chkcap(cand->capacity(), this->replace_sch)) {
               this->to_assign[cand].push_back(cust.id());
               this->modified[cand] = true;
-              cand->set_sch(replace_sch);
-              cand->set_rte(replace_rte);
+              cand->set_sch(this->replace_sch);
+              cand->set_rte(this->replace_rte);
               cand->reset_lvn();
               matched = true;
               auto remove_ptr = std::find(to_assign[cand].begin(), to_assign[cand].end(), cust_to_remove);
@@ -103,21 +83,15 @@ void BilateralArrangement::match() {
               else
                 to_unassign[cand].push_back(cust_to_remove);
               this->nswapped_++;
-            } else {
-              print << "\t\t\tReplace " << cust_to_remove << " still infeasible" << std::endl;
             }
-          } else {
-            print << "\t\t\tNothin to replace" << std::endl;
           }
         }
       }
       std::advance(i, 1);
     }
-    if (!matched)
-      this->beg_delay(cust.id());
-    if (this->timeout(this->timeout_0))
-      break;
   }
+
+  this->end_batch_ht();
 
   // Batch-commit the solution
   for (const auto& kv : this->modified) {
@@ -125,8 +99,6 @@ void BilateralArrangement::match() {
       this->commit(kv.first);
     }
   }
-
-  this->end_batch_ht();
 }
 
 void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
@@ -134,28 +106,38 @@ void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
 }
 
 void BilateralArrangement::prepare() {
-  this->clear();
-  vec_t<Stop> temp_sch;
-  vec_t<Wayp> temp_rte;
-  for (const Customer& cust : this->customers()) {
+  vec_t<Stop> sch;
+  vec_t<Wayp> rte;
+
+  auto add_or_remove = [&](const Customer& cust) {
     this->lookup[cust.id()] = {};
+    if (this->timeout(this->timeout_0)) return true;  // don't continue if no more time
     vec_t<MutableVehicleSptr> cands = this->grid_.within(pickup_range(cust), cust.orig());
     for (const MutableVehicleSptr& cand : cands) {
       // Speed heuristic: try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < 10) {
         this->to_assign[cand] = {};
         this->to_unassign[cand] = {};
-        DistInt cost = sop_insert(cand, cust, temp_sch, temp_rte) - cand->route().cost();
-        if (chktw(temp_sch, temp_rte) && chkcap(cand->capacity(), temp_sch)) {
-          auto rank = std::make_pair(cost, cand);
-          this->lookup.at(cust.id()).push_back(rank);
-          this->schedules[cust.id()][cand->id()] = temp_sch;  // store a copy
-          this->routes[cust.id()][cand->id()] = temp_rte;     // store a copy
+        DistInt cost = sop_insert(cand, cust, sch, rte) - cand->route().cost();
+        if (chktw(sch, rte) && chkcap(cand->capacity(), sch)) {
+          this->lookup.at(cust.id()).push_back(std::make_pair(cost, cand));
+          this->schedules[cust.id()][cand->id()] = std::move(sch);
+          this->routes[cust.id()][cand->id()] = std::move(rte);
           this->modified[cand] = false;
         }
       }
     }
-  }
+    if (this->lookup.at(cust.id()).empty()) return true;
+    else {
+      // Order the candidates in order to access by greedy
+      std::sort(this->lookup.at(cust.id()).begin(), this->lookup.at(cust.id()).end(),
+        [](const rank_cand& a, const rank_cand& b) { return a.first < b.first; });
+      return false;
+    }
+  };
+
+  this->customers().erase(std::remove_if(this->customers().begin(), this->customers().end(),
+    add_or_remove), this->customers().end());
 }
 
 void BilateralArrangement::clear() {
@@ -165,18 +147,15 @@ void BilateralArrangement::clear() {
   this->modified = {};
   this->to_assign = {};
   this->to_unassign = {};
+  this->timeout_0 = hiclock::now();
+  this->retry_sch = this->replace_sch = {};
+  this->retry_rte = this->replace_rte = {};
 }
 
 void BilateralArrangement::commit(const MutableVehicleSptr& cand) {
   vec_t<CustId>& cadd = this->to_assign.at(cand);
   vec_t<CustId>& cdel = this->to_unassign.at(cand);
-  cand->reset_lvn();
-  this->assign_or_delay(cadd, cdel, cand->route().data(), cand->schedule().data(), *cand, false/*true*/);
-  for (const CustId& cid : cadd) print << "Matched " << cid << " to vehl " << cand->id() << std::endl;
-  for (const CustId& cid : cdel) {
-    print << "Removed " << cid << " from vehl " << cand->id() << std::endl;
-    this->beg_delay(cid);
-  }
+  this->assign_or_delay(cadd, cdel, cand->route().data(), cand->schedule().data(), *cand);
 }
 
 void BilateralArrangement::end() {
@@ -195,13 +174,14 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m35k-c1.instance";
   option.path_to_solution = "ba.sol";
   option.path_to_dataout  = "ba.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
-  option.static_mode=true;
+  option.strict_mode = false;
+  option.static_mode = true;
   Cargo cargo(option);
   BilateralArrangement ba;
   cargo.start(ba);

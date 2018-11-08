@@ -43,6 +43,8 @@ class BilateralArrangement : public RSAlgorithm {
   dict<MutableVehicleSptr, bool> modified;
   dict<MutableVehicleSptr, vec_t<CustId>> to_assign;
   dict<MutableVehicleSptr, vec_t<CustId>> to_unassign;
+  vec_t<Stop> retry_sch, replace_sch;
+  vec_t<Wayp> retry_rte, replace_rte;
 
   /* Workspace variables */
   tick_t timeout_0;

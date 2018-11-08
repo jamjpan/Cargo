@@ -58,14 +58,14 @@ void GreedyInsertion::handle_customer(const Customer& cust) {
   if (this->best_vehl != nullptr)
     this->matched = true;
 
+  this->end_ht();
+
   if (this->matched) {
     this->assign_or_delay(
       {cust.id()}, {}, this->best_rte, this->best_sch, *(this->best_vehl));
   } else {
     this->beg_delay(cust.id());
   }
-
-  this->end_ht();
 }
 
 void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
