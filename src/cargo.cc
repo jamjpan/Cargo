@@ -47,7 +47,7 @@ namespace cargo {
 
 /* Set the size (number of elements) of the shortest-paths cache */
 const int LRU_SP_CACHE_SIZE = 1000000;
-const int LRU_SC_CACHE_SIZE = 0;  // <-- not useful in testing
+const int LRU_SC_CACHE_SIZE = 0;  // <-- not useful in tests
 
 /* Initialize global vars */
 /* Containers for quick node/edge lookup */
