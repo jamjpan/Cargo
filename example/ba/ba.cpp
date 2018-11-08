@@ -110,8 +110,8 @@ void BilateralArrangement::prepare() {
   vec_t<Wayp> rte;
 
   auto add_or_remove = [&](const Customer& cust) {
-    this->lookup[cust.id()] = {};
     if (this->timeout(this->timeout_0)) return true;  // don't continue if no more time
+    this->lookup[cust.id()] = {};
     vec_t<MutableVehicleSptr> cands = this->grid_.within(pickup_range(cust), cust.orig());
     for (const MutableVehicleSptr& cand : cands) {
       // Speed heuristic: try only if vehicle's current schedule len < 8 customer stops
