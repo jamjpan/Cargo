@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "libcargo.h"
-#include "simulated_annealing.h"
+#include "sa.h"
 
 using namespace cargo;
 
@@ -35,7 +35,7 @@ const int T_MAX = 5;
 const int P_MAX = 100000;
 
 SimulatedAnnealing::SimulatedAnnealing()
-    : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
+    : RSAlgorithm("sa", true), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
   this->ndrops_ = 0;
@@ -262,7 +262,7 @@ void SimulatedAnnealing::commit(const Solution& sol) {
     // for (const Stop& stop : cand.schedule().data())
     //   print << "(" << stop.owner() << "|" << stop.loc() << "|" << (int)stop.type() << ") ";
     // print << std::endl;
-    this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand, false/*true*/);
+    this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand);
   }
 }
 
@@ -306,11 +306,12 @@ int main() {
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  option.path_to_solution = "simulated_annealing.sol";
-  option.path_to_dataout  = "simulated_annealing.dat";
+  option.path_to_solution = "sa.sol";
+  option.path_to_dataout  = "sa.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
+  option.strict_mode = false;
   option.static_mode = true;
   Cargo cargo(option);
   SimulatedAnnealing sa;
