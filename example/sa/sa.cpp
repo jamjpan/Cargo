@@ -38,7 +38,6 @@ SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("sa", false), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
-  this->ndrops_ = 0;
   std::random_device rd;
   this->gen.seed(rd());
 }
@@ -135,23 +134,25 @@ Solution SimulatedAnnealing::perturb(const Solution& sol,
   if (sol.find(k_new.id()) != sol.end())
     k_new_assignments = sol.at(k_new.id()).second;
 
-  DistInt current_cost =                    // 4. Do the move
-    k_old.route().cost() + k_new.route().cost();
+  // 4. Do the move
+  DistInt current_cost = k_old.route().cost() + k_new.route().cost();
 
-  //   a. Remove cust from k_old
-  this->sch_after_rem = k_old.schedule().data();
-  opdel(this->sch_after_rem, cust_to_move.id());
-  route_through(this->sch_after_rem, this->rte_after_rem);
-
-  //   b. Add cust to k_new (bottleneck)
+  //   a. Add cust to k_new (--bottleneck--)
   sop_insert(k_new, cust_to_move, this->sch_after_add, this->rte_after_add);
 
-  //   c. Accept or reject
+  //   b. Accept or reject
   if (chkcap(k_new.capacity(), this->sch_after_add)
    && chktw(this->sch_after_add, this->rte_after_add)) {
+    //   c. Remove cust from k_old
+    this->sch_after_rem = k_old.schedule().data();
+    opdel(this->sch_after_rem, cust_to_move.id());
+    route_through(this->sch_after_rem, this->rte_after_rem);
+
+    //   d. Compare costs
     DistInt new_cost = this->rte_after_add.back().first + rte_after_rem.back().first;
     bool climb = false;
-    if (new_cost >= current_cost) {
+    // Quality heuristic: don't do any climbs on the last temperature
+    if (new_cost >= current_cost && temperature != 1) {
       climb = hillclimb(temperature);
       if (climb) this->nclimbs_++;
     }
@@ -197,9 +198,7 @@ void SimulatedAnnealing::handle_vehicle(const Vehicle& vehl) {
 }
 
 void SimulatedAnnealing::end() {
-  print(MessageType::Info)
-    << "climbs: " << nclimbs_ << '\n'
-    << "descents: " << ndrops_ << std::endl;
+  print(MessageType::Info) << "climbs: " << nclimbs_ << std::endl;
   this->print_statistics();
 }
 
@@ -215,7 +214,6 @@ void SimulatedAnnealing::reset_workspace() {
   this->candidates_list = {};
   this->vehicle_lookup = {};
   this->timeout_0 = hiclock::now();
-  this->timeout_ = this->timeout_/T_MAX;
   this->best_sol = {};
   this->commit_cadd = {};
   this->commit_rte = {};

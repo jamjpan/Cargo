@@ -42,7 +42,6 @@ class SimulatedAnnealing : public RSAlgorithm {
   Grid grid_;
 
   int nclimbs_;
-  int ndrops_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
   std::uniform_int_distribution<> n;
@@ -64,7 +63,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   void commit();
 
   bool hillclimb(const int& T) {
-    return this->d(this->gen) < std::exp(-1.2*(float)T);
+    return this->d(this->gen) < std::exp(1.0*(float)T);
   }
 
   void anneal(const int& T_MAX, const int& P_MAX) {
