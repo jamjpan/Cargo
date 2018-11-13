@@ -26,7 +26,8 @@
 
 using namespace cargo;
 
-typedef dict<MutableVehicleSptr, std::pair<vec_t<CustId>, vec_t<CustId>>> Solution;
+typedef dict<MutableVehicleSptr, std::pair<vec_t<CustId>, vec_t<CustId>>>
+Solution;
 
 class GRASP : public RSAlgorithm {
  public:
@@ -51,11 +52,16 @@ class GRASP : public RSAlgorithm {
 
   tick_t timeout_0;
 
-  dict<Customer, vec_t<MutableVehicleSptr>> candidates_index;
+  Solution best_solution;
+  DistInt  best_cost;
+
+  dict<Customer, std::unordered_set<MutableVehicleSptr>> candidates_index;
   dict<MutableVehicleSptr, vec_t<Customer>> candidates_list;
   dict<MutableVehicleSptr, dict<Customer, DistInt>> fitness;
   dict<MutableVehicleSptr, dict<Customer, vec_t<Stop>>> schedules;
   dict<MutableVehicleSptr, dict<Customer, vec_t<Wayp>>> routes;
+  vec_t<Stop> sch;
+  vec_t<Wayp> rte;
 
   Solution initialize(Grid &, vec_t<Customer> &);
   Solution replace(const Solution &, vec_t<Customer> &);
@@ -63,7 +69,20 @@ class GRASP : public RSAlgorithm {
   Solution rearrange(const Solution &);
   Customer roulette(const dict<Customer, DistInt> &);
   DistInt cost(const Solution &);
+
+  void print_sol(const Solution &);
+
   void commit(const Solution &);
+
+  void reset_workspace() {
+    this->candidates_index = {};
+    this->candidates_list = {};
+    this->fitness = {};
+    this->schedules = {};
+    this->routes = {};
+    this->sch = {};
+    this->rte = {};
+  }
 
 };
 
