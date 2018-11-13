@@ -51,15 +51,11 @@ void GRASP::match() {
 
   for (int count = MAX_ITER; count--;) {
     this->reset_workspace();
-    auto pert_0 = hiclock::now();
     Grid local_grid(this->grid_);  // deep copy
     vec_t<Customer> local_customers = this->customers();
 
     // bottleneck
-    auto init_0 = hiclock::now();
     Solution initial_solution = this->initialize(local_grid, local_customers);
-    auto init_1 = hiclock::now();
-    //print << "init: " << std::round(dur_milli(init_1-init_0).count()) << std::endl;
     //print << "Got initial solution:" << std::endl;
     //print_sol(initial_solution);
 
@@ -70,25 +66,16 @@ void GRASP::match() {
     do {
       has_improvement = false;
       bool has_replace = false;
-      auto repl_0 = hiclock::now();
       vec_t<Customer> unassigned = local_customers;
       Solution sol_replace      = this->replace(local_best, unassigned);
       //print << "Got replace:" << std::endl;
       //print_sol(sol_replace);
-      auto repl_1 = hiclock::now();
-      //print << "repl: " << std::round(dur_milli(repl_1-repl_0).count()) << std::endl;
-      auto swap_0 = hiclock::now();
       Solution sol_swap         = this->swap(local_best);
       //print << "Got swap:" << std::endl;
       //print_sol(sol_swap);
-      auto swap_1 = hiclock::now();
-      //print << "swap: " << std::round(dur_milli(swap_1-swap_0).count()) << std::endl;
-      auto arrg_0 = hiclock::now();
       Solution sol_rearrange    = this->rearrange(local_best);
       //print << "Got rearrange:" << std::endl;
       //print_sol(sol_rearrange);
-      auto arrg_1 = hiclock::now();
-      //print << "arrg: " << std::round(dur_milli(arrg_1-arrg_0).count()) << std::endl;
       DistInt replace_cost      = this->cost(sol_replace);
       DistInt swap_cost         = this->cost(sol_swap);
       DistInt rearrange_cost    = this->cost(sol_rearrange);
@@ -140,10 +127,8 @@ void GRASP::match() {
       //print << "new best solution (" << local_cost << " < " << this->best_cost << ")" << std::endl;
       this->best_solution = local_best;
       this->best_cost = local_cost;
-    } else
+    } //else
       //print << "kept incumbent (" << local_cost << " not better than " << this->best_cost << ")" << std::endl;
-    auto pert_1 = hiclock::now();
-    //print << "  pert: " << std::round(dur_milli(pert_1-pert_0).count()) << std::endl;
   }
   this->commit(this->best_solution);
   this->end_batch_ht();
@@ -154,7 +139,6 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
 
   // 1. List all the candidates for each customer (0-500 ms)
   int cands_per_cust = 0;
-  auto cand_0 = hiclock::now();
   for (const Customer& cust : customers) {
     this->candidates_index[cust] = {};
     vec_t<MutableVehicleSptr> candidates = grid.within(pickup_range(cust), cust.orig());
@@ -167,8 +151,6 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
       this->candidates_list[cand].push_back(cust);
     }
   }
-  auto cand_1 = hiclock::now();
-  //print << "  cand time: " << std::round(dur_milli(cand_1-cand_0).count()) << std::endl;
   //print << "  cands/cust: " << (float)cands_per_cust/customers.size() << std::endl;
 
   // 1-2. Speedup heuristic: only keep top x customers per candidate based on
