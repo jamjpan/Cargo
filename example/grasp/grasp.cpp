@@ -500,8 +500,6 @@ Customer GRASP::roulette(const dict<Customer, DistInt>& fitness) {
   for (const auto& kv : fitness)
     max = std::max(max, ((float)cost_max - kv.second));
 
-  print << "  max: " << max << std::endl;
-
   // 2. Roulette-wheel selection
   // (https://en.wikipedia.org/wiki/Fitness_proportionate_selection)
   std::uniform_int_distribution<>  n(0, fitness.size() - 1);
@@ -511,9 +509,7 @@ Customer GRASP::roulette(const dict<Customer, DistInt>& fitness) {
     i = fitness.begin();
     std::advance(i, n(this->gen));
     float per = (max == 0 ? 0 : (cost_max - i->second)/max);
-    print << "    cust " << i->first.id() << ": " << (cost_max - i->second) << "/" << max << " = " << per << std::endl;
     float threshold = m(this->gen);
-    print << "    ratio=" << per << " (thresh=" << threshold << ")" << std::endl;
     if (max == 0 || per > threshold)
       break;
   }
