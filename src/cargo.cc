@@ -130,21 +130,21 @@ Cargo::~Cargo() {
   sqlite3_finalize(mov_stmt);
   sqlite3_finalize(usc_stmt);
 
-  if (database_file_ != "") {
-    int rc;
-    sqlite3 *p_file;
-    sqlite3_backup *p_backup;
-    rc = sqlite3_open(database_file_.c_str(), &p_file);
-    if (rc == SQLITE_OK) {
-      p_backup = sqlite3_backup_init(p_file, "main", db_, "main");
-      if (p_backup) {
-          sqlite3_backup_step(p_backup, -1);
-          sqlite3_backup_finish(p_backup);
-      }
-      rc = sqlite3_errcode(p_file);
-    }
-    sqlite3_close(p_file);
-  }
+  // if (database_file_ != "") {
+  //   int rc;
+  //   sqlite3 *p_file;
+  //   sqlite3_backup *p_backup;
+  //   rc = sqlite3_open(database_file_.c_str(), &p_file);
+  //   if (rc == SQLITE_OK) {
+  //     p_backup = sqlite3_backup_init(p_file, "main", db_, "main");
+  //     if (p_backup) {
+  //         sqlite3_backup_step(p_backup, -1);
+  //         sqlite3_backup_finish(p_backup);
+  //     }
+  //     rc = sqlite3_errcode(p_file);
+  //   }
+  //   sqlite3_close(p_file);
+  // }
 
   if (err != NULL) sqlite3_free(err);
   sqlite3_close(db_);
@@ -515,11 +515,11 @@ SimlDur Cargo::avg_pickup_delay() {
   sqlite3_stmt* stmt;
   sqlite3_prepare_v2(db_, querystr.c_str(), -1, &stmt, NULL);
   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-    const CustId owner = sqlite3_column_int(stmt, 0);
+    //const CustId owner = sqlite3_column_int(stmt, 0);
     const SimlTime early = sqlite3_column_int(stmt, 3);
     const SimlTime visitedAt = sqlite3_column_int(stmt, 5);
     pdelay += (visitedAt - early);
-    print << "Cust " << owner << " picked up at: " << visitedAt << "; early: " << early << "; delay: " << visitedAt - early << std::endl;
+    //print << "Cust " << owner << " picked up at: " << visitedAt << "; early: " << early << "; delay: " << visitedAt - early << std::endl;
     count++;
   }
   if (rc != SQLITE_DONE) {
@@ -578,11 +578,11 @@ SimlDur Cargo::avg_trip_delay() {
   for (const CustId& cust_id : keys) {
     int delay = (dest_t.at(cust_id) - orig_t.at(cust_id)) - (trip_costs_.at(cust_id)/original_speed_);
     if (delay == -1) delay = 0;  // hack to account for rounding error
-    std::cout << "Cust " << cust_id << " arrived at o: " << orig_t.at(cust_id)
-              << "; d: " << dest_t.at(cust_id)
-              << "; base: " << trip_costs_.at(cust_id)
-              << "; speed: " << original_speed_
-              << "; delay: " << delay << std::endl;
+    //std::cout << "Cust " << cust_id << " arrived at o: " << orig_t.at(cust_id)
+    //          << "; d: " << dest_t.at(cust_id)
+    //          << "; base: " << trip_costs_.at(cust_id)
+    //          << "; speed: " << original_speed_
+    //          << "; delay: " << delay << std::endl;
     tdelay += delay;
   }
 
