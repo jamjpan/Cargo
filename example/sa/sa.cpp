@@ -32,7 +32,8 @@ using namespace cargo;
 
 const int BATCH = 30;
 const int T_MAX = 5;
-const int P_MAX = 15000;
+const int P_MAX = 5000;
+const int SCHED_MAX = 10;
 
 SimulatedAnnealing::SimulatedAnnealing()
     : RSAlgorithm("sa", false), grid_(100), d(0,1) {
@@ -48,20 +49,14 @@ void SimulatedAnnealing::match() {
 
   Grid local_grid(this->grid_);  // make a deep copy
 
-  // auto init_0 = hiclock::now();
   this->initialize(local_grid);
-  // auto init_1 = hiclock::now();
-  // print << "init: " << std::round(dur_milli(init_1-init_0).count()) << std::endl;
+  print << "initial cost: " << this->sol_cost(this->sol) << std::endl;
 
   if (!this->sol.empty()) {
     std::uniform_int_distribution<>::param_type sol_size_range(1, this->sol.size());
     this->n.param(sol_size_range);
-
-    // auto pert_0 = hiclock::now();
     this->anneal(T_MAX, P_MAX);
-    // auto pert_1 = hiclock::now();
-    // print << "pert: " << std::round(dur_milli(pert_1-pert_0).count()) << std::endl;
-
+    print << "after anneal: " << this->sol_cost(this->sol) << std::endl;
     this->end_batch_ht();
     this->commit();
   }
@@ -71,7 +66,8 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
   // Assign each customer to a random candidate
   for (const Customer& cust : this->customers()) {
     bool initial = false;
-    vec_t<MutableVehicleSptr>& candidates
+    //this->tried[cust.id()] = {};
+    vec_t<MutableVehicleSptr> candidates
       = this->candidates_list[cust.id()]
       = local_grid.within(pickup_range(cust), cust.orig());
 
@@ -80,15 +76,20 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
       this->vehicle_lookup[cand->id()] = cand;
 
     // Randomize the candidates order
-    std::shuffle(candidates.begin(), candidates.end(), this->gen);
+    //std::shuffle(candidates.begin(), candidates.end(), this->gen);
 
     // Try until got a valid one
     while (!candidates.empty() && initial == false) {
-      MutableVehicleSptr& cand = candidates.back();
-      candidates.pop_back();
+      auto k = candidates.begin();
+      std::uniform_int_distribution<> m(0, candidates.size()-1);
+      std::advance(k, m(this->gen));
+      MutableVehicleSptr cand = *k;
+      candidates.erase(k);
+      //MutableVehicleSptr cand = candidates.back();
+      //candidates.pop_back();
       // Speed-up heuristic!
       // Try only if vehicle's current schedule len < 8 customer stops
-      if (cand->schedule().data().size() < 10) {
+      if (cand->schedule().data().size() < SCHED_MAX) {
         sop_insert(*cand, cust, sch, rte);
         if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
           cand->set_sch(sch);  // update grid version of the candidate
@@ -114,22 +115,46 @@ Solution SimulatedAnnealing::perturb(const Solution& sol,
   if (i->second.second.empty()) return sol;
   MutableVehicle  k_old = i->second.first;
   vec_t<Customer> k_old_assignments = i->second.second;
+  print << "perturb got vehl " << k_old.id() << std::endl;
 
   auto j = k_old_assignments.cbegin();      // 2. Select random assigned customer
   std::uniform_int_distribution<> m(1, k_old_assignments.size());
   std::advance(j, m(this->gen)-1);
   Customer cust_to_move = *j;
+  print << "perturb got cust " << cust_to_move.id() << std::endl;
 
-  vec_t<MutableVehicleSptr>& candidates = this->candidates_list.at(cust_to_move.id());
-  if (candidates.empty()) return sol;
+  vec_t<MutableVehicleSptr> candidates = this->candidates_list.at(cust_to_move.id());
+  if (candidates.empty()) {
+    print << "  no candidates; returning" << std::endl;
+    return sol;
+  }
+
   auto k = candidates.cbegin();             // 3. Select new candidate
   std::uniform_int_distribution<> p(1, candidates.size());
   std::advance(k, p(this->gen)-1);
+  print << " perturb got new cand " << (*k)->id() << std::endl;
 
-  while ((*k)->id() == k_old.id() && k != candidates.end()) k++;
-  if (k == candidates.end()) return sol;
+  //while (((*k)->id() == k_old.id() || this->tried.at(cust_to_move.id()).count((*k)->id()) == 1)
+  //    && !candidates.empty()) {
+  while ((*k)->id() == k_old.id()) {
+    candidates.erase(k);
+    if (candidates.empty()) {
+      print << "  no untried candidates; returning" << std::endl;
+      return sol;
+    }
+    k = candidates.cbegin();
+    std::uniform_int_distribution<> p(0, candidates.size()-1);
+    std::advance(k, p(this->gen));
+    print << " perturb got new cand " << (*k)->id() << std::endl;
+  }
+  //if (k == candidates.end()) return sol;
 
+  //this->tried[cust_to_move.id()].insert((*k)->id());
   MutableVehicle k_new = **k;
+  // We don't want to try this candidate again in later perturbs, so just remove
+  // it from the candidates list
+  //candidates.erase(k);
+
   vec_t<Customer> k_new_assignments = {};
   if (sol.find(k_new.id()) != sol.end())
     k_new_assignments = sol.at(k_new.id()).second;
@@ -139,6 +164,7 @@ Solution SimulatedAnnealing::perturb(const Solution& sol,
 
   //   a. Add cust to k_new (--bottleneck--)
   sop_insert(k_new, cust_to_move, this->sch_after_add, this->rte_after_add);
+  print << "  move " << cust_to_move.id() << " from " << k_old.id() << " to " << k_new.id() << std::endl;
 
   //   b. Accept or reject
   if (chkcap(k_new.capacity(), this->sch_after_add)
@@ -151,12 +177,14 @@ Solution SimulatedAnnealing::perturb(const Solution& sol,
     //   d. Compare costs
     DistInt new_cost = this->rte_after_add.back().first + rte_after_rem.back().first;
     bool climb = false;
+    print << "    is " << new_cost << " < " << current_cost << "?" << std::endl;
     // Quality heuristic: don't do any climbs on the last temperature
     if (new_cost >= current_cost && temperature != 1) {
       climb = hillclimb(temperature);
       if (climb) this->nclimbs_++;
     }
     if (new_cost < current_cost || climb) {
+      print << (new_cost < current_cost ? "  accept" : " accept due to climb") << std::endl;
       // Update grid
       vehicle_lookup.at(k_old.id())->set_sch(sch_after_rem);
       vehicle_lookup.at(k_old.id())->set_rte(rte_after_rem);
@@ -179,6 +207,8 @@ Solution SimulatedAnnealing::perturb(const Solution& sol,
       improved_sol[k_new.id()] = std::make_pair(k_new, k_new_assignments);
       return improved_sol;
     }
+  } else {
+    print << "    not valid" << std::endl;
   }
   return sol;
 }
@@ -190,6 +220,7 @@ void SimulatedAnnealing::commit() {
     vec_t<CustId> cdel = {};
     for (const Customer& cust : kv.second.second) cadd.push_back(cust.id());
     this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand);
+    for (const CustId& cid : cadd) print << "Matched " << cid << " with " << cand.id() << std::endl;
   }
 }
 
@@ -209,6 +240,7 @@ void SimulatedAnnealing::listen(bool skip_assigned, bool skip_delayed) {
 
 void SimulatedAnnealing::reset_workspace() {
   this->sol = {};
+  //this->tried = {};
   this->sch = this->sch_after_rem = this->sch_after_add = {};
   this->rte = this->rte_after_rem = this->rte_after_add = {};
   this->candidates_list = {};
@@ -226,8 +258,9 @@ int main() {
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
-  option.path_to_solution = "sa.sol";
-  option.path_to_dataout  = "sa.dat";
+  //option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
+  option.path_to_solution = "sa-sm.sol";
+  option.path_to_dataout  = "sa-sm.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;

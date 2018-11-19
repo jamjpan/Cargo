@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 #include <memory>
+#include <set>
 #include <unordered_map>
 #include <utility>
 #include <random>
@@ -48,6 +49,7 @@ class SimulatedAnnealing : public RSAlgorithm {
 
   /* Workspace variables */
   Solution sol;
+  //dict<CustId, std::set<VehlId>> tried;
   dict<CustId, vec_t<MutableVehicleSptr>> candidates_list;
   dict<VehlId, MutableVehicleSptr> vehicle_lookup;
   tick_t timeout_0;
@@ -58,21 +60,42 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
+
+  DistInt sol_cost(const Solution& sol) {
+      std::set<MutableVehicle> vehls = {};
+      for (const auto& kv : sol) vehls.insert(kv.second.first);
+      DistInt sum = 0;
+      for (const MutableVehicle& vehl : vehls) sum += vehl.route().cost();
+      return sum;
+  }
+
   void initialize(Grid &);
   Solution perturb(const Solution &, const int &);
   void commit();
 
   bool hillclimb(const int& T) {
-    return this->d(this->gen) < std::exp(1.0*(float)T);
+    print << "T=" << T << std::endl;
+    float mark = this->d(this->gen);
+    float thresh = std::exp(.50*(float)T)/100;
+    print << mark << " : " << thresh << std::endl;
+    return mark < thresh;
   }
 
   void anneal(const int& T_MAX, const int& P_MAX) {
-    for (int t = T_MAX; t--;)
-      for (int p = P_MAX; p--;) {
+    for (int t = T_MAX; t > 0; t--) {
+      print << t << std::endl;
+      for (int p = P_MAX; p > 0; p--) {
         this->sol = std::move(this->perturb(this->sol, t));
-        if (this->timeout(this->timeout_0))
+        if (this->timeout(this->timeout_0)) {
+          print << "timed out" << std::endl;
           return;
+        }
       }
+      if (this->timeout(this->timeout_0)) {
+        print << "timed out" << std::endl;
+        return;
+      }
+    }
   }
 
   void reset_workspace();

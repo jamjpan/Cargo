@@ -104,7 +104,7 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m50k-c1.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m45k-c1.instance";
   option.path_to_solution = "nn.sol";
   option.path_to_dataout  = "nn.dat";
   option.time_multiplier  = 1;

@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "libcargo.h"
-#include "trip_vehicle_grouping.h"
+#include "tg.h"
 
 #include "glpk/glpk.h"
 
@@ -34,13 +34,13 @@ using namespace cargo;
 
 const int BATCH = 30;
 const int TOP_CUST = 30;  // customers per vehicle for rv-graph
-const int TRIP_MAX = 30000;  // maximum number of trips per batch
+//const int TRIP_MAX = 30000;  // maximum number of trips per batch
 // const int TOP_CUST = 8;  // customers per vehicle for rv-graph
-// const int TRIP_MAX = 12000;  // maximum number of trips per batch
-const int MAX_THREADS = 6;
+ const int TRIP_MAX = 12000;  // maximum number of trips per batch
+const int MAX_THREADS = 2;
 
 TripVehicleGrouping::TripVehicleGrouping()
-    : RSAlgorithm("trip_vehicle_grouping", true), grid_(100) {
+    : RSAlgorithm("tg", false), grid_(100) {
   batch_time() = BATCH;
   if (!omp_get_cancellation()) {
     print(MessageType::Error) << "OMP_CANCELLATION not set"
@@ -52,7 +52,7 @@ TripVehicleGrouping::TripVehicleGrouping()
 }
 
 void TripVehicleGrouping::match() {
-  print << "Match called." << std::endl;
+  //print << "Match called." << std::endl;
   this->beg_batch_ht();
   this->reset_workspace();
   this->timeout_rv_0 = hiclock::now();
@@ -73,7 +73,7 @@ void TripVehicleGrouping::match() {
 
   /* Generate rv-graph */
   { std::vector<Customer> lcl_cust = customers();
-  print << "Generating rv-graph..." << std::endl;
+  //print << "Generating rv-graph..." << std::endl;
   omp_set_num_threads(MAX_THREADS);
   #pragma omp parallel shared(lcl_cust, rvgrph_rr_, rvgrph_rv_, \
          rv_cst, rv_sch, rv_rte, matchable_custs)
@@ -104,10 +104,10 @@ void TripVehicleGrouping::match() {
             rv_sch[*cand][cust_a] = schout;
             rv_rte[*cand][cust_a] = rteout; }
         } else {
-            // print << "  travel not valid; reject" << std::endl;
+            print << "  travel not valid; reject" << std::endl;
         }
       } else {
-        // print << "  no capacity; reject" << std::endl;
+        print << "  no capacity; reject" << std::endl;
       }
     }
      if (cands.size() == 0) {
@@ -115,7 +115,7 @@ void TripVehicleGrouping::match() {
        print << "No candidates." << std::endl;
      }
     if (this->timeout(this->timeout_rv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -128,26 +128,26 @@ void TripVehicleGrouping::match() {
     /* ...then compare against all other cust_b */
     for (const Customer& cust_b : customers()) {
       if (cust_a == cust_b) continue;
-      // print << "Cust " << cust_a.id() << " join Cust " << cust_b.id() << " ? "
-      //      << std::endl;
+      print << "Cust " << cust_a.id() << " join Cust " << cust_b.id() << " ? "
+            << std::endl;
       /* Euclidean filters */
       if (haversine(cust_a.orig(), cust_b.orig()) > pickup_range(cust_b)) {
-        // print << "  origins not in range; reject" << std::endl;
+        print << "  origins not in range; reject" << std::endl;
         continue;
       }
       if (haversine(cust_a.dest(), cust_b.dest()) > pickup_range(cust_b)) {
-        // print << "  destinations not in range; reject" << std::endl;
+        print << "  destinations not in range; reject" << std::endl;
         continue;
       }
       DistInt cstout = 0;
       std::vector<Stop> schout;
       std::vector<Wayp> rteout;
       if (travel(vtvehl, {cust_b}, cstout, schout, rteout, lcl_gtre)) {
-        // print << "  accept" << std::endl;
+        print << "  accept" << std::endl;
         #pragma omp critical
         { rvgrph_rr_[cust_a].push_back(cust_b); }
       } else {
-        // print << "  travel not valid; reject" << std::endl;
+        print << "  travel not valid; reject" << std::endl;
       }
     }
     // print << "Total rr-edges for cust " << ptcust->id() << std::endl;
@@ -196,7 +196,7 @@ void TripVehicleGrouping::match() {
   /* Generate rtv-graph */
   this->timeout_rtv_0 = hiclock::now();
   int nvted = 0;
-  print << "Generating rtv-graph" << std::endl;
+  //print << "Generating rtv-graph" << std::endl;
   { std::vector<Vehicle> lcl_vehl = vehicles();
   omp_set_num_threads(MAX_THREADS);
   #pragma omp parallel shared(nvted, lcl_vehl, vt_sch, vt_rte, vehmap, \
@@ -236,7 +236,7 @@ void TripVehicleGrouping::match() {
     } else
       continue;  // <-- if no rv-pairs, skip to the next vehl
     if (this->timeout(this->timeout_rtv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -254,10 +254,10 @@ void TripVehicleGrouping::match() {
         if (id_a == id_b) continue;
         SharedTrip shtrip = sh_base;
         shtrip.insert(shtrip.end(), lcl_trip.at(id_b).begin(), lcl_trip.at(id_b).end());
-        print << "Formed shtrip: ";
-        for (const Customer& cust : shtrip)
-          print << cust.id() << " ";
-        print << std::endl;
+        // print << "Formed shtrip: ";
+        // for (const Customer& cust : shtrip)
+        //   print << cust.id() << " ";
+        // print << std::endl;
         /* Euclidean filter */
         if (haversine(vehl.last_visited_node(), shtrip.at(0).orig()) > pickup_range(shtrip.at(0)))
           continue;
@@ -275,13 +275,13 @@ void TripVehicleGrouping::match() {
           tripk[2].push_back(stid);
         }
         if (this->timeout(this->timeout_rtv_0)) {
-          // print << "Timed out" << std::endl;
+          print << "Timed out" << std::endl;
           // break;
           #pragma omp cancel for
         }
       }
       if (this->timeout(this->timeout_rtv_0)) {
-        // print << "Timed out" << std::endl;
+        print << "Timed out" << std::endl;
         // break;
         #pragma omp cancel for
       }
@@ -308,19 +308,19 @@ void TripVehicleGrouping::match() {
           tripk[2].push_back(stid);
         }
         if (this->timeout(this->timeout_rtv_0)) {
-          // print << "Timed out" << std::endl;
+          print << "Timed out" << std::endl;
           // break;
           #pragma omp cancel for
         }
       }
       if (this->timeout(this->timeout_rtv_0)) {
-        // print << "Timed out" << std::endl;
+        print << "Timed out" << std::endl;
         // break;
         #pragma omp cancel for
       }
     }
     if (this->timeout(this->timeout_rtv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -378,7 +378,7 @@ void TripVehicleGrouping::match() {
           }  // end if shtrip.size() == k
         }  // end inner for
         if (this->timeout(this->timeout_rtv_0)) {
-          // print << "Timed out" << std::endl;
+          print << "Timed out" << std::endl;
           // break;
           #pragma omp cancel for
         }
@@ -387,7 +387,7 @@ void TripVehicleGrouping::match() {
     } // end while
     } // end if vehls with capacity
     if (this->timeout(timeout_rtv_0)) {
-      // print << "Timed out" << std::endl;
+      print << "Timed out" << std::endl;
       // break;
       #pragma omp cancel for
     }
@@ -577,7 +577,7 @@ void TripVehicleGrouping::match() {
         cadd.push_back(cust.id());
         print << "Matched " << cust.id() << " with " << sync_vehl.id() << std::endl;
       }
-      if (this->assign(cadd, {}, new_rte, new_sch, sync_vehl, false/*true*/)) {
+      if (this->assign(cadd, {}, new_rte, new_sch, sync_vehl)) {
         for (const auto& cust : trip_.at(colmap[i].second)) {
           is_matched.at(cust.id()) = true;
           this->end_delay(cust.id());
@@ -721,16 +721,18 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-md-7.instance";
-  option.path_to_solution = "trip_vehicle_grouping.sol";
-  option.path_to_dataout  = "trip_vehicle_grouping.dat";
+  option.path_to_problem  = "../../data/benchmark/rs-m5k-c1.instance";
+  //option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
+  option.path_to_solution = "tg.sol";
+  option.path_to_dataout  = "tg.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
+  option.strict_mode = false;
   option.static_mode = true;
   Cargo cargo(option);
   TripVehicleGrouping tvg;
-  tvg.unassign_penalty = 1000000;
+  tvg.unassign_penalty = 10000;
   cargo.start(tvg);
 
   return 0;

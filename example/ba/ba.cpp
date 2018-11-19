@@ -48,6 +48,7 @@ void BilateralArrangement::match() {
     auto i = candidates.cbegin();
     while (!matched && i != candidates.cend()) {
       MutableVehicleSptr cand = i->second;
+      print << "cust " << cust.id() << " trying " << cand->id() << std::endl;
       if (!modified.at(cand)) {
         this->to_assign[cand].push_back(cust.id());
         this->modified[cand] = true;
@@ -55,6 +56,7 @@ void BilateralArrangement::match() {
         cand->set_rte(routes.at(cust.id()).at(cand->id()));
         cand->reset_lvn();
         matched = true;
+        print << "  direct accept" << std::endl;
       } else {
         sop_insert(cand, cust, this->retry_sch, this->retry_rte);
         if (chktw(this->retry_sch, this->retry_rte)
@@ -65,12 +67,15 @@ void BilateralArrangement::match() {
           cand->set_rte(this->retry_rte);
           cand->reset_lvn();
           matched = true;
+          print << "  feasible accept" << std::endl;
         } else {  // Replace procedure
           CustId cust_to_remove = randcust(cand->schedule().data());
+          print << "  not feasible; replacing " << cust_to_remove << std::endl;
           if (cust_to_remove != -1) {
             sop_replace(cand, cust_to_remove, cust, this->replace_sch, this->replace_rte);
             if (chktw(this->replace_sch, this->replace_rte)
              && chkcap(cand->capacity(), this->replace_sch)) {
+              print << "  replace accept" << std::endl;
               this->to_assign[cand].push_back(cust.id());
               this->modified[cand] = true;
               cand->set_sch(this->replace_sch);
@@ -156,6 +161,8 @@ void BilateralArrangement::commit(const MutableVehicleSptr& cand) {
   vec_t<CustId>& cadd = this->to_assign.at(cand);
   vec_t<CustId>& cdel = this->to_unassign.at(cand);
   this->assign_or_delay(cadd, cdel, cand->route().data(), cand->schedule().data(), *cand);
+  for (const CustId& cid : cadd) print << "Matched " << cid << " with " << cand->id() << std::endl;
+  for (const CustId& cid : cdel) print << "Removed " << cid << " from " << cand->id() << std::endl;
 }
 
 void BilateralArrangement::end() {
@@ -174,7 +181,7 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m35k-c1.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
   option.path_to_solution = "ba.sol";
   option.path_to_dataout  = "ba.dat";
   option.time_multiplier  = 1;

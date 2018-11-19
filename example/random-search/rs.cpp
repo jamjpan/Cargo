@@ -17,78 +17,65 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+#include <algorithm>
 #include <iostream>
 #include <queue>
-#include <tuple>
-#include <vector>
+#include <random>
 
-#include "gr.h"
 #include "libcargo.h"
+#include "rs.h"
 
 using namespace cargo;
 
 const int BATCH = 30;
 
-GreedyInsertion::GreedyInsertion()
-    : RSAlgorithm("gr", false), grid_(100) {
+RandomSearch::RandomSearch()
+    : RSAlgorithm("rs", false), grid_(100) {
   this->batch_time() = BATCH;
+  std::random_device rd;
+  this->gen.seed(rd());
 }
 
-void GreedyInsertion::handle_customer(const Customer& cust) {
+void RandomSearch::handle_customer(const Customer& cust) {
   this->beg_ht();
   this->reset_workspace();
-  this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
+  this->candidates =
+    this->grid_.within(pickup_range(cust), cust.orig());
 
-  for (const MutableVehicleSptr& cand : this->candidates) {
-    // Speed heuristic: try only if vehicle's current schedule has < 8 customer stops
-    if (cand->schedule().data().size() < 10) {
-      DistInt cost = sop_insert(*cand, cust, sch, rte, Cargo::gtree()) - cand->route().cost();
-      if (cost < this->best_cost) {
-        if (chkcap(cand->capacity(), sch) && chktw(sch, rte)) {
-          this->best_vehl = cand;
-          this->best_sch = sch;
-          this->best_rte = rte;
-          this->best_cost = cost;
-        }
-      }
+  if (this->candidates.size() == 0) return;
+
+  std::shuffle(candidates.begin(), candidates.end(), this->gen);
+
+  for (const MutableVehicleSptr cand : this->candidates) {
+    sop_insert(cand, cust, this->sch, this->rte);
+    if (chktw(this->sch, this->rte) && chkcap(cand->capacity(), this->sch)) {
+      this->end_ht();
+      this->assign_or_delay({cust.id()}, {}, this->rte, this->sch, *cand);
+      return;
     }
     if (this->timeout(this->timeout_0))
-      break;
-  }
-  if (this->best_vehl != nullptr)
-    this->matched = true;
-
-  this->end_ht();
-
-  if (this->matched) {
-    print << "Matched " << cust.id() << " with " << this->best_vehl->id() << std::endl;
-    this->assign_or_delay(
-      {cust.id()}, {}, this->best_rte, this->best_sch, *(this->best_vehl));
-  } else {
-    this->beg_delay(cust.id());
+      return;
   }
 }
 
-void GreedyInsertion::handle_vehicle(const Vehicle& vehl) {
+void RandomSearch::handle_vehicle(const Vehicle& vehl) {
   this->grid_.insert(vehl);
 }
 
-void GreedyInsertion::end() {
+void RandomSearch::end() {
   this->print_statistics();
 }
 
-void GreedyInsertion::listen(bool skip_assigned, bool skip_delayed) {
+void RandomSearch::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
-  RSAlgorithm::listen(skip_assigned, skip_delayed);
+  RSAlgorithm::listen(
+    skip_assigned, skip_delayed);
 }
 
-void GreedyInsertion::reset_workspace() {
-  this->best_cost = InfInt;
-  this->sch = this->best_sch = {};
-  this->rte = this->best_rte = {};
+void RandomSearch::reset_workspace() {
+  this->sch = {};
+  this->rte = {};
   this->candidates = {};
-  this->matched = false;
-  this->best_vehl = nullptr;
   this->timeout_0 = hiclock::now();
 }
 
@@ -98,16 +85,16 @@ int main() {
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
-  option.path_to_solution = "gr.sol";
-  option.path_to_dataout  = "gr.dat";
+  option.path_to_solution = "rs.sol";
+  option.path_to_dataout  = "rs.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.strict_mode = false;
   option.static_mode = true;
   Cargo cargo(option);
-  GreedyInsertion gr;
-  cargo.start(gr);
+  RandomSearch rs;
+  cargo.start(rs);
 
   return 0;
 }

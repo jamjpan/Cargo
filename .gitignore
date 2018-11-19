@@ -45,9 +45,12 @@ test/run_tests
 example/gr/gr
 example/nn/nn
 example/ba/ba
-example/trip_vehicle_grouping/trip_vehicle_grouping
+example/tg/tg
 example/kt/kt
 example/sa/sa
 example/grasp/grasp
+example/rs/rs
+example/rj/rj
+
 
 
