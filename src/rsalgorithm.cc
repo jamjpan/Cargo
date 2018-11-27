@@ -31,6 +31,7 @@
 #include "libcargo/classes.h"
 #include "libcargo/debug.h"
 #include "libcargo/dbsql.h"
+#include "libcargo/file.h"
 #include "libcargo/message.h"
 #include "libcargo/rsalgorithm.h"
 #include "libcargo/types.h"
@@ -738,6 +739,7 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
 
   int ncusts = 0;
   this->select_waiting_customers(skip_assigned, skip_delayed);
+  Logger::put_q_message(this->customers_.size());
   if (this->customers_.size() > 0) {
     // Set default timeout (per customer!)
     this->timeout_ = (Cargo::static_mode ? InfInt : 30000);

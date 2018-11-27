@@ -188,6 +188,11 @@ void Logger::put_d_message(const vec_t<CustId>& dropped) {
   push(item);
 }
 
+void Logger::put_q_message(const int& q) {
+  std::string s = std::to_string(Cargo::now()) + " Q " + std::to_string(q);
+  push(s);
+}
+
 void Logger::push(std::string item) {
   std::unique_lock<std::mutex> lock(mutex_);
   queue_.push(item);

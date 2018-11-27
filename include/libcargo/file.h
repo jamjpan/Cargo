@@ -66,6 +66,7 @@ class Logger {
   static void put_t_message(const vec_t<CustId> &);
   static void put_p_message(const vec_t<CustId> &);
   static void put_d_message(const vec_t<CustId> &);
+  static void put_q_message(const int &);
   static void push(std::string);
   std::string pop();
 
