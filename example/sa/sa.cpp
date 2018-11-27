@@ -36,7 +36,7 @@ const int P_MAX = 5000;
 const int SCHED_MAX = 10;
 
 SimulatedAnnealing::SimulatedAnnealing()
-    : RSAlgorithm("sa", false), grid_(100), d(0,1) {
+    : RSAlgorithm("sa", true), grid_(100), d(0,1) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
   std::random_device rd;
@@ -65,6 +65,7 @@ void SimulatedAnnealing::match() {
 void SimulatedAnnealing::initialize(Grid& local_grid) {
   // Assign each customer to a random candidate
   for (const Customer& cust : this->customers()) {
+    print << "initialize() working on cust " << cust.id() << std::endl;
     bool initial = false;
     //this->tried[cust.id()] = {};
     vec_t<MutableVehicleSptr> candidates
@@ -78,6 +79,7 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
     // Randomize the candidates order
     //std::shuffle(candidates.begin(), candidates.end(), this->gen);
 
+    print << "  got " << candidates.size() << " cands" << std::endl;
     // Try until got a valid one
     while (!candidates.empty() && initial == false) {
       auto k = candidates.begin();
@@ -101,6 +103,9 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
           }
           this->sol.at(cand->id()).first = *cand;  // update our copy of the candidate
           this->sol.at(cand->id()).second.push_back(cust);
+          print << "    initialized cust " << cust.id() << " to cand " << cand->id() << "; assignments=";
+          for (const auto& c : this->sol.at(cand->id()).second) print << c.id() << ", ";
+          print << std::endl;
           initial = true;
         }
       }
@@ -219,8 +224,8 @@ void SimulatedAnnealing::commit() {
     vec_t<CustId> cadd = {};
     vec_t<CustId> cdel = {};
     for (const Customer& cust : kv.second.second) cadd.push_back(cust.id());
-    this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand);
-    for (const CustId& cid : cadd) print << "Matched " << cid << " with " << cand.id() << std::endl;
+    if (this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand))
+      for (const CustId& cid : cadd) print << "Matched " << cid << " with " << cand.id() << std::endl;
   }
 }
 
@@ -257,15 +262,15 @@ int main() {
   option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
   option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
+  option.path_to_problem  = "../../data/benchmark/rs-m10k-c1.instance";
   //option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
-  option.path_to_solution = "sa-sm.sol";
-  option.path_to_dataout  = "sa-sm.dat";
+  option.path_to_solution = "sa.sol";
+  option.path_to_dataout  = "sa.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;
   option.strict_mode = false;
-  option.static_mode = true;
+  option.static_mode = false;
   Cargo cargo(option);
   SimulatedAnnealing sa;
   cargo.start(sa);

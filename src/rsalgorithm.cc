@@ -102,6 +102,8 @@ bool RSAlgorithm::assign(
   const vec_t<Stop>   & new_sch,
         MutableVehicle      & vehl) {
 //      bool                strict) {
+  //if (custs_to_add.empty() && custs_to_del.empty())
+  //  return true;
   bool strict = Cargo::strict_mode;
   std::lock_guard<std::mutex> dblock(Cargo::dbmx);
 
@@ -237,6 +239,13 @@ bool RSAlgorithm::assign(
     out_rte = re_rte;
     out_sch = re_sch;
   }
+
+  /* TODO Bug: some customers can be accepted even if late window not met
+   * Cause: some algorithms issue assign() at end of batch. Even if the algorithm
+   * checks time windows inside the batch, the assignment may no longer be
+   * valid at end of batch. This function assign() should check before committing
+   * to db. It checks in the case of re-route, but when there is no re-route,
+   * it incorrectly skips the check. */
 
   /* Output synchronized vehicle */
   vehl.set_rte(out_rte);

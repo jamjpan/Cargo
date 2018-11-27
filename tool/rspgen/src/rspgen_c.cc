@@ -176,7 +176,12 @@ int rspgen_c(const std::string& out) {
   std::cout << "\tDone" << std::endl;
 
   std::cout << "Parsing vehicles" << std::endl;
-  auto i = trips_index.find(0);
+  auto i = trips_index.end();
+  int x = 0;
+  while (x < opt_r*60 && i == trips_index.end()) {
+    i = trips_index.find(x);
+    x++;
+  }
   auto j = i;
   { if (i == trips_index.end()) {
       std::cout << "No trips match begin hour!" << std::endl;

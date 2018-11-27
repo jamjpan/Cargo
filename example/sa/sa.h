@@ -74,16 +74,13 @@ class SimulatedAnnealing : public RSAlgorithm {
   void commit();
 
   bool hillclimb(const int& T) {
-    print << "T=" << T << std::endl;
     float mark = this->d(this->gen);
-    float thresh = std::exp(.50*(float)T)/100;
-    print << mark << " : " << thresh << std::endl;
+    float thresh = std::exp(1.00*(float)T)/100;
     return mark < thresh;
   }
 
   void anneal(const int& T_MAX, const int& P_MAX) {
     for (int t = T_MAX; t > 0; t--) {
-      print << t << std::endl;
       for (int p = P_MAX; p > 0; p--) {
         this->sol = std::move(this->perturb(this->sol, t));
         if (this->timeout(this->timeout_0)) {

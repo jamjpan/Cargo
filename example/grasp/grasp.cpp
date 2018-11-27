@@ -30,7 +30,7 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 32;
+const int MAX_ITER = 4;
 const int TOP_K = 10;
 const int SCHED_MAX = 10;
 
@@ -216,10 +216,10 @@ Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
       // for (const auto& kv : this->fitness.at(cand))
       //   print << "\t  cust " << kv.first.id() << ": " << kv.second << std::endl;
       // print << "\troulette returned " << cust_to_add.id() << std::endl;
-      //if (initial_fitness) {
-      //  sch = std::move(this->schedules.at(cand).at(cust_to_add));
-      //  rte = std::move(this->routes.at(cand).at(cust_to_add));
-      //} else
+      if (initial_fitness) {
+        sch = std::move(this->schedules.at(cand).at(cust_to_add));
+        rte = std::move(this->routes.at(cand).at(cust_to_add));
+      } else
         sop_insert(cand, cust_to_add, sch, rte);
       if (chktw(sch, rte) && chkcap(cand->capacity(), sch)) {
         // print << "added " << cust_to_add.id() << " to " << cand->id() << std::endl;
@@ -608,8 +608,8 @@ int main() {
   option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
   //option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
   option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
-  option.path_to_solution = "grasp-onefit32.sol";
-  option.path_to_dataout  = "grasp-onefit32.dat";
+  option.path_to_solution = "grasp-4.sol";
+  option.path_to_dataout  = "grasp-4.dat";
   option.time_multiplier  = 1;
   option.vehicle_speed    = 10;
   option.matching_period  = 60;

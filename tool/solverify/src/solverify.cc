@@ -143,9 +143,9 @@ int solverify(const std::string& solfile, const std::string& datfile) {
           vehicles.at(vehl_id).route.push_back(std::make_pair(std::stoi(col[0]), node_id));
         }
       } else if (col[1] == "M") {
-        for (size_t i = 2; i < col.size() - 1; i+=2) {
-          const int& vehl_id = std::stoi(col.at(i));
-          const int& cust_id = std::stoi(col.at(i+1));
+        for (size_t i = 3; i < col.size(); i++) {
+          const int& vehl_id = std::stoi(col.at(2));
+          const int& cust_id = std::stoi(col.at(i));
           assignments[cust_id] = vehl_id;
         }
       } else if (col[1] == "P") {
