@@ -47,6 +47,7 @@
  *   - sss_stmt  select single schedule
  *   - swc_stmt  select waiting customers
  *   - sva_stmt  select visited at
+ *   - cwc_stmt  count waiting customers
  *
  *   UPDATE STATEMENTS
  *   - ucs_stmt  update customer status
@@ -184,6 +185,13 @@ const SqliteQuery sva_stmt =  // select visited at
   "where"
   "  owner = ?"       // stop owner id
   "  and type = ?;";  // StopType
+
+const SqliteQuery cwc_stmt =  // count waiting customers
+  "select count(id) from customers "
+  "where"
+  "  assignedTo is null"
+  "  and status = ?"    // param1: CustStatus::Waiting
+  "  and ? >= early;";  // param2: time now
 
 
 /* Update Customers. ---------------------------------------------------------*/

@@ -166,6 +166,7 @@ class Cargo {
   sqlite3_stmt* stc_stmt;                   // select timed-out customers
   sqlite3_stmt* mov_stmt;                   // bulk-move vehicles
   sqlite3_stmt* usc_stmt;                   // update schedule, lvn, nnd
+  sqlite3_stmt* cwc_stmt;                   // count waiting customers
 
   void initialize(const Options &);
 

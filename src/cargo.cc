@@ -107,6 +107,7 @@ Cargo::Cargo(const Options& opt) : print("cargo") {
   prepare_stmt(sql::nnd_stmt, &nnd_stmt);
   prepare_stmt(sql::mov_stmt, &mov_stmt);
   prepare_stmt(sql::usc_stmt, &usc_stmt);
+  prepare_stmt(sql::cwc_stmt, &cwc_stmt);
   print(MessageType::Success) << "Cargo initialized!" << std::endl;
 }
 
@@ -129,6 +130,7 @@ Cargo::~Cargo() {
   sqlite3_finalize(stc_stmt);
   sqlite3_finalize(mov_stmt);
   sqlite3_finalize(usc_stmt);
+  sqlite3_finalize(cwc_stmt);
 
   // if (database_file_ != "") {
   //   int rc;
@@ -637,6 +639,15 @@ void Cargo::start(RSAlgorithm& rsalg) {
     t0 = std::chrono::high_resolution_clock::now();
     if (static_mode)
       ofmx.lock();
+
+    /* Count waiting customers */
+    sqlite3_bind_int(cwc_stmt, 1, (int)CustStatus::Waiting);
+    sqlite3_bind_int(cwc_stmt, 2, Cargo::now());
+    sqlite3_step(cwc_stmt);
+    int qsize = sqlite3_column_int(cwc_stmt, 0);
+    Logger::put_q_message(qsize);
+    sqlite3_clear_bindings(cwc_stmt);
+    sqlite3_reset(cwc_stmt);
 
     /* Log timed-out customers */
     log_t_.clear();
