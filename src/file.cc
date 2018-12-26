@@ -134,7 +134,10 @@ void Logger::stop() {
 void Logger::run() {
   while (!done_) {
     std::string output = pop();
-    if (output.length() != 0) file_output_ << output << "\n";
+    if (output.length() != 0) {
+      file_output_ << output << "\n";
+      file_output_.flush();
+    }
   }
 }
 
