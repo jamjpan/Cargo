@@ -1,0 +1,736 @@
+<!doctype html>
+<!-- Dec 19, 2018 -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="/static/css/bootstrap.min.css">
+<link rel="stylesheet" href="/static/css/codemirror.css">
+<link rel="stylesheet" href="/static/css/fullscreen.css">
+<link rel="stylesheet" href="/static/css/foldgutter.css">
+<style>
+html,
+body {
+  height:100%;
+}
+.main {
+  /* padding-top:56px; */
+  position:absolute;
+  top:56px;
+  bottom:0px;
+  left:0px;
+  right:0px;
+}
+.dg.main {
+  top:0px;
+  left:initial;
+}
+.col-*,
+.row,
+.form-row {
+  padding:0!important;
+  margin:0!important;
+}
+#editor .code {
+  height:100%;
+  font-size:9pt;
+}
+#editor label {
+  margin:0;
+  padding:0;
+  position:absolute;
+  font-size:24px;
+  color:#bbb;
+  bottom:12px;
+  right:24px;
+}
+#editor textarea {
+  height:100%;
+  overflow:hidden;
+}
+.CodeMirror {
+  height:100px;
+}
+#visualizer {
+  min-width:200px;
+  min-height:200px;
+  height:100%;
+}
+#out,
+#out textarea {
+  /* min-height:380px; */
+  font-family:mono;
+  font-size:8pt;
+}
+#out textarea {
+  border-radius:0;
+}
+#out textarea:focus {
+  border:0;
+  box-shadow:none;
+}
+</style>
+<!-- Layout -->
+<!-- Layout: Navbar -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <a class="navbar-brand" href="#">CargoWeb</a>
+  <ul class="navbar-nav">
+    <li class="nav-item"><a class="nav-link" href="#">Help</a>
+  </ul>
+</nav>
+<!-- Layout: Main -->
+<div class="container-fluid main">
+  <div class="row h-100">
+    <!-- Layout: RSAlgorithm Editor -->
+    <div class="col-sm h-100" id="editor_container" style="background-color:#eee">
+      <div class="row" style="height:78px;">
+        <!-- Layout: RSAlgorithm Editor Toolbar -->
+        <div class="col">
+          <form id="editor-tools">
+            <div class="form-row">
+              <div class="form-group col">
+                <span>Import *.h ...</span><input type="file" class="form-control-file" id="import_h">
+              </div>
+              <div class="form-group col">
+                <span>Import *.cc ...</span><input type="file" class="form-control-file" id="import_cc">
+              </div>
+              <div class="form-group col">
+                <button type="button" class="btn btn-sm btn-warning" id="compile">Compile</button>
+                <button type="button" class="btn btn-sm btn-success" id="run_stop">Compile + Run</button>
+                <button type="button" class="btn btn-sm btn-info" id="reset">Reset</button>
+                <button type="button" class="btn btn-sm btn-link" id="export">View composed source</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="row" style="position:absolute;top:78px;left:0px;bottom:0px;right:0px;">
+        <!-- Layout: RSAlgorithm Editor Code -->
+        <div class="col">
+          <form id="editor" class="h-100">
+            <div class="form-row h-50" id="cc_row">
+              <div class="form-group col code">
+                <textarea id="cc_container"></textarea>
+                <label>.cc</label>
+              </div>
+            </div>
+            <div class="form-row h-50" id="h_row">
+              <div class="form-group col code">
+                <textarea id="h_container"></textarea>
+                <label>.h</label>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <!-- Layout: Output -->
+    <div class="col-sm h-100" style="background-color:#bbb">
+      <!-- Layout: Output Toolbar -->
+      <div class="row">
+        <div class="col-sm">
+          <span>
+            <button type="button" class="btn btn-sm btn-info" id="road" value="bj5">Road: bj5</button>
+            <button type="button" class="btn btn-sm btn-info" id="problem" value="rs-m5k-c3">Problem: rs-m5k-c3</button>
+            <button type="button" class="btn btn-sm btn-info" id="speed" value="10">Vehl. speed: 10 meters/sec</button>
+            <button type="button" class="btn btn-sm btn-info" id="mat" value="60">Matching per.: 60 sec</button>
+            <button type="button" class="btn btn-sm btn-success" id="mode" value="dynamic">Runtime: dynamic</button>
+          </span>
+        </div>
+      </div>
+      <!-- Layout: Output Visualizer -->
+      <div class="row" style="position:absolute;top:31px;bottom:0px;left:15px;right:0px;">
+        <div class="col">
+          <div class="row h-75">
+            <div class="col-sm h-100" style="border:1px solid red;padding:0px;">
+              <div id="visualizer"></div>
+            </div>
+          </div>
+          <!-- Layout: Output Logs -->
+          <div class="row h-25">
+            <div class="col-sm h-100" style="border:1px solid blue;padding:0px;">
+              <form class="h-100" id="out">
+                <div class="form-row h-100">
+                  <div class="col h-100">
+                    <textarea class="form-control h-100" id="cargofeed" readonly></textarea>
+                  </div>
+                  <div class="col h-100">
+                    <textarea class="form-control h-100" id="algfeed" readonly></textarea>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Editor -->
+<script src="/static/js/codemirror.js"></script>
+<script src="/static/js/clike.js"></script>
+<script src="/static/js/fullscreen.js"></script>
+<script src="/static/js/foldcode.js"></script>
+<script src="/static/js/foldgutter.js"></script>
+<script src="/static/js/indent-fold.js"></script>
+<script src="/static/js/brace-fold.js"></script>
+<script src="/static/js/template.js"></script>
+<script>
+  var cont_cc = document.getElementById("cc_container")
+  var cont_h = document.getElementById("h_container")
+  var cont_editor = document.getElementById("editor_container")
+  var row_cc = document.getElementById("cc_row")
+  var row_h = document.getElementById("h_row")
+
+  var cm_options = {
+    mode: "text/x-c++src",
+    lineNumbers: true,
+    viewportMargin: Infinity,
+    extraKeys: {
+      "F11": (cm) => { enter_fullscreen(cm) },
+      "Esc": (cm) => { exit_fullscreen(cm)  }
+    },
+    foldGutter: true,
+    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+  }
+
+  var editor_cc = CodeMirror.fromTextArea(cont_cc, cm_options)
+  var editor_h  = CodeMirror.fromTextArea(cont_h,  cm_options)
+
+  editor_reset()
+
+  window.addEventListener('resize', resizeCM, false)
+  window.addEventListener('load', resizeCM, false)
+
+  function editor_reset() {
+    editor_cc.setValue(cc_template)
+    editor_h.setValue(h_template)
+  }
+
+  function enter_fullscreen(cm) {
+    cm.setOption("fullScreen", !cm.getOption("fullScreen"))
+  }
+
+  function exit_fullscreen(cm) {
+    if (cm.getOption("fullScreen"))
+      cm.setOption("fullScreen", false)
+  }
+
+  function resizeCM() {
+    var height = cont_editor.offsetHeight - 78
+    editor_cc.setSize(cont_editor.offsetWidth, height/2 - 12)
+    editor_h .setSize(cont_editor.offsetWidth, height/2 - 12)
+  }
+</script>
+<!-- Visualization -->
+<script src="/static/js/three.min.js"></script>
+<script src="/static/js/MapControls.js"></script>
+<script src="/static/js/Stats.js"></script>
+<script src="/static/js/dat.gui.min.js"></script>
+<!--<script src="/static/js/mny.js"></script>-->
+<!--<script src="/static/js/cd1.js"></script>-->
+<script src="/static/js/bj5_vertices.js"></script>
+<script src="/static/js/bj5_nodes.js"></script>
+<script src="/static/js/bj5_weights.js"></script>
+<!-- Visualization: Vertex Shader -->
+<script type="x-shader/x-vertex" id="vertexshader">
+  uniform float t;  // current time
+  uniform float zoom;  // camera zoom
+
+  attribute vec3 target;
+  attribute float t_travel;  // weight/speed; seconds
+  attribute float t_0;  // time when target received
+  attribute float load;
+
+  varying float vload;  // cannot be int for some reason
+
+  void main() {
+    vload = load;
+    gl_PointSize = 3.0*zoom;
+    float progress = (t-t_0)/t_travel;
+    if (progress > 1.0)
+      progress = 1.0;
+    vec3 v = position + (target - position)*progress;
+    // vec3 v = target;  // turn off interp
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(v, 1.0);
+  }
+</script>
+<script type="x-shader/x-vertex" id="vertexshader_cust">
+  uniform float zoom;
+  attribute float size;
+  void main() {
+    gl_PointSize = size*zoom;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+</script>
+<!-- Visualization: Fragment Shader -->
+<script type="x-shader/x-fragment" id="fragmentshader">
+  varying float vload;
+  const vec4 dark = vec4(0.24, 0.24, 0.32, 1.0);
+  const vec4 grey = vec4(0.5, 0.5, 0.5, 0.7);
+  const vec4 blue = vec4(0.15, 0.55, 0.82, 1.0);
+  const vec4 yellow = vec4(0.70, 0.54, 0.0, 1.0);
+  const vec4 red = vec4(0.86, 0.20, 0.18, 1.0);
+  const vec4 magenta = vec4(0.83, 0.21, 0.51, 1.0);
+
+  void main() {
+    // Color based on load
+    vec4 color = dark;
+    if (vload >= 1.0 && vload < 2.0)
+      color = blue;
+    if (vload >= 2.0 && vload < 3.0)
+      color = yellow;
+    if (vload >= 3.0)
+      color = red;
+
+    // Make it a circle by discarding fragments outside a radius
+    // https://www.desultoryquest.com/blog/drawing-anti-aliased-circular-points-using-opengl-slash-webgl/
+    float r = 0.0;
+    float border = 0.2;
+    vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+    r = dot(cxy, cxy);
+    // gl_FragColor = color;
+    // if (r > 1.0 - border) {
+    //   gl_FragColor = vec4(0,0,0,1);
+    // }
+    if (r > 1.0)
+      discard;
+    gl_FragColor = color;
+  }
+</script>
+<script type="x-shader/x-fragment" id="fragmentshader_cust">
+  void main() {
+    gl_FragColor = vec4(0.83, 0.21, 0.51, 1.0);
+  }
+</script>
+<!-- Visualization: Simulation -->
+<script>
+  const bg_color = 0x000000
+  const rn_color = 0x132a42
+  const rn_linewidth = 1
+
+  var viz = document.getElementById("visualizer")
+  var vertexshader = document.getElementById("vertexshader")
+  var fragmentshader = document.getElementById("fragmentshader")
+
+  var Simulation = {
+    nvehl: 0,
+    ncust: 0,
+    clock: new THREE.Clock(),
+    stats: new Stats(),
+    controls: null,
+    vehicle_particles: null,
+    vehicle_positions: null,
+    vehicle_targets: null,
+    vehicle_loads: null,
+    vehicle_t_travel: null,
+    vehicle_t_0: null,
+    vehicle_current_locs: null,
+    customer_particles: null,
+    customer_positions: null,
+    uniforms: null,
+    road_network: null,
+    camera: null,
+    aspect: null,
+    renderer: null,
+    scene: null,
+    running: false,
+    poll: null,
+
+    init() {
+      // Vehicles (particles system)
+      var vehlgeom = new THREE.BufferGeometry()
+      var init_pos = []
+      var init_t_travel = []
+      var init_t_0 = []
+      var init_load = []
+
+      this.vehicle_current_locs = []
+
+      for (var vid = 0; vid < this.nvehl; vid++) {
+        init_pos.push(center['x'], center['y'], 0)
+        init_t_travel.push(1.0)
+        init_t_0.push(0.0)
+        init_load.push(0.0)
+        this.vehicle_current_locs.push(0)
+      }
+      // hack the bounding box so doesn't disappear when camera pans
+      init_pos.push(box.min['x'], box.min['y'], 0)
+      init_pos.push(box.max['x'], box.max['y'], 0)
+      init_t_travel.push(1.0)
+      init_t_0.push(0.0)
+      init_load.push(0.0)
+      init_t_travel.push(1.0)
+      init_t_0.push(0.0)
+      init_load.push(0.0)
+
+      vehlgeom.addAttribute('position', new THREE.Float32BufferAttribute(init_pos, 3))
+      vehlgeom.addAttribute('target', new THREE.Float32BufferAttribute(init_pos, 3))
+      vehlgeom.addAttribute('t_travel', new THREE.Float32BufferAttribute(init_t_travel, 1))
+      vehlgeom.addAttribute('t_0', new THREE.Float32BufferAttribute(init_t_0, 1))
+      vehlgeom.addAttribute('load', new THREE.Float32BufferAttribute(init_load, 1))
+
+      this.uniforms = {
+        t: { value: 0.0 },
+        zoom: { value: 1.0 }
+      }
+
+      var shaderMaterial = new THREE.ShaderMaterial({
+        uniforms: this.uniforms,
+        vertexShader: vertexshader.text,
+        fragmentShader: fragmentshader.text
+      })
+
+      this.vehicle_particles = new THREE.Points(vehlgeom, shaderMaterial)
+      this.vehicle_positions = this.vehicle_particles.geometry.attributes.position.array
+      this.vehicle_targets = this.vehicle_particles.geometry.attributes.target.array
+      this.vehicle_t_travel = this.vehicle_particles.geometry.attributes.t_travel.array
+      this.vehicle_t_0 = this.vehicle_particles.geometry.attributes.t_0.array
+      this.vehicle_loads = this.vehicle_particles.geometry.attributes.load.array
+
+      // Customers
+      var custgeom = new THREE.BufferGeometry()
+      var init_pos_cust = []
+      var init_size_cust = []
+      for (var cid = 0; cid < this.ncust; cid++) {
+        init_pos_cust.push(center['x'], center['y'], 0)
+        init_size_cust.push(0.0)
+      }
+      // hack the bounding box so doesn't disappear when camera pans
+      init_pos_cust.push(box.min['x'], box.min['y'], 0)
+      init_size_cust.push(0.0)
+      init_pos_cust.push(box.max['x'], box.max['y'], 0)
+      init_size_cust.push(0.0)
+
+      custgeom.addAttribute('position', new THREE.Float32BufferAttribute(init_pos_cust, 3))
+      custgeom.addAttribute('size', new THREE.Float32BufferAttribute(init_size_cust, 1))
+
+      var shaderMaterial_cust = new THREE.ShaderMaterial({
+        uniforms: this.uniforms,
+        vertexShader: vertexshader_cust.text,
+        fragmentShader: fragmentshader_cust.text
+      })
+
+      this.customer_particles = new THREE.Points(custgeom, shaderMaterial_cust)
+      this.customer_positions = this.customer_particles.geometry.attributes.position.array
+      this.customer_sizes = this.customer_particles.geometry.attributes.size.array
+
+      // Scene
+      this.scene = new THREE.Scene()
+      this.scene.add(this.road_network)
+      this.scene.add(this.vehicle_particles)
+      this.scene.add(this.customer_particles)
+
+      // GUI
+      var gui = new dat.GUI({
+        height: 5*32 - 1,
+        autoPlace: false
+      })
+      viz.appendChild(gui.domElement);
+      var params = {
+        'show road': true
+      }
+      gui.add(params, 'show road').onFinishChange((val) => {
+        this.road_network.material.visible = val
+      })
+
+      // Camera
+      this.aspect = viz.offsetWidth/viz.offsetHeight
+      this.camera = new THREE.OrthographicCamera(-0.1, 0.1, 0.1/this.aspect, -0.1/this.aspect, 1, 3)
+      this.camera.position.set(center['x'], center['y'], 2)
+
+      // Controls
+      this.controls = new THREE.MapControls(this.camera, viz)
+      this.controls.enableDamping = true
+      this.controls.dampingFactor = 0.25
+      this.controls.enableKeys = true
+      this.controls.enableRotate = false
+      this.controls.screenSpacePanning = true
+      this.controls.target = new THREE.Vector3(center['x'], center['y'], 0)
+
+      // Stats
+      this.stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
+      viz.appendChild(this.stats.dom);
+
+      // Renderer
+      this.renderer = new THREE.WebGLRenderer({ alpha: true})
+      this.renderer.setSize(viz.offsetWidth, viz.offsetHeight)
+      this.renderer.setClearColor (bg_color, 1)
+      viz.appendChild(this.renderer.domElement)
+
+      window.addEventListener('resize', () => {
+        this.aspect = viz.offsetWidth/viz.offsetHeight
+        this.renderer.setSize(viz.offsetWidth, viz.offsetHeight)
+        this.camera.top = 0.1/this.aspect
+        this.camera.bottom = -0.1/this.aspect
+        this.camera.updateProjectionMatrix()
+      }, false)
+    },
+
+    reset_vehls() {
+      for (var i = 0; i < this.nvehl; i++) {
+        this.vehicle_positions[i*3] = center['x']
+        this.vehicle_positions[i*3+1] = center['y']
+        this.vehicle_targets[i*3] = center['x']
+        this.vehicle_targets[i*3+1] = center['y']
+        this.vehicle_loads[i] = 0.0
+      }
+    },
+
+    reset_custs() {
+      for (var i = 0; i < this.ncust; i++) {
+        this.customer_sizes[i] = 0.0
+      }
+    }
+  }
+
+  // Road network (maybe pre-make these for each road network)
+  // var rn_json = bj5_json
+  var rn_vertices = []
+  var rn_nodes = {}
+  var rn_weights = {}
+  // for (var key in rn_json) {
+  //   if (rn_json.hasOwnProperty(key)) {
+  //     var key_arr = key.split('_')
+  //       if (key_arr[0] == 'f' || key_arr[0] == 't') {
+  //         rn_vertices.push(new THREE.Vector2(rn_json[key][1], rn_json[key][2]))
+  //         rn_nodes[rn_json[key][0].toString()] = [rn_json[key][1], rn_json[key][2]]
+  //       } else {
+  //         rn_weights[key] = Number(rn_json[key])
+  //       }
+  //   }
+  // }
+  rn_vertices = bj5_vertices
+  rn_nodes = bj5_nodes
+  rn_weights = bj5_weights
+
+  Simulation.road_network = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(rn_vertices),
+    new THREE.LineBasicMaterial({
+      color: rn_color,
+      linewidth: rn_linewidth
+    })
+  )
+  Simulation.road_network.matrixAutoUpdate = false
+
+  // Bounding box
+  var box = new THREE.Box2()
+  box.setFromPoints(rn_vertices)
+  var center = new THREE.Vector2
+  box.getCenter(center)
+
+  function animate() {
+    Simulation.stats.begin()
+    Simulation.controls.update()
+
+    Simulation.vehicle_particles.geometry.attributes.position.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.target.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.t_travel.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.t_0.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.load.needsUpdate = true
+    Simulation.customer_particles.geometry.attributes.position.needsUpdate = true
+    Simulation.customer_particles.geometry.attributes.size.needsUpdate = true
+    Simulation.uniforms.t.value = Simulation.clock.getElapsedTime()
+    Simulation.uniforms.zoom.value = Simulation.camera.zoom
+    Simulation.road_network.material.linewidth = 1*Simulation.camera.zoom
+    Simulation.renderer.render(Simulation.scene, Simulation.camera)
+    Simulation.stats.end()
+    requestAnimationFrame(animate)
+  }
+</script>
+<!-- Controls -->
+<!-- Controls: Socket -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  // const MAX_CHARS = 50000
+
+  var socket = io()
+
+  socket.on('server error', (data) => { alert(data) })
+
+  socket.on('server msg', (data) => {
+    // if (cargofeed.value.length > MAX_CHARS)
+    //   cargofeed.value = ""
+    cargofeed.value += data
+    cargofeed.scrollTop = cargofeed.scrollHeight
+  })
+
+  socket.on('server msg alg', (data) => {
+    algfeed.value = data
+    algfeed.scrollTop = algfeed.scrollHeight
+  })
+
+  socket.on('server msg compile', (data) => {
+    cargofeed.value = data
+    cargofeed.scrollTop = cargofeed.scrollHeight
+  })
+
+  socket.on('server msg vehicle', (data) => {
+    var vid = Number(data[0])-1  // Cargo vids start at 1
+    var loc = data[1]
+    var i = vid*3
+    if (typeof(rn_nodes[loc]) === 'undefined') {
+      // console.log(data,"undefined")
+    } else {
+      Simulation.vehicle_positions[i] = Simulation.vehicle_targets[i]
+      Simulation.vehicle_positions[i+1] = Simulation.vehicle_targets[i+1]
+      Simulation.vehicle_targets[i] = rn_nodes[loc][0]
+      Simulation.vehicle_targets[i+1] = rn_nodes[loc][1]
+      Simulation.vehicle_t_travel[vid] = Math.floor(weight(Simulation.vehicle_current_locs[vid], loc)/Number(document.querySelector('#speed').value))
+      Simulation.vehicle_t_0[vid] = Simulation.clock.getElapsedTime()
+      Simulation.vehicle_current_locs[vid] = loc
+    }
+  })
+
+  socket.on('server msg customer', (data) => {
+    for (var k = 0; k < data.length; k++) {
+      var cid = Number(data[k][0])-1-Simulation.nvehl
+      var loc = data[k][1]
+      var i = cid*3
+      Simulation.customer_positions[i] = rn_nodes[loc][0]
+      Simulation.customer_positions[i+1] = rn_nodes[loc][1]
+      Simulation.customer_sizes[i] = 3.0
+    }
+  })
+
+  socket.on('server msg customer_timeout', (data) => {
+    for (var k = 0; k < data.length; k++) {
+      var i = Number(data[k])-1-Simulation.nvehl
+      Simulation.customer_sizes[i] = 0.0
+    }
+  })
+
+  socket.on('server msg pickup', (data) => {
+    for (var k = 0; k < data.length; k++) {
+      var i = Number(data[k])-1-Simulation.nvehl
+      Simulation.customer_sizes[i] = 0.0
+    }
+  })
+
+  socket.on('server msg load', (data) => {
+    for (var i = 0; i < data.length; i++) {
+      var idx = Number(data[i])
+      // shift by 1 because vid is 0-indexed here but 1-indexed in cargo
+      if (idx < 0) {
+        Simulation.vehicle_loads[-(idx+1)] = Simulation.vehicle_loads[-(idx+1)] - 1.0
+      }
+      else {
+        Simulation.vehicle_loads[idx-1] = Simulation.vehicle_loads[idx-1] + 1.0
+      }
+    }
+  })
+
+  socket.on('server msg running', (running) => {
+    if (running) {
+      fn_allow_stop();
+    } else {
+      fn_allow_run()
+    }
+  })
+
+  socket.on('server msg initialize', (data) => {
+    Simulation.nvehl = data.nvehl
+    Simulation.ncust = data.ncust
+    Simulation.init()
+    animate()
+  })
+
+  socket.on('server msg started', () => {
+    Simulation.clock.start()
+  })
+
+  socket.emit('client query initialize', document.querySelector('#problem').value)
+
+  socket.emit('client query running')
+
+</script>
+<!-- Controls: Client -->
+<script>
+  var cargofeed     = document.getElementById("cargofeed")
+  var algfeed       = document.getElementById("algfeed")
+  var btn_import_cc = document.getElementById("import_cc")
+  var btn_import_h  = document.getElementById("import_h")
+  var btn_reset     = document.getElementById("reset")
+  var btn_compile   = document.getElementById("compile")
+  var btn_run_stop  = document.getElementById("run_stop")
+
+  btn_import_cc .addEventListener('change', fn_import_cc, false)
+  btn_import_h  .addEventListener('change', fn_import_h , false)
+  btn_reset     .addEventListener('click',  editor_reset, false)
+  btn_compile   .addEventListener('click',  fn_compile,   false)
+  btn_run_stop  .addEventListener('click',  run_or_stop,  false)
+
+  cargofeed.value = algfeed.value = ""
+
+  function fn_import_h(e) {
+    file_import(e, (val) => {
+      if (val != false) editor_h.setValue(val) })
+  }
+
+  function fn_import_cc(e) {
+    file_import(e, (val) => {
+      if (val != false) editor_cc.setValue(val) })
+  }
+
+  function fn_compile() {
+    cargofeed.value = "Compiling..."
+    socket.emit('client cmd compile_h', editor_h.getValue())
+    socket.emit('client cmd compile_cc', editor_cc.getValue())
+    var options = {
+      road: document.querySelector('#road').value,
+      problem: document.querySelector('#problem').value,
+      speed:  document.querySelector('#speed').value,
+      mat: document.querySelector('#mat').value,
+      mode: document.querySelector('#mode').value
+    }
+    socket.emit('client msg compile_opts', options)
+  }
+
+  function fn_allow_stop() {
+    btn_run_stop.innerText = "Stop"
+    btn_run_stop.classList.remove("btn-success")
+    btn_run_stop.classList.add("btn-danger")
+    Simulation.running = true
+    cargofeed.value += "Started"
+    Simulation.reset_vehls()
+    Simulation.reset_custs()
+  }
+
+  function fn_allow_run() {
+    Simulation.clock.stop()
+    btn_run_stop.innerText = "Compile + Run"
+    btn_run_stop.classList.remove("btn-danger")
+    btn_run_stop.classList.add("btn-success")
+    Simulation.running = false
+    cargofeed.value += "Stopped"
+  }
+
+  function run_or_stop() {
+    if (!Simulation.running) {
+      fn_allow_stop()
+      fn_compile()
+      socket.emit('client cmd run')
+    } else {
+      socket.emit('client cmd stop')
+    }
+  }
+
+  function weight(from_id, to_id) {
+    var key1 = from_id.toString()+"_"+to_id.toString()
+    var key2 = to_id.toString()+"_"+from_id.toString()
+    if (rn_weights[key1])
+      return rn_weights[key1]
+    else if (rn_weights[key2])
+      return rn_weights[key2]
+    else
+      return 0
+  }
+
+  function file_import(e, callback) {
+    var file = null
+    file = e.target.files[0]
+    if (!file)
+      return false
+    var reader = new FileReader()
+    reader.onload = (e) => { callback(e.target.result) }
+    reader.readAsText(file)
+  }
+</script>
+
