@@ -21,16 +21,20 @@ cargo.get('/', (req, res) => res.send('Hello world!'))
 
 // State store
 var Simulation = {
-  process: null,
-  feed: null,
-  dat: null,
-  running: false,
-  initialized: false,
-  vehicles: {},
-  customers: {},
-  nvehl: 0,
-  ncust: 0,
-  t: 0
+  reset() {
+    this.process = null
+    this.feed = null
+    this.dat = null
+    this.running = false
+    this.initialized = false
+    this.vehicles = {}
+    this.routes = {}
+    this.route_index = {}
+    this.customers = {}
+    this.nvehl = 0
+    this.ncust = 0
+    this.t = -1
+  }
 }
 
 // Socket events
@@ -39,10 +43,12 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => { console.log('user disconnected') })
 
+  // Called whenever a new client connects so as to find nvehl and ncust,
+  // passed to client's own initialization procedure
   socket.on('client query initialize', (data) => {
     if (!Simulation.initialized) {
-      Simulation.nvehl = 0
-      Simulation.ncust = 0
+      console.log("Resetting the server")
+      Simulation.reset()
       const rl = readline.createInterface({
         input: fs.createReadStream(`../data/benchmark/${data}.instance`),
         crlfDelay: Infinity
@@ -54,7 +60,7 @@ io.on('connection', (socket) => {
             var early = Number(col[4])
             var id = Number(col[0])
             var origin = col[1]
-            if (Simulation.customers[early])
+            if (early in Simulation.customers)
               Simulation.customers[early].push([id, origin])
             else
               Simulation.customers[early] = [[id, origin]]
@@ -176,38 +182,66 @@ function emit_init(io) {
 function emit_dat(io) {
   io.emit('server msg started')
 
-  Simulation.feed = fs.createReadStream('cargoweb.feed', { autoClose: false })
-  Simulation.feed.on('data', (data) => { /*socket*/io.emit('server msg alg', stripAnsi(data.toString())) })
-
-  Simulation.dat = new Tail('cargoweb.dat')
+  fs.writeFileSync('cargoweb.dat', "")  // clear any existing contents and ensure file exists
+  Simulation.dat = new Tail('cargoweb.dat', { fromBeginning: true, follow: false })
   Simulation.dat.on('line', (line) => {
     var col = line.toString().split(' ')
     var t = Number(col[0])
     if (Simulation.t != t) {
-      io.emit('server msg customer', Simulation.customers[t])
+      if (t in Simulation.customers) {
+        // console.log('emit customer', Simulation.customers[t])
+        io.emit('server msg customer', Simulation.customers[t])
+      }
       Simulation.t = t
     }
-    if (col[1] == "V") {
+    // console.log(line)
+    if (col[1] == "R") {
       var vid = col[2]
-      var loc = col[3]
-      if (Simulation.vehicles[vid] != loc) {
-        io.emit('server msg vehicle', [vid, loc])
-        Simulation.vehicles[vid] = loc
+      var route = col.slice(3, col.length)
+      Simulation.route_index[vid] = 2  // reset the current location index
+      if (vid in Simulation.routes) {
+        Simulation.routes[vid] = route
+        // console.log('emit update route', route.slice(0, 3))
+        io.emit('server msg update route', { vid: vid, route: route.slice(0, 3) })
+      } else {
+        Simulation.routes[vid] = route
+        // console.log('emit begin route', route.slice(0, 3))
+        io.emit('server msg begin route', { vid: vid, route: route.slice(0, 3) })
+      }
+    } else if (col[1] == "V") {
+      var vid  = col[2]
+      var loc0 = col[3]
+      var nnd  = col[4]
+      if (vid in Simulation.routes) {
+        if (loc0 == Simulation.routes[vid][Simulation.route_index[vid]-1]) {
+          var loc1 = Simulation.routes[vid][Simulation.route_index[vid]]
+          var loc2 = Simulation.routes[vid][++Simulation.route_index[vid]]
+          // console.log('emit vehicle', vid)
+          io.emit('server msg vehicle', {
+            vid: vid, position: loc0, target0: loc1, target1: loc2, overshoot: nnd})
+        }
       }
     } else if (col[1] == "P") {
+      // console.log('emit pickup', col.slice(2, col.length))
       io.emit('server msg pickup', col.slice(2, col.length))
     // } else if (col[1] == "D") {
     //   io.emit('server msg dropoff', col.slice(2, col.length))
     // }
     } else if (col[1] == "L") {
+      // console.log('emit load', col.slice(2, col.length))
       io.emit('server msg load', col.slice(2, col.length))
     } else if (col[1] == "T") {
+      // console.log('emit timeout', col.slice(2, col.length))
       io.emit('server msg customer_timeout', col.slice(2, col.length))
     }
   })
+
+  Simulation.feed = fs.createReadStream('cargoweb.feed', { autoClose: false })
+  Simulation.feed.on('data', (data) => { /*socket*/io.emit('server msg alg', stripAnsi(data.toString())) })
 }
 
 function close(io) {
+  console.log("Closing the server")
   if (Simulation.process) Simulation.process.kill()
   Simulation.running = false
   if (Simulation.feed) {
@@ -218,7 +252,7 @@ function close(io) {
     Simulation.dat.unwatch()
     Simulation.dat = null
   }
-  Simulation.vehicles = {}
+  Simulation.initialized = false
   /*socket*/io.emit('server msg running', Simulation.running)
 }
 

@@ -54,11 +54,16 @@ class Logger {
   /* put_r_message: route update
    * put_v_message: vehicle position update
    * put_m_message: match update
+   * put_a_message: vehicle arrived
    * put_t_message: customer timeout
    * put_p_message: customer pickup
-   * put_d_message: customer dropoff */
+   * put_d_message: customer dropoff
+   * put_l_message: vehicle load change
+   * put_q_message: queue size
+   * */
   static void put_r_message(const vec_t<Wayp> &, const Vehicle &);
-  static void put_v_message(const std::map<VehlId, vec_t<NodeId>> &);
+  static void put_r_message(const vec_t<Wayp> &, const VehlId &, const RteIdx &);
+  static void put_v_message(const std::map<VehlId, vec_t<std::pair<NodeId, DistInt>>> &);
   static void put_m_message(const vec_t<CustId> &,
                             const vec_t<CustId> &,
                             const VehlId &);
@@ -66,6 +71,7 @@ class Logger {
   static void put_t_message(const vec_t<CustId> &);
   static void put_p_message(const vec_t<CustId> &);
   static void put_d_message(const vec_t<CustId> &);
+  static void put_l_message(const vec_t<VehlId> &);
   static void put_q_message(const int &);
   static void push(std::string);
   std::string pop();

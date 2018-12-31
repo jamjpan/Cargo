@@ -141,19 +141,30 @@ void Logger::run() {
   }
 }
 
+/// Many of these can be combined (refactor)
+
 void Logger::put_r_message(const vec_t<Wayp>& rte, const Vehicle& vehl) {
   std::string item =
       std::to_string(Cargo::now()) + " R " + std::to_string(vehl.id());
-  for (RteIdx i = vehl.idx_last_visited_node(); i < rte.size(); ++i)
+  for (size_t i = vehl.idx_last_visited_node(); i < rte.size(); ++i)
     item.append(" " + std::to_string(rte.at(i).second));
   push(item);
 }
 
-void Logger::put_v_message(const std::map<VehlId, vec_t<NodeId>>& curloc) {
-  for (const auto& kv : curloc) {
-    for (const NodeId& loc : kv.second) {
+void Logger::put_r_message(const vec_t<Wayp>& rte, const VehlId& vid, const RteIdx& idx) {
+  std::string item =
+      std::to_string(Cargo::now()) + " R " + std::to_string(vid);
+  for (size_t i = idx; i < rte.size(); ++i)
+    item.append(" " + std::to_string(rte.at(i).second));
+  push(item);
+}
+
+void Logger::put_v_message(const std::map<VehlId, vec_t<std::pair<NodeId, DistInt>>>& locs) {
+  for (const auto& kv : locs) {
+    for (const auto& loc : kv.second) {
       std::string item = std::to_string(Cargo::now()) + " V";
-      item.append(" " + std::to_string(kv.first) + " " + std::to_string(loc));
+      item.append(" " + std::to_string(kv.first) + " "
+                   + std::to_string(loc.first) + " " + std::to_string(loc.second));
       push(item);
     }
   }
@@ -191,6 +202,12 @@ void Logger::put_d_message(const vec_t<CustId>& dropped) {
   push(item);
 }
 
+void Logger::put_l_message(const vec_t<VehlId>& load_change) {
+  std::string item = std::to_string(Cargo::now()) + " L";
+  for (const VehlId& id : load_change) item.append(" " + std::to_string(id));
+  push(item);
+}
+
 void Logger::put_q_message(const int& q) {
   std::string s = std::to_string(Cargo::now()) + " Q " + std::to_string(q);
   push(s);
@@ -212,3 +229,4 @@ std::string Logger::pop() {
 }
 
 }  // namespace cargo
+

@@ -121,7 +121,7 @@ void CargoWeb::reset_workspace() {
           option.path_to_roadnet="../data/roadnetwork/bj5.rnet";
           option.path_to_gtree="../data/roadnetwork/bj5.gtree";
           option.path_to_edges="../data/roadnetwork/bj5.edges";
-          option.path_to_problem="../data/benchmark/rs-m5k-c3.instance";
+          option.path_to_problem="../data/benchmark/rs-m50k-x4.0.instance";
           option.path_to_solution="cargoweb.sol";
           option.path_to_dataout="cargoweb.dat";
           option.time_multiplier=1;

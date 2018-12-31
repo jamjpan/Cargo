@@ -132,21 +132,22 @@ Cargo::~Cargo() {
   sqlite3_finalize(usc_stmt);
   sqlite3_finalize(cwc_stmt);
 
-  // if (database_file_ != "") {
-  //   int rc;
-  //   sqlite3 *p_file;
-  //   sqlite3_backup *p_backup;
-  //   rc = sqlite3_open(database_file_.c_str(), &p_file);
-  //   if (rc == SQLITE_OK) {
-  //     p_backup = sqlite3_backup_init(p_file, "main", db_, "main");
-  //     if (p_backup) {
-  //         sqlite3_backup_step(p_backup, -1);
-  //         sqlite3_backup_finish(p_backup);
-  //     }
-  //     rc = sqlite3_errcode(p_file);
-  //   }
-  //   sqlite3_close(p_file);
-  // }
+  // NOTE: This only saves a snapshot of the final state
+  if (database_file_ != "") {
+    int rc;
+    sqlite3 *p_file;
+    sqlite3_backup *p_backup;
+    rc = sqlite3_open(database_file_.c_str(), &p_file);
+    if (rc == SQLITE_OK) {
+      p_backup = sqlite3_backup_init(p_file, "main", db_, "main");
+      if (p_backup) {
+          sqlite3_backup_step(p_backup, -1);
+          sqlite3_backup_finish(p_backup);
+      }
+      rc = sqlite3_errcode(p_file);
+    }
+    sqlite3_close(p_file);
+  }
 
   if (err != NULL) sqlite3_free(err);
   sqlite3_close(db_);
@@ -160,12 +161,6 @@ const std::string & Cargo::road_network() { return probset_.road_network(); }
  * route and speed. Handle accordingly if vehicle moves to next node and if
  * next node is a stop of some type. */
 int Cargo::step(int& ndeact) {
-  /* Hack "stop" the simulation once all the customers have appeared
-   * (no matches can be made anymore)
-   * UPDATE: this hack is HORRIBLE, it totally messes up the trip delay
-   * calculation because all events end up happening at the last second
-   * */
-  // if (!full_sim_ && t_ > tmin_) speed_ = 1000000;  // sufficiently big
 
   /* Reset counters */
   int nrows = 0;  // number of vehicles moved to new nodes
@@ -175,6 +170,7 @@ int Cargo::step(int& ndeact) {
   log_v_.clear(); // vehicle positions
   log_p_.clear(); // pickup events
   log_d_.clear(); // dropoff events
+  log_l_.clear(); // load-change events
   log_a_.clear(); // vehicle arrived-at-destination events
 
   /* Acquire lock:
@@ -236,8 +232,10 @@ int Cargo::step(int& ndeact) {
 
       /* Log position */
       if (log_v_.count(vid) == 0) log_v_[vid] = {};
-      // log_v_[vid] = rte.at(lvn).second;
-       log_v_[vid].push_back(rte.at(lvn).second);
+       // log_v_[vid] = rte.at(lvn).second;
+       auto loc = std::make_pair(rte.at(lvn).second, nnd);
+       //log_v_[vid].push_back(rte.at(lvn).second);
+       log_v_[vid].push_back(loc);
 
       /* Did vehicle move to a stop?
        * (schedule[0] gives the node the vehicle is currently traveling to.
@@ -324,6 +322,7 @@ int Cargo::step(int& ndeact) {
           } else {
             /* Log pickup */
             log_p_.push_back(stop.owner());
+            log_l_.push_back(vid);
             DEBUG(1, { print(MessageType::Info)
               << "Vehicle " << vid << " picked up Customer "
               << stop.owner() << "(" << stop.loc() << ")" << std::endl; });
@@ -345,6 +344,7 @@ int Cargo::step(int& ndeact) {
           } else {
             /* Log dropoff */
             log_d_.push_back(stop.owner());
+            log_l_.push_back(-vid);
             DEBUG(1, { print(MessageType::Info)
               << "Vehicle " << vid << " dropped off Customer "
               << stop.owner() << "(" << stop.loc() << ")" << std::endl; });
@@ -472,6 +472,7 @@ int Cargo::step(int& ndeact) {
   if (!log_p_.empty()) Logger::put_p_message(log_p_);
   if (!log_d_.empty()) Logger::put_d_message(log_d_);
   if (!log_v_.empty()) Logger::put_v_message(log_v_);
+  if (!log_l_.empty()) Logger::put_l_message(log_l_);
   if (!log_a_.empty()) Logger::put_a_message(log_a_);
 
   return nrows;  // return number of stepped vehicles
@@ -632,7 +633,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
     << std::setw(7) << " active"
     << std::setw(14) << "matched"
     << std::endl;
-  print << "----------------------------------------------------------" << std::endl;
+  print << "-----------------------------------------------------" << std::endl;
   tick_t t0, t1;
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
@@ -690,8 +691,9 @@ void Cargo::start(RSAlgorithm& rsalg) {
 
     t1 = std::chrono::high_resolution_clock::now();
     dur = std::round(dur_milli(t1 - t0).count());
-    if (t_ > tmin_)
-      sleep_interval_ = dur;  // hack TODO: get rid of full_sim option
+    // TODO: Add skip_ending option
+    // if (t_ > tmin_)
+    //   sleep_interval_ = dur;
     if (dur > sleep_interval_)
       print(MessageType::Warning)
         << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
@@ -876,7 +878,8 @@ void Cargo::initialize(const Options& opt) {
         }
 
         /* Log initial position */
-       // log_v_[trip.id()] = {trip.orig()};
+        // log_v_[trip.id()] = {trip.orig()};
+        Logger::put_r_message(rte, trip.id(), 0);
 
         /* Insert to database */
         sqlite3_bind_int(insert_vehicle_stmt, 1, trip.id());
