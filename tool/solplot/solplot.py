@@ -5,6 +5,7 @@ import argparse
 import math
 import cv2
 
+FPS=1.0
 
 def get_parser():
     parser = argparse.ArgumentParser(description='RSP Solution Visualization')
@@ -17,7 +18,6 @@ def get_parser():
 
 
 class Visualizer:
-    fps = 30.0
     map_scale = 5000
     output_file = None
     draw_inactive = False
@@ -60,7 +60,7 @@ class Visualizer:
     show_vehicle_route = []
 
     def __init__(self, rnet_file, prob_file, sol_file, output_file, map_scale=5000,
-                 draw_inactive=True, fps=30.0):
+                 draw_inactive=True, fps=FPS):
         self.output_file = output_file
         self.map_scale = map_scale
         self.draw_inactive = draw_inactive

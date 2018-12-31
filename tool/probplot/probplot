@@ -58,10 +58,11 @@ def probplot(args):
                 col = line.strip().split()
                 o, d, q = int(col[1]), int(col[2]), int(col[3])
                 if q < 0:
-                    if (args["line"]):
-                        plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), color='g', lw=0.5, ls='--')
+                    if d > -1:
+                        plt.plot(node[d][0], node[d][1], marker="^", markerfacecolor='none', markeredgecolor='g')
+                        if (args["line"]):
+                            plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), color='g', lw=0.5, ls='--')
                     plt.plot(node[o][0], node[o][1], 'g^')
-                    plt.plot(node[d][0], node[d][1], marker="^", markerfacecolor='none', markeredgecolor='g')
                 else:
                     if (args["line"]):
                         plt.plot((node[o][0],node[d][0]), (node[o][1],node[d][1]), color='k', lw=0.5, ls='--')
