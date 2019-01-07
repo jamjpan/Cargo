@@ -45,10 +45,9 @@ EXE=./rspgen_c
 #
 #
 ## NOTE ABOUT EXECUTION SPEED
-# The full set of problem instances contains 8448 *.instance files.
-# On my machine (i5), it takes about 20 seconds per instance, or about
-# 50 hours if the set is generated sequentially. The time can be shortened
-# by generating the instances in parallel using xargs:
+# The full set of problem instances contains 8448 *.instance files.  On my
+# machine (i5), it takes about 12 hours to generate the set.  The time can be
+# shortened by generating the instances in parallel using xargs:
 #
 # ./(this_file) | xargs -n(# of args) -P(# of processes) ./rspgen_c
 #
