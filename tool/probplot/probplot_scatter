@@ -47,7 +47,7 @@ def probplot(args):
                     plt.plot(node[o][0], node[o][1], marker=",", color="#ff0000")
                     plt.plot(node[d][0], node[d][1], marker=",", color="#0000ff")
 
-    fig.savefig("a.png", bbox_inches="tight")
+    fig.savefig(args["out"], bbox_inches="tight")
     plt.close(fig)
 
 if __name__ == "__main__":

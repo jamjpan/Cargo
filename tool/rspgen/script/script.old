@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# Benchmarks
+# rs-sm-1    bj5    100%    8    2    3
+# rs-sm-2    cd1    100%    8    2    3
+# rs-sm-3    mny    100%    8    2    3
+# rs-md-1    bj5    100%  (30m)  3k   1
+# rs-md-2    bj5    100%  (30m)  1k   3
+# rs-md-3    bj5      0%  (30m)  3k   3
+# rs-md-4    bj5     25%  (30m)  3k   3
+# rs-md-5    bj5     50%  (30m)  3k   3
+# rs-md-6    bj5     75%  (30m)  3k   3
+# rs-md-7    bj5    100%  (30m)  3k   3   (all defaults)
+# rs-md-8    cd1    100%  (30m)  3k   3
+# rs-md-9    mny    100%  (30m)  3k   3
+# rs-md-10   bj5    100%  (30m)  5k   3
+# rs-md-11   bj5    100%  (30m) 10k   3
+# rs-md-12   bj5    100%  (30m) 15k   3
+# rs-md-13   bj5    100%  (30m)  3k   6
+# rs-md-14   bj5    100%  (30m)  3k   12
+# rs-md-15   bj5    100%  (60m)  3k   3    (scale=2)
+# rs-md-16   bj5    100%  (90m)  3k   3    (scale=3)
+# rs-md-17   bj5    100% (120m)  3k   3    (scale=4)
+# rs-lg-1    bj5    100%  (18h)  3k   3
+# rs-lg-2    cd1    100%  (18h)  3k   3
+# rs-lg-3    mny    100%  (18h)  3k   3
+
+# For medium, collect customers for 20 minutes starting from 6 PM
+rm spcache.dat
+touch spcache.dat
+./rspgen -x 1.00 -o rs-md-1  -i bj5_trips.dat -b 18 -r 30  -c  1 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-2  -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet  1000
+./rspgen -x 0.00 -o rs-md-3  -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 0.25 -o rs-md-4  -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 0.50 -o rs-md-5  -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 0.75 -o rs-md-6  -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-7  -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-10 -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet 15000
+./rspgen -x 1.00 -o rs-md-11 -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet 35000
+./rspgen -x 1.00 -o rs-md-12 -i bj5_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/bj5.rnet 50000
+./rspgen -x 1.00 -o rs-md-13 -i bj5_trips.dat -b 18 -r 30  -c  6 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-14 -i bj5_trips.dat -b 18 -r 30  -c 12 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-15 -i bj5_trips.dat -b 18 -r 60  -c  3 -v 2 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-16 -i bj5_trips.dat -b 18 -r 90  -c  3 -v 3 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-17 -i bj5_trips.dat -b 18 -r 120 -c  3 -v 4 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-md-18 -i bj5_trips.dat -b 18 -r 150 -c  3 -v 5 ../../data/roadnetwork/bj5.rnet  5000
+./rspgen -x 1.00 -o rs-lg-1  -i bj5_trips.dat -f True      -c  3 ../../data/roadnetwork/bj5.rnet  5000
+rm spcache.dat
+touch spcache.dat
+./rspgen -x 1.00 -o rs-md-8  -i cd1_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/cd1.rnet  5000
+# ./rspgen -x 1.00 -o rs-lg-2  -i cd1_trips.dat -f True      -c  3 ../../data/roadnetwork/cd1.rnet  5000
+rm spcache.dat
+touch spcache.dat
+./rspgen -x 1.00 -o rs-md-9  -i mny_trips.dat -b 18 -r 30  -c  3 ../../data/roadnetwork/mny.rnet  5000
+# ./rspgen -x 1.00 -o rs-lg-3  -i mny_trips.dat -f True      -c  3 ../../data/roadnetwork/mny.rnet  5000
+

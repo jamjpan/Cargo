@@ -1,0 +1,158 @@
+html, body {
+  height: 100%;
+  font-family: "Arial", sans;
+  margin: 0;
+}
+
+footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  background-color: black;
+  opacity: 0.6;
+  color: white;
+  z-index: 100;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+canvas + div {
+  right: 80px !important;
+  left: auto !important;
+  z-index: 90 !important;
+}
+
+.box {
+  border: 1px solid blue;
+}
+
+.nocursor:hover {
+  cursor: auto !important;
+}
+
+#main {
+  width: 100%;
+  height: 100%;
+}
+
+.dg.main {
+  position: fixed;
+}
+
+#editor {
+  position: absolute;
+  top: 0;
+  left: 280px;
+  border: 1px solid black;
+  width: 1280px;
+  height:600px;
+  background-color: black;
+  z-index: 100;
+}
+
+#editor_window {
+  height: 576px;
+}
+
+#editor_toolbar {
+  width: 100%;
+  height: 24px;
+  border: 1px solid red;
+  color: white;
+  font-size: 12px;
+}
+
+#editor_toolbar select {
+  display: inline;
+}
+
+#editor_toolbar ul {
+  display: inline;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+#editor_toolbar ul li {
+  display: inline-block;
+  margin: 0 12px;
+}
+
+#editor_toolbar ul li:hover {
+  cursor: pointer;
+}
+
+#editor_toolbar span {
+  float: right;
+  margin-right: 4px;
+  font-size: 12px;
+}
+
+#editor_toolbar_close:hover {
+  cursor: pointer;
+}
+
+#editor_cpp {
+  border: 1px solid blue;
+  width: 50%;
+  height: 100%;
+  float: left;
+  box-sizing: border-box;
+}
+
+#editor_h {
+  border: 1px solid green;
+  width: 50%;
+  height: 100%;
+  float: right;
+  box-sizing: border-box;
+}
+
+#log {
+  position: absolute;
+  bottom: 0;
+  right: 20px;
+  border: 1px solid black;
+  width: 1024px;
+  height: 240px;
+  z-index: 90;
+}
+
+#log_window {
+  height: 100%;
+}
+
+#log_window textarea {
+  height: 99%;
+  width: 100%;
+  padding: 0px;
+  resize: none;
+  box-sizing: border-box;
+  background-color: black;
+  opacity: 0.6;
+  color: white;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+#log_cargo {
+  border: 1px solid blue;
+  width: 50%;
+  height: 100%;
+  float: left;
+  box-sizing: border-box;
+}
+
+#log_alg {
+  border: 1px solid green;
+  width: 50%;
+  height: 100%;
+  float: right;
+  box-sizing: border-box;
+}
+

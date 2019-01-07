@@ -1,0 +1,781 @@
+<!doctype html>
+<!-- Dec 31, 2019 -->
+<!-- Happy NYE! -->
+<meta charset="utf-8">
+<!--<link rel="stylesheet" href="/static/css/bootstrap.min.css">-->
+<link rel="stylesheet" href="/static/css/codemirror.css">
+<link rel="stylesheet" href="/static/css/tomorrow-night-bright.css">
+<link rel="stylesheet" href="/static/css/fullscreen.css">
+<link rel="stylesheet" href="/static/css/foldgutter.css">
+<link rel="stylesheet" href="/static/css/style.css">
+<!-- Layout -->
+<!-- Layout: Main Container -->
+<div id="main">
+  <div id="editor">
+    <div id="editor_toolbar">
+      <select id="editor_selector">
+        <option>**custom**</option>
+        <option>nearest-neighbor</option>
+      </select>
+      <ul>
+        <li id="editor_toolbar_reset">reset</li>
+        <li class="box nocursor">load *.cc/*.cpp<input id="editor_toolbar_load_cpp" type="file"></li>
+        <li class="box nocursor">load *.h<input id="editor_toolbar_load_h" type="file"></li>
+        <!--<li id="editor_toolbar_saveall">save all...</li>-->
+      </ul>
+      <span id="editor_toolbar_close">Close Editor</span>
+      <span>(press F11 within code editor to toggle fullscreen)</span>
+    </div>
+    <div id="editor_window">
+      <div id="editor_cpp">
+        <textarea id="editor_cpp_container"></textarea>
+      </div>
+      <div id="editor_h">
+        <textarea id="editor_h_container"></textarea>
+      </div>
+    </div>
+  </div>
+  <div id="log">
+    <div id="log_window">
+        <div id="log_cargo">
+          <textarea id="cargofeed" readonly noresize>cargo</textarea>
+        </div>
+        <div id="log_alg">
+          <textarea id="algfeed" readonly noresize>rsalgorithm</textarea>
+        </div>
+    </div>
+  </div>
+  <footer>Welcome to CargoWeb</footer>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  var main_container = document.getElementById("main")
+  var dom_footer = document.querySelector("footer")
+
+  var socket = io()
+
+  function footer(string) {
+    dom_footer.innerText = string
+    window.setTimeout(() => dom_footer.innerText = "", 3000)
+  }
+</script>
+<!-- Editor -->
+<script src="/static/js/codemirror.js"></script>
+<script src="/static/js/clike.js"></script>
+<script src="/static/js/fullscreen.js"></script>
+<script src="/static/js/foldcode.js"></script>
+<script src="/static/js/foldgutter.js"></script>
+<script src="/static/js/indent-fold.js"></script>
+<script src="/static/js/brace-fold.js"></script>
+<script src="/static/js/template.js"></script>
+<script>
+  var cm_options = {
+    mode: "text/x-c++src",
+    lineNumbers: true,
+    viewportMargin: Infinity,
+    extraKeys: {
+      "F11": (cm) => { beg_fullscreen(cm) },
+      "Esc": (cm) => { end_fullscreen(cm)  }
+    },
+    foldGutter: true,
+    gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+    theme: "tomorrow-night-bright",
+  }
+
+  var editor = document.getElementById("editor")
+
+  var editor_selector = document.getElementById("editor_selector")
+  editor_selector.addEventListener("change", editor_load_example)
+
+  var editor_cpp = CodeMirror.fromTextArea(document.getElementById("editor_cpp_container"), cm_options)
+  var editor_h   = CodeMirror.fromTextArea(document.getElementById("editor_h_container")  , cm_options)
+
+  var editor_window = document.getElementById("editor_window")
+  editor_cpp.setSize(editor_window.offsetWidth/2 - 1, editor_window.offsetHeight - 2)
+  editor_h  .setSize(editor_window.offsetWidth/2 - 1, editor_window.offsetHeight - 2)
+
+  var editor_toolbar_close = document.getElementById("editor_toolbar_close")
+  editor_toolbar_close.addEventListener("click", editor_toggle)
+
+  var editor_toolbar_reset = document.getElementById("editor_toolbar_reset")
+  editor_toolbar_reset.addEventListener("click", editor_reset)
+
+  var editor_toolbar_load_cpp = document.getElementById("editor_toolbar_load_cpp")
+  editor_toolbar_load_cpp.addEventListener("change", editor_load_cpp)
+
+  var editor_toolbar_load_h = document.getElementById("editor_toolbar_load_h")
+  editor_toolbar_load_h.addEventListener("change", editor_load_h)
+
+  editor_reset()
+  editor_toggle()
+
+  function editor_toggle() {
+    editor.hidden = (editor.hidden == true ? false : true)
+  }
+
+  function beg_fullscreen(cm) {
+    cm.setOption("fullScreen", !cm.getOption("fullScreen"))
+  }
+
+  function end_fullscreen(cm) {
+    if (cm.getOption("fullScreen"))
+      cm.setOption("fullScreen", false)
+  }
+
+  function editor_reset() {
+    editor_cpp.setValue(cc_template)
+    editor_h.setValue(h_template)
+  }
+
+  function editor_load_h(e) {
+    file_import(e, (val) => {
+      if (val != false) editor_h.setValue(val) })
+  }
+
+  function editor_load_cpp(e) {
+    file_import(e, (val) => {
+      if (val != false) editor_cpp.setValue(val) })
+  }
+
+  function editor_load_example() {
+    if (editor_selector.value == "**custom**")
+      editor_reset()
+    else
+      socket.emit('client cmd load_example', editor_selector.value)
+  }
+
+  function file_import(e, callback) {
+    var file = null
+    file = e.target.files[0]
+    if (!file)
+      return false
+    var reader = new FileReader()
+    reader.onload = (e) => { callback(e.target.result) }
+    reader.readAsText(file)
+  }
+
+</script>
+<!-- Visualization -->
+<script src="/static/js/three.min.js"></script>
+<script src="/static/js/MapControls.js"></script>
+<script src="/static/js/Stats.js"></script>
+<script src="/static/js/dat.gui.min.js"></script>
+<!--<script src="/static/js/mny.js"></script>-->
+<!--<script src="/static/js/cd1.js"></script>-->
+<script src="/static/js/bj5_vertices.js"></script>
+<script src="/static/js/bj5_nodes.js"></script>
+<script src="/static/js/bj5_weights.js"></script>
+<!-- Visualization: Vertex Shader -->
+<script type="x-shader/x-vertex" id="vertexshader">
+  uniform float t;       // current time
+  uniform float zoom;    // camera zoom
+
+  attribute vec3 target0;
+  attribute vec3 target1;
+  attribute float dur0;  // time from position->target0 (weight/speed); sec
+  attribute float dur1;  // time from target0 ->target1 (weight/speed); sec
+  attribute float t0;    // time when targets received
+  attribute float load;
+
+  varying float vload;   // (cannot be int for some reason)
+
+  void main() {
+    vload = load;
+    gl_PointSize = 3.0*zoom;
+    float progress = (t-t0)/dur0;
+    //if (progress > 1.0) progress = 1.0;  // remove me
+    if (progress > 1.0) {  // reached target0, move toward target1
+      progress = (t - t0 - dur0)/dur1;
+      vec3 v = target0 + (target1 - target0)*progress;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(v, 1.0);
+    } else {  // move toward target0
+      vec3 v = position + (target0 - position)*progress;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(v, 1.0);
+    }
+    // gl_Position = projectionMatrix * modelViewMatrix * vec4(target0, 1.0);
+  }
+</script>
+<script type="x-shader/x-vertex" id="vertexshader_cust">
+  uniform float zoom;
+  attribute float size;
+  void main() {
+    gl_PointSize = size*zoom;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+</script>
+<!-- Visualization: Fragment Shader -->
+<script type="x-shader/x-fragment" id="fragmentshader">
+  varying float vload;
+  const vec4 dark = vec4(0.24, 0.24, 0.32, 1.0);
+  const vec4 grey = vec4(0.5, 0.5, 0.5, 0.7);
+  const vec4 blue = vec4(0.15, 0.55, 0.82, 1.0);
+  const vec4 yellow = vec4(0.70, 0.54, 0.0, 1.0);
+  const vec4 red = vec4(0.86, 0.20, 0.18, 1.0);
+  const vec4 magenta = vec4(0.83, 0.21, 0.51, 1.0);
+
+  void main() {
+    // Color based on load
+    vec4 color = dark;
+    if (vload >= 1.0 && vload < 2.0)
+      color = blue;
+    if (vload >= 2.0 && vload < 3.0)
+      color = yellow;
+    if (vload >= 3.0)
+      color = red;
+
+    // Make it a circle by discarding fragments outside a radius
+    // https://www.desultoryquest.com/blog/drawing-anti-aliased-circular-points-using-opengl-slash-webgl/
+    float r = 0.0;
+    //float border = 0.2;
+    vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+    r = dot(cxy, cxy);
+    // Add drop shadow
+    // gl_FragColor = color;
+    // if (r > 1.0 - border) {
+    //   gl_FragColor = vec4(0,0,0,0.3);
+    // }
+    if (r > 1.0)
+      discard;
+    gl_FragColor = color;
+  }
+</script>
+<script type="x-shader/x-fragment" id="fragmentshader_cust">
+  void main() {
+    gl_FragColor = vec4(0.83, 0.21, 0.51, 1.0);
+  }
+</script>
+<!-- Visualization: Simulation -->
+<script>
+  const bg_color = 0x000000  // black
+  const rn_color = 0x132a42  // dark blue
+  const rn_linewidth = 1
+
+  var viz            = document.getElementById("main")
+  var vertexshader   = document.getElementById("vertexshader")
+  var fragmentshader = document.getElementById("fragmentshader")
+  var vertexshader_cust   = document.getElementById("vertexshader_cust")
+  var fragmentshader_cust = document.getElementById("fragmentshader_cust")
+
+  var Simulation = {
+    reset() {
+      this.nvehl = 0
+      this.ncust = 0
+      this.clock = new THREE.Clock()
+      this.stats = new Stats()
+      this.controls = null
+      this.vehicle_particles = null
+      this.vehicle_position = null
+      this.vehicle_target0 = null
+      this.vehicle_target1 = null
+      this.vehicle_loads = null
+      this.vehicle_dur0 = null
+      this.vehicle_dur1 = null
+      this.vehicle_t0 = null
+      this.vehicle_speed = 0
+      this.customer_particles = null
+      this.customer_position = null
+      this.uniforms = null
+      this.road_network = null
+      this.rn_vertices = null
+      this.rn_nodes = null
+      this.rn_weights = null
+      this.box = null
+      this.center = null
+      this.camera = null
+      this.aspect = null
+      this.renderer = null
+      this.scene = null
+      this.started = false
+
+      // Road network
+      // var rn_vertices = []
+      // var rn_nodes    = {}
+      // var rn_weights  = {}
+      // Parse from json, right-click -> Save Global, copy(temp1), paste into .js file
+      // var rn_json = bj5_json
+      // for (var key in rn_json) {
+      //   if (rn_json.hasOwnProperty(key)) {
+      //     var key_arr = key.split('_')
+      //       if (key_arr[0] == 'f' || key_arr[0] == 't') {
+      //         rn_vertices.push(new THREE.Vector2(rn_json[key][1], rn_json[key][2]))
+      //         rn_nodes[rn_json[key][0].toString()] = [rn_json[key][1], rn_json[key][2]]
+      //       } else {
+      //         rn_weights[key] = Number(rn_json[key])
+      //       }
+      //   }
+      // }
+      this.rn_vertices = bj5_vertices  // lng, lat
+      this.rn_nodes    = bj5_nodes     // node id
+      this.rn_weights  = bj5_weights
+
+      this.road_network = new THREE.LineSegments(
+        new THREE.BufferGeometry().setFromPoints(this.rn_vertices),
+        new THREE.LineBasicMaterial({
+          color: rn_color,
+          linewidth: rn_linewidth
+        })
+      )
+
+      this.road_network.matrixAutoUpdate = false
+
+      // Bounding box
+      this.box = new THREE.Box2()
+      this.box.setFromPoints(this.rn_vertices)
+      this.center = new THREE.Vector2
+      this.box.getCenter(this.center)
+
+      // Camera
+      this.aspect = viz.offsetWidth/viz.offsetHeight
+      this.camera = new THREE.OrthographicCamera(-0.1, 0.1, 0.1/this.aspect, -0.1/this.aspect, 1, 3)
+      this.camera.position.set(this.center['x'], this.center['y'], 2)
+
+      // Renderer
+      this.renderer = new THREE.WebGLRenderer({ alpha: true})
+      this.renderer.setSize(viz.offsetWidth, viz.offsetHeight)
+      this.renderer.setClearColor (bg_color, 1)
+      viz.appendChild(this.renderer.domElement)
+
+      // Stats
+      this.stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
+      viz.appendChild(this.stats.dom);
+
+      // Controls
+      this.controls = new THREE.MapControls(this.camera, this.renderer.domElement)
+      this.controls.enableDamping = true
+      this.controls.dampingFactor = 0.25
+      this.controls.enableKeys = false
+      this.controls.enableRotate = false
+      this.controls.screenSpacePanning = true
+      this.controls.target = new THREE.Vector3(this.center['x'], this.center['y'], 0)
+    },
+
+    init() {
+      // Vehicles
+      var vehlgeom = new THREE.BufferGeometry()
+
+      var init_pos   = new Array(this.nvehl*3).fill(0.0);
+      var init_ones  = new Array(this.nvehl  ).fill(1.0);
+      var init_zeros = new Array(this.nvehl  ).fill(0.0);
+
+      // force the bounding box to avoid recomputing each frame
+      init_pos.push(this.box.min['x'], this.box.min['y'], 0)
+      init_pos.push(this.box.max['x'], this.box.max['y'], 0)
+      // fill ones and zeros to the correct size
+      init_ones .push(1.0, 1.0)
+      init_zeros.push(0.0, 0.0)
+
+      vehlgeom.addAttribute('position', new THREE.Float32BufferAttribute(init_pos,   3))
+      vehlgeom.addAttribute('target0',  new THREE.Float32BufferAttribute(init_pos,   3))
+      vehlgeom.addAttribute('target1',  new THREE.Float32BufferAttribute(init_pos,   3))
+      vehlgeom.addAttribute('dur0',     new THREE.Float32BufferAttribute(init_ones , 1))
+      vehlgeom.addAttribute('dur1',     new THREE.Float32BufferAttribute(init_ones,  1))
+      vehlgeom.addAttribute('t0',       new THREE.Float32BufferAttribute(init_zeros, 1))
+      vehlgeom.addAttribute('load',     new THREE.Float32BufferAttribute(init_zeros, 1))
+
+      this.uniforms = {
+        t:    { value: 0.0 },  // current time
+        zoom: { value: 1.0 }   // camera zoom
+      }
+
+      this.vehicle_particles = new THREE.Points(vehlgeom, new THREE.ShaderMaterial({
+        uniforms: this.uniforms,
+        vertexShader: vertexshader.text,
+        fragmentShader: fragmentshader.text
+      }))
+
+      this.vehicle_position = this.vehicle_particles.geometry.attributes.position.array
+      this.vehicle_target0  = this.vehicle_particles.geometry.attributes.target0.array
+      this.vehicle_target1  = this.vehicle_particles.geometry.attributes.target1.array
+      this.vehicle_dur0     = this.vehicle_particles.geometry.attributes.dur0.array
+      this.vehicle_dur1     = this.vehicle_particles.geometry.attributes.dur1.array
+      this.vehicle_t0       = this.vehicle_particles.geometry.attributes.t0.array
+      this.vehicle_loads    = this.vehicle_particles.geometry.attributes.load.array
+
+      // Customers
+      var custgeom = new THREE.BufferGeometry()
+
+      init_pos   = new Array(this.ncust*3).fill(0.0);
+      init_zeros = new Array(this.ncust  ).fill(0.0);
+
+      // force the bounding box to avoid recomputing each frame
+      init_pos.push(this.box.min['x'], this.box.min['y'], 0)
+      init_pos.push(this.box.max['x'], this.box.max['y'], 0)
+      // fill zeros to the correct size
+      init_zeros.push(0.0, 0.0)
+
+      custgeom.addAttribute('position', new THREE.Float32BufferAttribute(init_pos,   3))
+      custgeom.addAttribute('size',     new THREE.Float32BufferAttribute(init_zeros, 1))
+
+      this.customer_particles = new THREE.Points(custgeom, new THREE.ShaderMaterial({
+        uniforms: this.uniforms,
+        vertexShader: vertexshader_cust.text,
+        fragmentShader: fragmentshader_cust.text
+      }))
+
+      this.customer_position = this.customer_particles.geometry.attributes.position.array
+      this.customer_sizes    = this.customer_particles.geometry.attributes.size.array
+
+      // Scene
+      this.scene = new THREE.Scene()
+      this.scene.add(this.road_network)
+      this.scene.add(this.vehicle_particles)
+      this.scene.add(this.customer_particles)
+
+      // gui.add(params, 'show road').onFinishChange((val) => {
+      //   this.road_network.material.visible = val
+      // })
+
+      // TODO: make sure this gets added only once
+      window.addEventListener('resize', () => {
+        this.aspect = viz.offsetWidth/viz.offsetHeight
+        this.renderer.setSize(viz.offsetWidth, viz.offsetHeight)
+        this.camera.top = 0.1/this.aspect
+        this.camera.bottom = -0.1/this.aspect
+        this.camera.updateProjectionMatrix()
+      }, false)
+    },
+
+    reset_vehls() {
+      for (var i = 0; i < this.nvehl; i++) {
+        this.vehicle_position[i  ] = 0.0
+        this.vehicle_position[i+1] = 0.0
+        this.vehicle_position[i+2] = 0.0
+        this.vehicle_target0 [i  ] = 0.0
+        this.vehicle_target0 [i+1] = 0.0
+        this.vehicle_target0 [i+2] = 0.0
+        this.vehicle_target1 [i  ] = 0.0
+        this.vehicle_target1 [i+1] = 0.0
+        this.vehicle_target1 [i+2] = 0.0
+        this.vehicle_dur0    [i]   = 1.0
+        this.vehicle_dur1    [i]   = 1.0
+        this.vehicle_t0      [i]   = 0.0
+        this.vehicle_loads   [i]   = 0.0
+      }
+    },
+
+    reset_custs() {
+      for (var i = 0; i < this.ncust; i++) {
+        this.customer_position[i  ] = 0.0
+        this.customer_position[i+1] = 0.0
+        this.customer_position[i+2] = 0.0
+        this.customer_sizes   [i]   = 0.0
+      }
+    }
+  }
+
+  function animate() {
+    Simulation.stats.begin()
+
+    Simulation.controls.update()
+
+    Simulation.vehicle_particles.geometry.attributes.position.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.target0.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.target1.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.dur0.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.dur1.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.t0.needsUpdate = true
+    Simulation.vehicle_particles.geometry.attributes.load.needsUpdate = true
+
+    Simulation.customer_particles.geometry.attributes.position.needsUpdate = true
+    Simulation.customer_particles.geometry.attributes.size.needsUpdate = true
+
+    Simulation.uniforms.t.value = Simulation.clock.getElapsedTime()
+    Simulation.uniforms.zoom.value = Simulation.camera.zoom
+
+    Simulation.road_network.material.linewidth = 1.0*Simulation.camera.zoom
+
+    Simulation.renderer.render(Simulation.scene, Simulation.camera)
+
+    Simulation.stats.end()
+    requestAnimationFrame(animate)
+  }
+
+  Simulation.reset()
+
+  function weight(from_id, to_id) {
+    var key1 = from_id.toString()+"_"+to_id.toString()
+    var key2 = to_id.toString()+"_"+from_id.toString()
+    if (key1 in Simulation.rn_weights)
+      return Simulation.rn_weights[key1]
+    else if (key2 in Simulation.rn_weights)
+      return Simulation.rn_weights[key2]
+    else
+      return 0
+  }
+</script>
+<!-- Controls -->
+<script src="/static/js/dat.gui.min.js"></script>
+<script>
+
+  // Control widget ------------------------------------------------------------
+
+  var controls = new dat.GUI({
+    // height: 3*32 - 1,
+    autoPlace: false,
+    width: 280
+  })
+
+  var controls_editor = controls.addFolder("rsalgorithm")
+  var controls_editor_params = {
+    'show/hide editor': editor_toggle,
+    'compile':          compile,
+    'compile + run':    compile_run
+  }
+  controls_editor.add(controls_editor_params, 'show/hide editor')
+  controls_editor.add(controls_editor_params, 'compile')
+  controls_editor.add(controls_editor_params, 'compile + run')
+
+  var controls_settings = controls.addFolder("simulation settings")
+  var controls_settings_params = {
+    'road': 'bj5',
+    'vehicles': '5k',
+    'vehicle capacity': '3',
+    'vehicle speed': '10 m/sec',
+    'customers scale': '1.0x (~9.7/sec)',
+    'delay tolerance': '6 min',
+    'match period (sec)': 60,
+    'runtime mode': 'dynamic',
+    'routing mode': 'merge'
+  }
+  controls_settings.add(controls_settings_params, 'road', ['bj5', 'mny', 'cd1'])
+  controls_settings.add(controls_settings_params, 'vehicles', ['1k', '5k', '10k', '15k', '20k', '25k', '30k', '35k', '40k', '45k', '50k'])
+  controls_settings.add(controls_settings_params, 'vehicle capacity', [1, 3, 6, 9])
+  controls_settings.add(controls_settings_params, 'vehicle speed', ['10 m/sec'])
+  controls_settings.add(controls_settings_params, 'customers scale', ['0.5x (~4.9/sec)', '1.0x (~9.7/sec)', '2.0x (~19.0/sec)', '4.0x (~36.4/sec)'])
+  controls_settings.add(controls_settings_params, 'delay tolerance', ['2 min', '4 min', '6 min', '8 min'])
+  controls_settings.add(controls_settings_params, 'match period (sec)')
+  controls_settings.add(controls_settings_params, 'routing mode', ['strict', 'merge'])
+  controls_settings.add(controls_settings_params, 'runtime mode', ['static', 'dynamic'])
+
+  var controls_params = {
+    'show road':        true,
+    'compile + run':    compile_run,
+    'stop simulation':  stop
+  }
+  controls.add(controls_params, 'show road').onFinishChange((val) => {
+    Simulation.road_network.material.visible = val
+  })
+  controls.add(controls_params, 'compile + run')
+  controls.add(controls_params, 'stop simulation')
+
+  main_container.appendChild(controls.domElement)
+
+  function problem_str() {
+    return "rs-"  + controls_settings_params["road"]
+           + "-m" + controls_settings_params["vehicles"]
+           + "-c" + controls_settings_params["vehicle capacity"]
+           // + "-d" + controls_settings_params["delay tolerance"].split(" ")[0]
+           + "-x" + controls_settings_params["customers scale"].split(" ")[0].slice(0, -1)
+  }
+
+  // Socket controls -----------------------------------------------------------
+
+  var cargofeed = document.getElementById("cargofeed")
+  var algfeed   = document.getElementById("algfeed")
+
+  socket.on("server error", (data) => {
+    // handle error
+  })
+
+  socket.on("server msg", (data) => {
+    log_cargo_append(data)
+  })
+
+  socket.on('server msg alg', (data) => {
+    log_alg_print(data)
+  })
+
+  socket.on('server msg vehicle', (data) => {
+    // console.log(data)
+    var vid = Number(data.vid) - 1  // 0-indexed here, 1-indexed in Cargo
+    var i = 3*vid
+    // Place vehicle at data.position + overshoot in direction of target0
+    // and update target1
+    if (data.position in Simulation.rn_nodes
+     && data.target0  in Simulation.rn_nodes
+     && data.target1  in Simulation.rn_nodes) {
+      var x0 = Simulation.rn_nodes[data.position][0]
+      var y0 = Simulation.rn_nodes[data.position][1]
+      var x1 = Simulation.rn_nodes[data.target0 ][0]
+      var y1 = Simulation.rn_nodes[data.target0 ][1]
+      var w = weight(data.position, data.target0)
+      // var d = ((-1)*Number(data.overshoot)/w) * Math.sqrt((x1-x0)^2 + (y1-y0)^2)
+      // var m = (y1 - y0)/(x1 - x0)
+      // var x = x0 + d/Math.sqrt(1+m^2)
+      // var y = y0 + (d*m)/1.4142135623730951
+      var delta = -Number(data.overshoot)
+      var d = delta/w
+      var x = d*(x1-x0)+x0
+      var y = d*(y1-y0)+y0
+
+      Simulation.vehicle_position[i  ] = x
+      Simulation.vehicle_position[i+1] = y
+      Simulation.vehicle_target0 [i  ] = Simulation.rn_nodes[data.target0][0]  // lng
+      Simulation.vehicle_target0 [i+1] = Simulation.rn_nodes[data.target0][1]  // lat
+      Simulation.vehicle_target1 [i  ] = Simulation.rn_nodes[data.target1][0]
+      Simulation.vehicle_target1 [i+1] = Simulation.rn_nodes[data.target1][1]
+
+      Simulation.vehicle_dur0[vid] = (w-delta)/Simulation.vehicle_speed
+      Simulation.vehicle_dur1[vid] = weight(data.target0, data.target1)/Simulation.vehicle_speed
+      Simulation.vehicle_t0[vid] = Simulation.clock.getElapsedTime()
+
+      // console.log(`w=${w},d=${d},x0=${x0},y0=${y0},x1=${x1},y1=${y1},
+      //    dur0=${Simulation.vehicle_dur0[vid]},dur1=${Simulation.vehicle_dur1[vid]},
+      //    t0=${Simulation.vehicle_t0[vid]},t=${Simulation.uniforms.t.value}`)
+      // console.log('got V, set x,y to ', x, y)
+    }
+  })
+
+  socket.on('server msg begin route', (data) => {
+    // console.log(data)
+    var vid = Number(data.vid)-1  // 0-indexed here, 1-indexed in Cargo
+    var i = 3*vid
+    // Initialize first three points
+    if (data.route.length > 2) {
+      Simulation.vehicle_position[i  ] = Simulation.rn_nodes[data.route[0]][0]  // lng
+      Simulation.vehicle_position[i+1] = Simulation.rn_nodes[data.route[0]][1]  // lat
+      Simulation.vehicle_target0 [i  ] = Simulation.rn_nodes[data.route[1]][0]
+      Simulation.vehicle_target0 [i+1] = Simulation.rn_nodes[data.route[1]][1]
+      Simulation.vehicle_target1 [i  ] = Simulation.rn_nodes[data.route[2]][0]
+      Simulation.vehicle_target1 [i+1] = Simulation.rn_nodes[data.route[2]][1]
+
+      Simulation.vehicle_dur0[vid] = weight(data.route[0], data.route[1])/Simulation.vehicle_speed
+      Simulation.vehicle_dur1[vid] = weight(data.route[1], data.route[2])/Simulation.vehicle_speed
+      Simulation.vehicle_t0[vid] = Simulation.clock.getElapsedTime()
+    } else {  // could be an idling vehicle
+      Simulation.vehicle_position[i  ] = Simulation.rn_nodes[data.route[0]][0]  // lng
+      Simulation.vehicle_position[i+1] = Simulation.rn_nodes[data.route[0]][1]  // lat
+      Simulation.vehicle_target0 [i  ] = Simulation.rn_nodes[data.route[0]][0]
+      Simulation.vehicle_target0 [i+1] = Simulation.rn_nodes[data.route[0]][1]
+      Simulation.vehicle_target1 [i  ] = Simulation.rn_nodes[data.route[0]][0]
+      Simulation.vehicle_target1 [i+1] = Simulation.rn_nodes[data.route[0]][1]
+
+      Simulation.vehicle_dur0[vid] = 1
+      Simulation.vehicle_dur1[vid] = 1
+      Simulation.vehicle_t0[vid] = Simulation.clock.getElapsedTime()
+    }
+  })
+
+  socket.on('server msg update route', (data) => {
+    // console.log('update route', data)
+  })
+
+  socket.on('server msg customer', (data) => {
+    for (var k = 0; k < data.length; k++) {
+      var cid = Number(data[k][0]) - 1 - Simulation.nvehl
+      var i = 3*cid
+      var loc = data[k][1]
+      Simulation.customer_position[i  ] = Simulation.rn_nodes[loc][0]
+      Simulation.customer_position[i+1] = Simulation.rn_nodes[loc][1]
+      Simulation.customer_sizes[cid] = 3.0
+    }
+  })
+
+  socket.on('server msg customer_timeout', (data) => {
+    for (var k = 0; k < data.length; k++) {
+      var cid = Number(data[k]) - 1 - Simulation.nvehl
+      Simulation.customer_sizes[cid] = 0.0
+    }
+  })
+
+  socket.on('server msg pickup', (data) => {
+    for (var k = 0; k < data.length; k++) {
+      var cid = Number(data[k]) - 1 - Simulation.nvehl
+      Simulation.customer_sizes[cid] = 0.0
+    }
+  })
+
+  socket.on('server msg load', (data) => {
+    for (var i = 0; i < data.length; i++) {
+      var idx = Number(data[i])
+      if (idx < 0) {
+        Simulation.vehicle_loads[-(idx+1)] = Simulation.vehicle_loads[-(idx+1)] - 1
+        // console.log(Simulation.vehicle_loads[-(idx+1)])
+      }
+      else {
+        Simulation.vehicle_loads[idx-1] = Simulation.vehicle_loads[idx-1] + 1
+        // console.log(Simulation.vehicle_loads[idx-1])
+      }
+    }
+  })
+
+  socket.on('server msg initialize', (data) => {
+    // Initially animate the road network when client connects
+    Simulation.nvehl = data.nvehl
+    Simulation.ncust = data.ncust
+    Simulation.init()
+    Simulation.vehicle_speed = Number(controls_settings_params["vehicle speed"].split(" ")[0])
+    animate()
+    if (Simulation.started) {
+      // Enter only if client presses 'start'
+      Simulation.reset_vehls()
+      Simulation.reset_custs()
+      socket.emit('client cmd run')
+    }
+  })
+
+  socket.on('server msg started', () => {
+    Simulation.clock.start()
+  })
+
+  socket.on('server msg load_example', (data) => {
+    editor_cpp.setValue(data[0])
+    editor_h  .setValue(data[1])
+  })
+
+  socket.emit('client query initialize', problem_str())
+  socket.emit('client query running')
+
+  cargofeed.value = "cargo\n"
+  algfeed.value   = "rsalgorithm\n"
+
+  function log_cargo_append(data) {
+    cargofeed.value += data
+    cargofeed.scrollTop = cargofeed.scrollHeight
+  }
+
+  function log_alg_print(data) {
+    algfeed.value = data
+    algfeed.scrollTop = algfeed.scrollHeight
+  }
+
+  function compile() {
+    log_cargo_append("Compiling...\n")
+    socket.emit("client cmd compile_h" , editor_h  .getValue())
+    socket.emit("client cmd compile_cc", editor_cpp.getValue())
+    socket.emit("client msg compile_opts", {
+      road:    controls_settings_params["road"],
+      problem: problem_str(),
+      speed:   controls_settings_params["vehicle speed"].split(" ")[0],
+      mat:     controls_settings_params["match period (sec)"],
+      mode:    controls_settings_params["runtime mode"]
+    })
+  }
+
+  function compile_run() {
+    if (!Simulation.started) {
+      compile()
+      // TODO: Don't continue if compile fails
+      Simulation.started = true
+      log_cargo_append("Started\n")
+      socket.emit('client query initialize', problem_str())
+    } else {
+      footer("Already started.")
+    }
+  }
+
+  function stop() {
+    Simulation.clock.stop()
+    Simulation.started = false
+    socket.emit('client cmd stop')
+    if (!Simulation.started) {
+      footer("Not running.")
+    } else {
+      log_cargo_append("Stopped\n")
+    }
+  }
+
+
+
+</script>
+

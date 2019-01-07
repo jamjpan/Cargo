@@ -17,7 +17,7 @@ cargo.use('/static/css/bootstrap.min.css', express.static(__dirname + '/node_mod
 cargo.use('/static/css/bootstrap.min.css', express.static(__dirname + '/node_modules/bootstrap/dist/css/bootstrap.min.css'))
 
 // Main routes
-cargo.get('/', (req, res) => res.send('Hello world!'))
+cargo.get('/', (req, res) => res.sendFile(__dirname + '/public/index.html'))
 
 // State store
 var Simulation = {
@@ -98,6 +98,7 @@ io.on('connection', (socket) => {
   })
 
   socket.on('client msg compile_opts', (data) => {
+    console.log(data)
     var static_mode = (data.mode == 'dynamic' ? "false" : "true")
     try {
       fs.appendFileSync('cargoweb.cc',
@@ -134,9 +135,9 @@ io.on('connection', (socket) => {
           '-I../include',
           '-o', 'cargoweb'], {
       })
-      /*socket*/io.emit('server msg compile', stripAnsi(compile.stdout.toString()))
-      /*socket*/io.emit('server msg compile', stripAnsi(compile.stderr.toString()))
-      /*socket*/io.emit('server msg', "done")
+      /*socket*/io.emit('server msg', stripAnsi(compile.stdout.toString()))
+      /*socket*/io.emit('server msg', stripAnsi(compile.stderr.toString()))
+      /*socket*/io.emit('server msg', "done\n")
     } catch (err) {
       socket.emit('server error', err.message)
       console.log(err.message)
@@ -157,7 +158,7 @@ io.on('connection', (socket) => {
       close(io)
     })
     Simulation.process.on('close', (data) => {
-      /*socket*/io.emit('server msg', "Closed")
+      /*socket*/io.emit('server msg', "Closed\n")
       close(io)
     })
     Simulation.vehicles = {}
@@ -170,6 +171,12 @@ io.on('connection', (socket) => {
   })
 
   socket.on('client cmd stop', () => { close(io) })
+
+  socket.on('client cmd load_example', (data) => {
+    var cc = fs.readFileSync("public/example/"+data+".cc", { "encoding": "utf-8" })
+    var h  = fs.readFileSync("public/example/"+data+".h" , { "encoding": "utf-8" })
+    io.emit('server msg load_example', [cc, h])
+  })
 })
 
 function emit_init(io) {

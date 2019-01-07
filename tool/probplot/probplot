@@ -13,7 +13,6 @@ def get_parser():
     p = argparse.ArgumentParser(description="RSP problems plotter")
     p.add_argument("rnet_file")
     p.add_argument("-i", "--input", metavar="PROB_FILE", help="problem instance")
-    p.add_argument("-o", "--out", metavar="OUTPUT", help="output dest (default: a.png)", default="a.png")
     p.add_argument("-l", "--line", dest='line', action='store_true', help="plot lines", default=False)
     return p;
 

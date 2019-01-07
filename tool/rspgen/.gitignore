@@ -1,0 +1,4 @@
+*.o
+rspgen_c
+data/
+
