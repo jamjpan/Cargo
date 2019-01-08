@@ -35,6 +35,20 @@ canvas + div {
   cursor: auto !important;
 }
 
+#loader {
+  background-color: black;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1000;
+  text-align: center;
+  font-family: sans;
+  font-size: 36px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 #main {
   width: 100%;
   height: 100%;
@@ -42,6 +56,7 @@ canvas + div {
 
 .dg.main {
   position: fixed;
+  z-index: 90;
 }
 
 #editor {

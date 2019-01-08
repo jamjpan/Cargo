@@ -3,6 +3,7 @@ This tool will build a G-tree index [1] from an edges file (see
 files and format description)
 
 Notes:
+
     - Nodes must be 0-indexed.
     - Requires the METIS graph partitioning library:
         http://glaros.dtc.umn.edu/gkhome/metis/metis/overview

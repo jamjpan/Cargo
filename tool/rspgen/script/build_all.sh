@@ -46,13 +46,13 @@ EXE=./rspgen_c
 #
 ## NOTE ABOUT EXECUTION SPEED
 # The full set of problem instances contains 8448 *.instance files.  On my
-# machine (i5), it takes about 12 hours to generate the set.  The time can be
+# machine (i5), it takes about 24 hours to generate the set.  The time can be
 # shortened by generating the instances in parallel using xargs:
 #
 # ./(this_file) | xargs -n(# of args) -P(# of processes) ./rspgen_c
 #
 # The above command executes ./rspgen_c with the arguments to the left of
-# the pipe. Thus this file must be modified to only output the arguments.
+# the pipe. Thus this file must be _modified_ to only output the arguments.
 # The output of the file should be a string, for example "-m 1000 -c 3".
 #
 # The bottleneck to execution is that rspgen_c loads all the input files at

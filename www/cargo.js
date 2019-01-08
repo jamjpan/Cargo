@@ -100,22 +100,23 @@ io.on('connection', (socket) => {
   socket.on('client msg compile_opts', (data) => {
     console.log(data)
     var static_mode = (data.mode == 'dynamic' ? "false" : "true")
+    var routing_mode = (data.routing == 'merge' ? "false" : "true")
     try {
       fs.appendFileSync('cargoweb.cc',
         `//
         int main() {
           Options option;
-          option.path_to_roadnet="../data/roadnetwork/${data.road}.rnet";
-          option.path_to_gtree="../data/roadnetwork/${data.road}.gtree";
-          option.path_to_edges="../data/roadnetwork/${data.road}.edges";
-          option.path_to_problem="../data/benchmark/${data.problem}.instance";
-          option.path_to_solution="cargoweb.sol";
-          option.path_to_dataout="cargoweb.dat";
-          option.time_multiplier=1;
-          option.vehicle_speed=${data.speed};
-          option.matching_period=${data.mat};
-          option.strict_mode=false;
-          option.static_mode=${static_mode};
+          option.path_to_roadnet    = "data/${data.road}.rnet";
+          option.path_to_gtree      = "data/${data.road}.gtree";
+          option.path_to_edges      = "data/${data.road}.edges";
+          option.path_to_problem    = "data/${data.problem}.instance";
+          option.path_to_solution   = "cargoweb.sol";
+          option.path_to_dataout    = "cargoweb.dat";
+          option.time_multiplier    = 1;
+          option.vehicle_speed      = ${data.speed};
+          option.matching_period    = ${data.mat};
+          option.strict_mode        = ${routing_mode};
+          option.static_mode        = ${static_mode};
           Cargo cargo(option);
           CargoWeb cw;
           cargo.start(cw);
@@ -172,7 +173,7 @@ io.on('connection', (socket) => {
 
   socket.on('client cmd stop', () => { close(io) })
 
-  socket.on('client cmd load_example', (data) => {
+  socket.on('client cmd load example', (data) => {
     var cc = fs.readFileSync("public/example/"+data+".cc", { "encoding": "utf-8" })
     var h  = fs.readFileSync("public/example/"+data+".h" , { "encoding": "utf-8" })
     io.emit('server msg load_example', [cc, h])

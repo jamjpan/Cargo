@@ -11,18 +11,23 @@ Both tools require matplotlib.
 
 Here are the usages:
 
-    usage: probplot [-h] [-i PROB_FILE] [-o OUTPUT] [-l] rnet_file
+    usage: probplot [-h] [-i PROB_FILE] [-l] rnet_file
     usage: probplot_scatter [-h] -i PROB_FILE] [-o OUTPUT] rnet_file
 
 Here are some examples (resized 50% of original).
 
-![probplot with lines](small-lines.png)
+A. probplot -l option
 
-![probplot without lines](small-nolines.png)
+![](small-lines.png)
 
-![probplot_scatter](large.png)
+B. probplot
 
+![](small-nolines.png)
+
+C. probplot_scatter
 (customer origins are in red, destinations are in blue)
+
+![](large.png)
 
 Note, probplot_scatter can take quite a few minutes. Be patient.
 

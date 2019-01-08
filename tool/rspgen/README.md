@@ -1,12 +1,14 @@
 The program rspgen_c generates a problem instance in the format described in
 [Cargo_benchmark](https://github.com/jamjpan/Cargo_benchmark) by sampling
 trips from a "trips" file. It mainly does two things:
+
     1. Matches the lng, lat coordinates of trips in the file to nodes
        in the road network. It does so by using a kd-tree to find the nearest
        node, given a coordinate.
     2. Computes the estimated travel time for each trip by dividing the length
        of the shortest path for a trip by user-supplied vehicle speed. It
        uses G-tree to compute shortest path lengths.
+
 It then creates an "instance" file of vehicles and customers based on user
 parameters. These parmaeters are described in the usage:
 

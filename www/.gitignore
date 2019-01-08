@@ -1,4 +1,8 @@
 cargoweb
+data/*
+public/js/*_nodes.js
+public/js/*_weights.js
+public/js/*_positions.js
 node_modules/
 package-lock.json
 *.dat

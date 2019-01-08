@@ -118,17 +118,17 @@ void CargoWeb::reset_workspace() {
 //
         int main() {
           Options option;
-          option.path_to_roadnet="../data/roadnetwork/bj5.rnet";
-          option.path_to_gtree="../data/roadnetwork/bj5.gtree";
-          option.path_to_edges="../data/roadnetwork/bj5.edges";
-          option.path_to_problem="../data/benchmark/rs-bj5-m5k-c3-x1.0.instance";
-          option.path_to_solution="cargoweb.sol";
-          option.path_to_dataout="cargoweb.dat";
-          option.time_multiplier=1;
-          option.vehicle_speed=10;
-          option.matching_period=60;
-          option.strict_mode=false;
-          option.static_mode=false;
+          option.path_to_roadnet    = "data/bj5.rnet";
+          option.path_to_gtree      = "data/bj5.gtree";
+          option.path_to_edges      = "data/bj5.edges";
+          option.path_to_problem    = "data/rs-bj5-m5k-c3-d6-s10-x1.0.instance";
+          option.path_to_solution   = "cargoweb.sol";
+          option.path_to_dataout    = "cargoweb.dat";
+          option.time_multiplier    = 1;
+          option.vehicle_speed      = 10;
+          option.matching_period    = 60;
+          option.strict_mode        = true;
+          option.static_mode        = false;
           Cargo cargo(option);
           CargoWeb cw;
           cargo.start(cw);
