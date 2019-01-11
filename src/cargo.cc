@@ -742,8 +742,11 @@ void Cargo::initialize(const Options& opt) {
   total_customers_ = total_vehicles_ = base_cost_ = 0;
 
   print << "Starting initialization sequence" << std::endl;
-  print << "Reading nodes (" << opt.path_to_roadnet << ")... " << std::endl;
-  const size_t nnodes = read_nodes(opt.path_to_roadnet, nodes_, bbox_);
+  std::string path, road;
+  std::tie(path, road) = parse_road_path(opt.path_to_roadnet);
+
+  print << "Reading nodes (" << path+road+".rnet" << ")... " << std::endl;
+  const size_t nnodes = read_nodes(path+road+".rnet", nodes_, bbox_);
   nodes_[-1] = {-1, -1}; // special "no destination" node
   print << "\tRead " << nnodes << " nodes" << std::endl;
   print << "\tBounding box: "
@@ -751,12 +754,12 @@ void Cargo::initialize(const Options& opt) {
         << "(" << bbox().upper_right.lng << ","<< bbox().upper_right.lat << ")";
   print << std::endl;
 
-  print << "Reading edges (" << opt.path_to_edges << ")... " << std::endl;
-  const size_t nedges = read_edges(opt.path_to_edges, edges_);
+  print << "Reading edges (" << path+road+".edges" << ")... " << std::endl;
+  const size_t nedges = read_edges(path+road+".edges", edges_);
   print << "\tRead " << nedges << " edges" << std::endl;
 
-  print << "Reading gtree (" << opt.path_to_gtree << ")... " << std::endl;
-  GTree::load(opt.path_to_gtree);
+  print << "Reading gtree (" << path+road+".gtree" << ")... " << std::endl;
+  GTree::load(path+road+".gtree");
   gtree_ = GTree::get();
   print << "\tDone" << std::endl;
 

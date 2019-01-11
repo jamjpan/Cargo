@@ -28,8 +28,6 @@ namespace cargo {
 
 struct Options {
     Filepath path_to_roadnet;
-    Filepath path_to_gtree;
-    Filepath path_to_edges;
     Filepath path_to_problem;
 
     // A multiplier for the ratio between the SimTime and real time. A

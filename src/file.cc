@@ -37,6 +37,22 @@
 
 namespace cargo {
 
+std::pair<std::string, std::string> parse_road_path(const std::string& fn) {
+  //https://stackoverflow.com/a/8520815
+  std::string road = fn;
+  std::string path = fn;
+  const size_t last_slash_idx = road.find_last_of("\\/");
+  if (std::string::npos != last_slash_idx) {
+    road.erase(0, last_slash_idx + 1);
+    path = fn.substr(0, last_slash_idx + 1);
+  }
+  const size_t period_idx = road.rfind('.');
+  if (std::string::npos != period_idx)
+    road.erase(period_idx);
+
+  return std::make_pair(path, road);
+}
+
 size_t read_nodes(const Filepath& path, KVNodes& N) {
   std::ifstream ifs(path);
   if (!ifs.good()) throw std::runtime_error("node path not found");
