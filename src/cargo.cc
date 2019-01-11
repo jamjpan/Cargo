@@ -720,7 +720,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   print << "Stopped logger" << std::endl;
 
   /* Write solution */
-  std::ofstream f_sol_(solution_file_, std::ios::out);
+  std::ofstream f_sol_(rsalg.name()+".sol", std::ios::out);
   f_sol_ << name() << '\n'
          << road_network() << '\n'
          << "VEHICLES " << total_vehicles_ << '\n'
@@ -1003,7 +1003,6 @@ void Cargo::initialize(const Options& opt) {
   sqlite3_finalize(insert_customer_stmt);
   sqlite3_finalize(insert_stop_stmt);
 
-  solution_file_ = opt.path_to_solution;
   dataout_file_ = opt.path_to_dataout;
 
   t_ = 0;  // Ready to begin!

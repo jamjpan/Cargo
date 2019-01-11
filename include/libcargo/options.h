@@ -31,7 +31,6 @@ struct Options {
     Filepath path_to_gtree;
     Filepath path_to_edges;
     Filepath path_to_problem;
-    Filepath path_to_solution;
     Filepath path_to_dataout;
 
     // A multiplier for the ratio between the SimTime and real time. A
