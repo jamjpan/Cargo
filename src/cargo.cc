@@ -623,7 +623,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
   }});
 
   /* Logger thread */
-  Logger logger(dataout_file_);
+  Logger logger(rsalg.name()+".dat");
   std::thread logger_thread([&logger]() { logger.run(); });
 
   /* Cargo thread */
@@ -1002,8 +1002,6 @@ void Cargo::initialize(const Options& opt) {
   sqlite3_finalize(insert_vehicle_stmt);
   sqlite3_finalize(insert_customer_stmt);
   sqlite3_finalize(insert_stop_stmt);
-
-  dataout_file_ = opt.path_to_dataout;
 
   t_ = 0;  // Ready to begin!
 
