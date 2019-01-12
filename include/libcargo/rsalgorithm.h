@@ -47,23 +47,28 @@ class RSAlgorithm {
   virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
   /* Setters/getters */
-  const std::string & name()        const;  // e.g. "greedy_insertion"
-  const bool        & done()        const;  // true if done
-  const int         & matches()     const;  // # matches
-  const int         & rejected()    const;  // # rejected due to out of sync
-        int         & batch_time();         // (set to 1 for streaming)
-        void          kill();               // set done_ to true
-        float         avg_cust_ht();        // return avg. cust handling time
+  const std::string & name()                    const;  // e.g. "greedy_insertion"
+  const bool        & done()                    const;  // true if done
+        int         & batch_time();  // (set to 1 for streaming)
+  const int         & matches()                 const;  // # matches
+  const int         & rejected()                const;  // # rejected due to out of sync
+  const float       & avg_handle_customer_dur() const;
+  const float       & avg_handle_vehicle_dur()  const;
+  const float       & avg_match_dur()           const;
+  const float       & avg_listen_dur()          const;
+  const float       & avg_num_cust_per_batch()  const;
+  const float       & avg_num_vehl_per_batch()  const;
+        void          kill();        // set done_ to true
 
-  void select_waiting_customers(            // populate customers_
-    bool skip_assigned = true, bool skip_delayed = true);
-  void select_matchable_vehicles();         // populate vehicles_
-  vec_t<Vehicle>& vehicles();               // return vehicles_
-  vec_t<Customer>& customers();             // return customers_
-  vec_t<Vehicle> get_all_vehicles();        // populate & return ALL vehicles
-  vec_t<Customer> get_all_customers();      // populate & return ALL customers
-  bool delay(const CustId &);               // true if customer under delay
-  bool timeout(tick_t &);                   // true if tick_t > timeout_
+        void          select_waiting_customers(bool skip_assigned = true, bool skip_delayed = true); // populate customers_
+        void          select_matchable_vehicles(); // populate vehicles_
+
+  vec_t<Vehicle>    & vehicles();           // return vehicles_
+  vec_t<Customer>   & customers();          // return customers_
+  vec_t<Vehicle>      get_all_vehicles();   // populate & return ALL vehicles
+  vec_t<Customer>     get_all_customers();  // populate & return ALL customers
+        bool          delay(const CustId &); // true if customer under delay
+        bool          timeout(const tick_t &); // true if tick_t > timeout_
 
   /* Commit to db */
   bool assign(
@@ -85,11 +90,6 @@ class RSAlgorithm {
   void beg_delay(const CustId &);           // begin delaying a customer
   void end_delay(const CustId &);           // end delaying a customer
 
-  void beg_ht();                            // begin measure handling time
-  void end_ht();                            // end measure handling time
-  void beg_batch_ht();
-  void end_batch_ht();
-
   Message print;                            // print stream
 
   void print_statistics();                  // print statistics
@@ -97,19 +97,32 @@ class RSAlgorithm {
   void print_sch(const vec_t<Stop> &);
 
  protected:
-  int nmat_;                                // number matched
-  int nrej_;                                // number rejectd
+  int   nmat_;                              // number matched
+  int   nrej_;                              // number rejectd
+  float avg_handle_customer_dur_;
+  float avg_handle_vehicle_dur_;
+  float avg_match_dur_;
+  float avg_listen_dur_;
+  float avg_num_cust_per_batch_;
+  float avg_num_vehl_per_batch_;
 
-  vec_t<float> handling_times_;             // handling times container
+  vec_t<int> dur_handle_customer_;          // running times handle_customer()
+  vec_t<int> dur_handle_vehicle_;           // running times handle_vehicle()
+  vec_t<int> dur_match_;                    // running times match()
+  vec_t<int> dur_listen_;                   // running times listen()
+
+  vec_t<int> n_cust_per_batch_;
+  vec_t<int> n_vehl_per_batch_;
 
   dict<CustId, SimlTime> delay_;
 
   int retry_;                               // delay interval
   int timeout_;                             // timeout limit (ms)
-  tick_t batch_0;                           // batch time tick
-  tick_t batch_1;
-  tick_t ht_0;                              // handling time tick
-  tick_t ht_1;
+
+  tick_t t_handle_customer_0, t_handle_customer_1;
+  tick_t t_handle_vehicle_0,  t_handle_vehicle_1;
+  tick_t t_match_0,           t_match_1;
+  tick_t t_listen_0,          t_listen_1;
 
  private:
   std::string name_;                        // get with name()
@@ -143,6 +156,10 @@ class RSAlgorithm {
     CADD_SYNC_FAIL,
     CDEL_SYNC_FAIL
   } SyncResult;
+
+  int duration(const tick_t& t_0, const tick_t& t_1) {
+    return std::round(dur_milli(t_1 - t_0).count());
+  }
 
   SyncResult sync(                          // internal function
     const vec_t<Wayp>   & new_rte,

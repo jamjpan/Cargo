@@ -48,7 +48,6 @@ RSAlgorithm::RSAlgorithm(const std::string& name, bool fifo)
   this->delay_ = {};
   this->retry_ = 0;
   this->timeout_ = 1;
-  this->handling_times_ = {};
   prepare_stmt(sql::ssr_stmt, &ssr_stmt);
   prepare_stmt(sql::sss_stmt, &sss_stmt);
   prepare_stmt(sql::uro_stmt, &uro_stmt);
@@ -80,21 +79,21 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(sva_stmt);
 }
 
-const std::string & RSAlgorithm::name()        const { return name_; }
-const bool        & RSAlgorithm::done()        const { return done_; }
-const int         & RSAlgorithm::matches()     const { return nmat_; }
-const int         & RSAlgorithm::rejected()    const { return nrej_; }
-      int         & RSAlgorithm::batch_time()        { return batch_time_; }
-      void          RSAlgorithm::kill()              { done_ = true; }
-
-float RSAlgorithm::avg_cust_ht() {
-  //for (const float& ht : this->handling_times_) print << ht << std::endl;
-  return (float)std::accumulate(
-    this->handling_times_.begin(), this->handling_times_.end(), 0)/(int)handling_times_.size();
-}
+const std::string & RSAlgorithm::name()                     const { return name_; }
+const bool        & RSAlgorithm::done()                     const { return done_; }
+const int         & RSAlgorithm::matches()                  const { return nmat_; }
+const int         & RSAlgorithm::rejected()                 const { return nrej_; }
+const float       & RSAlgorithm::avg_handle_customer_dur()  const { return avg_handle_customer_dur_; }
+const float       & RSAlgorithm::avg_handle_vehicle_dur()   const { return avg_handle_vehicle_dur_; }
+const float       & RSAlgorithm::avg_match_dur()            const { return avg_match_dur_; }
+const float       & RSAlgorithm::avg_listen_dur()           const { return avg_listen_dur_; }
+const float       & RSAlgorithm::avg_num_cust_per_batch()   const { return avg_num_cust_per_batch_; }
+const float       & RSAlgorithm::avg_num_vehl_per_batch()   const { return avg_num_vehl_per_batch_; }
+      int         & RSAlgorithm::batch_time()                     { return batch_time_; }
+      void          RSAlgorithm::kill()                           { done_ = true; }
 
 vec_t<Customer> & RSAlgorithm::customers() { return customers_; }
-vec_t<Vehicle> & RSAlgorithm::vehicles()   { return vehicles_; }
+vec_t<Vehicle>  & RSAlgorithm::vehicles()  { return vehicles_; }
 
 bool RSAlgorithm::assign(
   const vec_t<CustId> & custs_to_add,
@@ -363,28 +362,7 @@ void RSAlgorithm::end_delay(const CustId& cust_id) {
   if (delay_.count(cust_id)) delay_.erase(cust_id);
 }
 
-void RSAlgorithm::beg_ht() {
-  this->ht_0 = hiclock::now();
-}
-
-void RSAlgorithm::beg_batch_ht() {
-  this->ht_0 = hiclock::now();
-  this->nsize_ = this->customers_.size();
-}
-
-void RSAlgorithm::end_ht() {
-  this->ht_1 = hiclock::now();
-  handling_times_.push_back(std::round(dur_milli(ht_1-ht_0).count()));
-}
-
-void RSAlgorithm::end_batch_ht() {
-  this->ht_1 = hiclock::now();
-  float ht = std::round(dur_milli(ht_1-ht_0).count())/(float)this->nsize_;
-  for (int i = 0; i < nsize_; ++i)
-    handling_times_.push_back(ht);
-}
-
-bool RSAlgorithm::timeout(tick_t& start) {
+bool RSAlgorithm::timeout(const tick_t& start) {
   auto end = hiclock::now();
   int dur = std::round(dur_milli(end-start).count());
   // print << "Timeout called (" << dur << " > " << timeout_ << "?)" << std::endl;
@@ -393,9 +371,14 @@ bool RSAlgorithm::timeout(tick_t& start) {
 
 void RSAlgorithm::print_statistics() {
   print(MessageType::Success)
-    << "Matches: "              << this->nmat_ << '\n'
-    << "Out-of-sync rejected: " << this->nrej_ << '\n'
-    << "Avg-cust-handle: "      << this->avg_cust_ht() << "ms"
+    << "Matched:  " << this->nmat_ << '\n'
+    << "Rejected: " << this->nrej_ << '\n'
+    << "Avg. handle_customer dur (ms): " << this->avg_handle_customer_dur_ << '\n'
+    << "Avg. handle_vehicle  dur (ms): " << this->avg_handle_vehicle_dur_  << '\n'
+    << "Avg. match           dur (ms): " << this->avg_match_dur_           << '\n'
+    << "Avg. listen          dur (ms): " << this->avg_listen_dur_          << '\n'
+    << "Avg. num. customers per batch: " << this->avg_num_cust_per_batch_  << '\n'
+    << "Avg. num. vehicles  per batch: " << this->avg_num_vehl_per_batch_  << '\n'
     << std::endl;
 }
 
@@ -408,7 +391,7 @@ void RSAlgorithm::print_rte(const vec_t<Wayp>& rte) {
 void RSAlgorithm::print_sch(const vec_t<Stop>& sch) {
   for (const auto& sp : sch)
     print << " (" << sp.owner() << "|" << sp.loc() << "|" << sp.early()
-              << "|" << sp.late() << "|" << (int)sp.type() << ")";
+          <<  "|" << sp.late()  << "|" << (int)sp.type()  << ")";
   print << std::endl;
 }
 
@@ -723,57 +706,74 @@ void RSAlgorithm::match() {
    * customers() and vehicles() */
 }
 
-void RSAlgorithm::end() { /* Executes after the simulation finishes. */ }
+void RSAlgorithm::end() {
+  /* Executes after the simulation finishes. */
+  this->avg_handle_customer_dur_ = (float) std::accumulate(dur_handle_customer_.begin(), dur_handle_customer_.end(), 0)/dur_handle_customer_.size();
+  this->avg_handle_vehicle_dur_  = (float) std::accumulate(dur_handle_vehicle_ .begin(), dur_handle_vehicle_ .end(), 0)/dur_handle_vehicle_ .size();
+  this->avg_match_dur_           = (float) std::accumulate(dur_match_          .begin(), dur_match_          .end(), 0)/dur_match_          .size();
+  this->avg_listen_dur_          = (float) std::accumulate(dur_listen_         .begin(), dur_listen_         .end(), 0)/dur_listen_         .size();
+  this->avg_num_cust_per_batch_  = (float) std::accumulate(n_cust_per_batch_   .begin(), n_cust_per_batch_   .end(), 0)/n_cust_per_batch_   .size();
+  this->avg_num_vehl_per_batch_  = (float) std::accumulate(n_vehl_per_batch_   .begin(), n_vehl_per_batch_   .end(), 0)/n_vehl_per_batch_   .size();
+  this->print_statistics();
+  
+}
 
 void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
   if (Cargo::static_mode)
     Cargo::ofmx.lock();
 
   // Start timing -------------------------------
-  // print << "Start timing." << std::endl;
-  this->batch_0 = hiclock::now();
+  this->t_listen_0 = hiclock::now();
 
   this->select_matchable_vehicles();
-  for (const auto& vehicle : this->vehicles_)
+  int num_vehicles = this->vehicles_.size();
+  this->n_vehl_per_batch_.push_back(num_vehicles);
+  for (const auto& vehicle : this->vehicles_) {
+    this->t_handle_vehicle_0 = hiclock::now();
     this->handle_vehicle(vehicle);
-
-  int ncusts = 0;
-  this->select_waiting_customers(skip_assigned, skip_delayed);
-  //Logger::put_q_message(this->customers_.size());
-  if (this->customers_.size() > 0) {
-    // Set default timeout (per customer!)
-    this->timeout_ = (Cargo::static_mode ? InfInt : 30000);
-          //: std::ceil((float)batch_time_/this->customers_.size()*(1000.0)));
-    // print << "Set timeout to " << this->timeout_ << std::endl;
-    for (const auto& customer : this->customers_) {
-      this->handle_customer(customer);
-      ncusts++;
-    }
-    // Set default timeout (per batch!)
-    this->timeout_ = (Cargo::static_mode ? InfInt : 30000);
-          //: std::ceil((float)batch_time_*(1000.0)));
-    this->match();
+    this->t_handle_vehicle_1 = hiclock::now();
+    this->dur_handle_vehicle_.push_back(
+      duration(t_handle_vehicle_0, t_handle_vehicle_1));
   }
 
-  this->batch_1 = hiclock::now();
+  this->select_waiting_customers(skip_assigned, skip_delayed);
+  int num_customers = this->customers_.size();
+  this->n_cust_per_batch_.push_back(num_customers);
+  // Set default timeout (per customer)
+  this->timeout_ = (Cargo::static_mode ? InfInt : 30000);
+  for (const auto& customer : this->customers_) {
+    this->t_handle_customer_0 = hiclock::now();
+    this->handle_customer(customer);
+    this->t_handle_customer_1 = hiclock::now();
+    this->dur_handle_customer_.push_back(
+      duration(t_handle_customer_0, t_handle_customer_1));
+  }
+  // Set default timeout (per batch)
+  this->timeout_ = (Cargo::static_mode ? InfInt : 30000);
+  this->t_match_0 = hiclock::now();
+  this->match();
+  this->t_match_1 = hiclock::now();
+  this->dur_match_.push_back(duration(t_match_0, t_match_1));
+
+  this->t_listen_1 = hiclock::now();
   // Stop timing --------------------------------
-  // print << "Done timing." << std::endl;
+
+  int dur = this->duration(t_listen_0, t_listen_1);
+  this->dur_listen_.push_back(dur);
+
   if (Cargo::static_mode) {
     Cargo::ofmx.unlock();
-    std::this_thread::sleep_for(milli(100)); // timing hack
-  }
-
-  // Don't sleep if time exceeds batch time
-  int dur = std::round(dur_milli(batch_1-batch_0).count());
-  if (Cargo::static_mode)
+    // std::this_thread::sleep_for(milli(100)); // timing hack
     std::this_thread::sleep_for(milli(this->batch_time_ * 1000));
-  else {
+  } else {
+    // Don't sleep if time exceeds batch time
+    // int dur = std::round(dur_milli(batch_1-batch_0).count());
     if (dur > this->batch_time_ * 1000) {
       print(MessageType::Warning)
           << "listen() (" << dur << " ms) "
           << "exceeds batch time ("
           << this->batch_time_ * 1000 << " ms) for "
-          << this->vehicles_.size() << " vehls and " << ncusts << " custs"
+          << num_vehicles << " vehls and " << num_customers << " custs"
           << std::endl;
     } else {
       // print

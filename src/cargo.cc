@@ -719,21 +719,25 @@ void Cargo::start(RSAlgorithm& rsalg) {
   logger_thread.join();
   print << "Stopped logger" << std::endl;
 
-  /* Write solution */
   std::ofstream f_sol_(rsalg.name()+".sol", std::ios::out);
-  f_sol_ << name() << '\n'
+  f_sol_ << name()         << '\n'
          << road_network() << '\n'
-         << "VEHICLES " << total_vehicles_ << '\n'
-         << "CUSTOMERS " << total_customers_ << '\n'
-         << "base cost " << base_cost_ << '\n'
-         << "solution cost " << total_route_cost() << '\n'
-         << "matches " << rsalg.matches() << '\n'
-         << "out-of-sync rejected " << rsalg.rejected() << '\n'
-         << "avg. cust. handling time " << rsalg.avg_cust_ht() << " ms\n"
-         << "avg. pickup delay " << avg_pickup_delay() << " sec\n"
-         << "avg. trip delay " << avg_trip_delay() << " sec\n";
+         << "Tot. number of vehicles     " << total_vehicles_                 << '\n'
+         << "Tot. number of customers    " << total_customers_                << '\n'
+         << "Base distance      (meters) " << base_cost_                      << '\n'
+         << "Solution distance  (meters) " << total_route_cost()              << '\n'
+         << "Solution matches            " << rsalg.matches()                 << '\n'
+         << "Rejected                    " << rsalg.rejected()                << '\n'
+         << "Avg. pickup delay     (sec) " << avg_pickup_delay()              << '\n'
+         << "Avg. trip delay       (sec) " << avg_trip_delay()                << '\n'
+         << "Avg. handle_customer   (ms) " << rsalg.avg_handle_customer_dur() << '\n'
+         << "Avg. handle_vehicle    (ms) " << rsalg.avg_handle_vehicle_dur()  << '\n'
+         << "Avg. match             (ms) " << rsalg.avg_match_dur()           << '\n'
+         << "Avg. listen            (ms) " << rsalg.avg_listen_dur()          << '\n'
+         << "Avg. number cust. per batch " << rsalg.avg_num_cust_per_batch()  << '\n'
+         << "Avg. number vehl. per batch " << rsalg.avg_num_vehl_per_batch()
+         << std::endl;
   f_sol_.close();
-
   print << "Finished Cargo" << std::endl;
 }
 
