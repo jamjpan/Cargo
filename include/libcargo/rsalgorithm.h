@@ -47,9 +47,9 @@ class RSAlgorithm {
   virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
   /* Setters/getters */
-  const std::string & name()                    const;  // e.g. "greedy_insertion"
-  const bool        & done()                    const;  // true if done
+        std::string & name();        // e.g. "greedy_insertion"
         int         & batch_time();  // (set to 1 for streaming)
+  const bool        & done()                    const;  // true if done
   const int         & matches()                 const;  // # matches
   const int         & rejected()                const;  // # rejected due to out of sync
   const float       & avg_handle_customer_dur() const;

@@ -79,7 +79,6 @@ RSAlgorithm::~RSAlgorithm() {
   sqlite3_finalize(sva_stmt);
 }
 
-const std::string & RSAlgorithm::name()                     const { return name_; }
 const bool        & RSAlgorithm::done()                     const { return done_; }
 const int         & RSAlgorithm::matches()                  const { return nmat_; }
 const int         & RSAlgorithm::rejected()                 const { return nrej_; }
@@ -89,6 +88,7 @@ const float       & RSAlgorithm::avg_match_dur()            const { return avg_m
 const float       & RSAlgorithm::avg_listen_dur()           const { return avg_listen_dur_; }
 const float       & RSAlgorithm::avg_num_cust_per_batch()   const { return avg_num_cust_per_batch_; }
 const float       & RSAlgorithm::avg_num_vehl_per_batch()   const { return avg_num_vehl_per_batch_; }
+      std::string & RSAlgorithm::name()                           { return name_; }
       int         & RSAlgorithm::batch_time()                     { return batch_time_; }
       void          RSAlgorithm::kill()                           { done_ = true; }
 
