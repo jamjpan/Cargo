@@ -157,7 +157,7 @@ const SqliteQuery smv_stmt =  // select matchable vehicles
   "where"
   "  ? >= early"       // param1: early (e_i)
   "  and ? != status"  // param2: VehlStatus::Arrived
-  "  and 0 > load;";
+  "  and load < 0;";   // TODO but we can add custs to a full vehicle after it makes a dropoff?
 
 const SqliteQuery svs_stmt =  // select vehicle status
   "select status from vehicles "
