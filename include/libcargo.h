@@ -30,6 +30,7 @@ namespace cargo {}  // namespace cargo
 #include "libcargo/distance.h"
 #include "libcargo/file.h"
 #include "libcargo/grid.h"
+#include "libcargo/gui.h"
 #include "libcargo/message.h"
 #include "libcargo/options.h"
 #include "libcargo/rsalgorithm.h"

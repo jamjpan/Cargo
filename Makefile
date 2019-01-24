@@ -7,6 +7,7 @@ OBJECTS = \
 		include/libcargo/classes.h \
 		include/libcargo/debug.h \
 		include/libcargo/distance.h \
+		include/libcargo/gui.h \
 		include/libcargo/message.h \
 		include/libcargo/types.h \
 		build/cargo.o \
