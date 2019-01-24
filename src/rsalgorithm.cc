@@ -445,7 +445,9 @@ RSAlgorithm::sync(const vec_t<Wayp>   & new_rte,
   });
 
   /* VALIDATE CUSTOMERS
-   * If any customer stops are visited already, sync fails */
+   * If any customer stops are visited already, sync fails
+   * TODO: If customer already timed out, sync fails
+   */
   for (const CustId& cid : cadd) {
     sqlite3_bind_int(sva_stmt, 1, cid);
     sqlite3_bind_int(sva_stmt, 2, (int)StopType::CustOrig);
