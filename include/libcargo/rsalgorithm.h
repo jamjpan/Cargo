@@ -70,6 +70,10 @@ class RSAlgorithm {
         bool          delay(const CustId &); // true if customer under delay
         bool          timeout(const tick_t &); // true if tick_t > timeout_
 
+  /* Control */
+        void          pause();              // pauses until user input
+        void          pause(const int &);   // pauses for int seconds
+
   /* Commit to db */
   bool assign(
     const vec_t<CustId> &,                  // custs to add

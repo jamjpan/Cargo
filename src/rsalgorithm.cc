@@ -92,6 +92,24 @@ const float       & RSAlgorithm::avg_num_vehl_per_batch()   const { return avg_n
       int         & RSAlgorithm::batch_time()                     { return batch_time_; }
       void          RSAlgorithm::kill()                           { done_ = true; }
 
+void RSAlgorithm::pause() {
+  Cargo::paused() = true;
+  std::string cmd;
+  std::cout << "Press ENTER "/*or type command (e.g. help)" */<< std::endl;
+  std::cin.clear();
+  std::getline(std::cin, cmd);
+  // if (!cmd.empty()) {
+  //   std::cout << "Got command " << cmd << std::endl;
+  // } else {
+  //   std::cout << "Continue" << std::endl;
+  // }
+}
+
+void RSAlgorithm::pause(const int& t) {
+  Cargo::paused() = true;
+  std::this_thread::sleep_for(milli(t*1000));
+}
+
 vec_t<Customer> & RSAlgorithm::customers() { return customers_; }
 vec_t<Vehicle>  & RSAlgorithm::vehicles()  { return vehicles_; }
 
@@ -760,6 +778,9 @@ void RSAlgorithm::listen(bool skip_assigned, bool skip_delayed) {
 
   int dur = this->duration(t_listen_0, t_listen_1);
   this->dur_listen_.push_back(dur);
+
+  Cargo::paused() = false;
+  Cargo::pause_cv.notify_one();
 
   if (Cargo::static_mode) {
     Cargo::ofmx.unlock();

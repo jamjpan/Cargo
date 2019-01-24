@@ -73,11 +73,15 @@ sqlite3* Cargo::db_ = nullptr;
 Speed Cargo::speed_ = 0;
 SimlTime Cargo::t_ = 0;
 
+bool Cargo::paused_ = false;
+
 /* Global mutexes */
 std::mutex Cargo::dbmx;
 std::mutex Cargo::spmx;
 std::mutex Cargo::scmx;
 std::mutex Cargo::ofmx;
+std::mutex Cargo::pause_mx;
+std::condition_variable Cargo::pause_cv;
 bool Cargo::static_mode = false;
 bool Cargo::strict_mode = false;
 
@@ -619,7 +623,7 @@ void Cargo::start(RSAlgorithm& rsalg) {
 
   /* Algorithm thread */
   std::thread thread_rsalg([&rsalg]() { while (!rsalg.done()) {
-      rsalg.listen();
+      if (Cargo::now() > 0) rsalg.listen();
   }});
 
   /* Logger thread */
@@ -637,75 +641,79 @@ void Cargo::start(RSAlgorithm& rsalg) {
   tick_t t0, t1;
   int ndeact, nstepped, dur;
   while (active_vehicles_ > 0 || t_ <= tmin_) {
-    t0 = std::chrono::high_resolution_clock::now();
-    if (static_mode)
-      ofmx.lock();
+    { std::unique_lock<std::mutex> lock(Cargo::pause_mx);
+      Cargo::pause_cv.wait(lock, []{ return !Cargo::paused(); });
 
-    /* Count waiting customers */
-    sqlite3_bind_int(cwc_stmt, 1, (int)CustStatus::Waiting);
-    sqlite3_bind_int(cwc_stmt, 2, Cargo::now());
-    sqlite3_step(cwc_stmt);
-    int qsize = sqlite3_column_int(cwc_stmt, 0);
-    Logger::put_q_message(qsize);
-    sqlite3_clear_bindings(cwc_stmt);
-    sqlite3_reset(cwc_stmt);
+      t0 = std::chrono::high_resolution_clock::now();
 
-    /* Log timed-out customers */
-    log_t_.clear();
-    sqlite3_bind_int(stc_stmt, 1, t_);
-    sqlite3_bind_int(stc_stmt, 2, matp_);
-    sqlite3_bind_int(stc_stmt, 3, (int)CustStatus::Canceled);
-    while ((rc = sqlite3_step(stc_stmt)) == SQLITE_ROW)
-      log_t_.push_back(sqlite3_column_int(stc_stmt, 0));
-    if (rc != SQLITE_DONE) {
-      print(MessageType::Error) << "Failure in select timeout customers. Reason:\n";
-      throw std::runtime_error(sqlite3_errmsg(db_));
+      if (static_mode)
+        ofmx.lock();
+
+      /* Count waiting customers */
+      sqlite3_bind_int(cwc_stmt, 1, (int)CustStatus::Waiting);
+      sqlite3_bind_int(cwc_stmt, 2, Cargo::now());
+      sqlite3_step(cwc_stmt);
+      int qsize = sqlite3_column_int(cwc_stmt, 0);
+      Logger::put_q_message(qsize);
+      sqlite3_clear_bindings(cwc_stmt);
+      sqlite3_reset(cwc_stmt);
+
+      /* Log timed-out customers */
+      log_t_.clear();
+      sqlite3_bind_int(stc_stmt, 1, t_);
+      sqlite3_bind_int(stc_stmt, 2, matp_);
+      sqlite3_bind_int(stc_stmt, 3, (int)CustStatus::Canceled);
+      while ((rc = sqlite3_step(stc_stmt)) == SQLITE_ROW)
+        log_t_.push_back(sqlite3_column_int(stc_stmt, 0));
+      if (rc != SQLITE_DONE) {
+        print(MessageType::Error) << "Failure in select timeout customers. Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+      }
+      sqlite3_clear_bindings(stc_stmt);
+      sqlite3_reset(stc_stmt);
+      if (!log_t_.empty()) Logger::put_t_message(log_t_);
+
+      /* Timeout customers waited beyond the matching period (matp_) */
+      sqlite3_bind_int(tim_stmt, 1, (int)CustStatus::Canceled);
+      sqlite3_bind_int(tim_stmt, 2, t_);
+      sqlite3_bind_int(tim_stmt, 3, matp_);
+      if (sqlite3_step(tim_stmt) != SQLITE_DONE) {
+        print(MessageType::Error) << "Failed to timeout customers. Reason:\n";
+        throw std::runtime_error(sqlite3_errmsg(db_));
+      }
+      DEBUG(1, { print << sqlite3_changes(db_) << " customers have timed out.\n"; });
+      sqlite3_clear_bindings(tim_stmt);
+      sqlite3_reset(tim_stmt);
+
+      /* Step the vehicles */
+      nstepped = step(ndeact);
+      active_vehicles_ -= ndeact;
+      print
+        << std::setw(5) << t_ << " ("
+          << std::setw(6) << std::roundf((t_/(float)tmin_*100)*100)/(float)100 << "%)"
+        << std::setw(8) << nstepped
+        << std::setw(7) << active_vehicles_
+        << std::setw(8) << rsalg.matches() << " ("
+          << std::setw(6) << std::roundf((rsalg.matches()/(float)total_customers_*100)*100)/(float)100 << "%)"
+        << std::endl;
+
+      t1 = std::chrono::high_resolution_clock::now();
+      dur = std::round(dur_milli(t1 - t0).count());
+      // TODO: Add skip_ending option
+      // if (t_ > tmin_ && option is enabled)
+      //   sleep_interval_ = dur;
+      if (dur > sleep_interval_)
+        print(MessageType::Warning)
+          << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
+      else
+        std::this_thread::sleep_for(milli(sleep_interval_ - dur));
+
+      if (static_mode) {
+        ofmx.unlock();
+        if (t_ < tmin_)
+          std::this_thread::sleep_for(milli(100)); // timing hack
+      }
     }
-    sqlite3_clear_bindings(stc_stmt);
-    sqlite3_reset(stc_stmt);
-    if (!log_t_.empty()) Logger::put_t_message(log_t_);
-
-    /* Timeout customers waited beyond the matching period (matp_) */
-    sqlite3_bind_int(tim_stmt, 1, (int)CustStatus::Canceled);
-    sqlite3_bind_int(tim_stmt, 2, t_);
-    sqlite3_bind_int(tim_stmt, 3, matp_);
-    if (sqlite3_step(tim_stmt) != SQLITE_DONE) {
-      print(MessageType::Error) << "Failed to timeout customers. Reason:\n";
-      throw std::runtime_error(sqlite3_errmsg(db_));
-    }
-    DEBUG(1, { print << sqlite3_changes(db_) << " customers have timed out.\n"; });
-    sqlite3_clear_bindings(tim_stmt);
-    sqlite3_reset(tim_stmt);
-
-    /* Step the vehicles */
-    nstepped = step(ndeact);
-    active_vehicles_ -= ndeact;
-    print
-      << std::setw(5) << t_ << " ("
-        << std::setw(6) << std::roundf((t_/(float)tmin_*100)*100)/(float)100 << "%)"
-      << std::setw(8) << nstepped
-      << std::setw(7) << active_vehicles_
-      << std::setw(8) << rsalg.matches() << " ("
-        << std::setw(6) << std::roundf((rsalg.matches()/(float)total_customers_*100)*100)/(float)100 << "%)"
-      << std::endl;
-
-    t1 = std::chrono::high_resolution_clock::now();
-    dur = std::round(dur_milli(t1 - t0).count());
-    // TODO: Add skip_ending option
-    // if (t_ > tmin_)
-    //   sleep_interval_ = dur;
-    if (dur > sleep_interval_)
-      print(MessageType::Warning)
-        << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
-    else
-      std::this_thread::sleep_for(milli(sleep_interval_ - dur));
-
-    if (static_mode) {
-      ofmx.unlock();
-      if (t_ < tmin_)
-        std::this_thread::sleep_for(milli(100)); // timing hack
-    }
-
     /* Increment the time step */
     t_ += 1;
   }  // end Cargo thread

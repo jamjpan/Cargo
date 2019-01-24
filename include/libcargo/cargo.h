@@ -58,6 +58,7 @@ class Cargo {
   static SimlTime        now()                     { return t_; }
   static GTree::G_Tree & gtree()                   { return gtree_; }
   static sqlite3       * db()                      { return db_; }
+  static bool          & paused()                  { return paused_; }
 
   void start();                             // start simulation
   void start(RSAlgorithm &);                // start simulation
@@ -97,6 +98,8 @@ class Cargo {
   static std::mutex spmx;                   // protect the shortest-paths cache
   static std::mutex scmx;
   static std::mutex ofmx;                   // static mode mutex
+  static std::mutex pause_mx;
+  static std::condition_variable pause_cv;
   static bool static_mode;                  // static mode
   static bool strict_mode;
 
@@ -126,6 +129,7 @@ class Cargo {
   static sqlite3* db_;
   static Speed speed_;
   static SimlTime t_;                       // current sim time
+  static bool paused_;
   static dict<TripId, DistInt> trip_costs_;
   static cache::lru_cache<std::string, vec_t<NodeId>> spcache_;
   static cache::lru_cache<std::string, DistInt>       sccache_;
