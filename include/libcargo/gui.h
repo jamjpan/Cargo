@@ -34,19 +34,20 @@ void center(const NodeId& u) {
   std::cout << "gui center " << u << std::endl;
 }
 
-void route(const vec_t<Wayp>& route) {
+void route(const vec_t<Wayp>& route, const bool& current) {
   std::string route_str = "";
   for (size_t i = 0; i < route.size(); ++i) {
     route_str += (i == route.size()-1
         ?  std::to_string(route.at(i).second)
         : (std::to_string(route.at(i).second)+" "));
   }
-  std::cout << "gui route " << route_str << std::endl;
+  std::cout << "gui route " << (current ? "cur " : "new ") << route_str << std::endl;
 }
 
-void route(const Route& route) {
-  cargo::gui::route(route.data());
-}
+void curroute(const Route& route) { cargo::gui::route(route.data(), true); }
+void curroute(const vec_t<Wayp>& route) { cargo::gui::route(route, true); }
+void newroute(const Route& route) { cargo::gui::route(route.data(), false); }
+void newroute(const vec_t<Wayp>& route) { cargo::gui::route(route, false); }
 
 void schedule(const vec_t<Stop>& sched) {
   std::string sched_str = "";
