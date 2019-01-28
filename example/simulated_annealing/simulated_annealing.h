@@ -27,7 +27,7 @@
 
 using namespace cargo;
 
-typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> Solution;
+typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> SASol;
 
 class SimulatedAnnealing : public RSAlgorithm {
  public:
@@ -48,7 +48,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::uniform_int_distribution<> n;
 
   /* Workspace variables */
-  Solution sol;
+  SASol sol;
   //dict<CustId, std::set<VehlId>> tried;
   dict<CustId, vec_t<MutableVehicleSptr>> candidates_list;
   dict<VehlId, MutableVehicleSptr> vehicle_lookup;
@@ -61,7 +61,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
 
-  DistInt sol_cost(const Solution& sol) {
+  DistInt sol_cost(const SASol& sol) {
       std::set<MutableVehicle> vehls = {};
       for (const auto& kv : sol) vehls.insert(kv.second.first);
       DistInt sum = 0;
@@ -70,7 +70,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   }
 
   void initialize(Grid &);
-  Solution perturb(const Solution &, const int &);
+  SASol perturb(const SASol &, const int &);
   void commit();
 
   bool hillclimb(const int& T) {

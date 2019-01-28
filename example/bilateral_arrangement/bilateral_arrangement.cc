@@ -42,7 +42,7 @@ void BilateralArrangement::match() {
   this->prepare();
 
   for (const Customer& cust : this->customers()) {
-    vec_t<rank_cand>& candidates = lookup.at(cust.id());
+    vec_t<ba_cand>& candidates = lookup.at(cust.id());
     bool matched = false;
     auto i = candidates.cbegin();
     while (!matched && i != candidates.cend()) {
@@ -133,7 +133,7 @@ void BilateralArrangement::prepare() {
     else {
       // Order the candidates in order to access by greedy
       std::sort(this->lookup.at(cust.id()).begin(), this->lookup.at(cust.id()).end(),
-        [](const rank_cand& a, const rank_cand& b) { return a.first < b.first; });
+        [](const ba_cand& a, const ba_cand& b) { return a.first < b.first; });
       return false;
     }
   };

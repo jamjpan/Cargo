@@ -21,7 +21,7 @@
 
 using namespace cargo;
 
-typedef std::pair<DistInt, MutableVehicleSptr> rank_cand;
+typedef std::pair<DistInt, MutableVehicleSptr> ba_cand;
 
 class BilateralArrangement : public RSAlgorithm {
  public:
@@ -37,7 +37,7 @@ class BilateralArrangement : public RSAlgorithm {
   Grid grid_;
   int nswapped_;
 
-  dict<CustId, vec_t<rank_cand>> lookup;
+  dict<CustId, vec_t<ba_cand>> lookup;
   dict<CustId, dict<VehlId, vec_t<Stop>>> schedules;
   dict<CustId, dict<VehlId, vec_t<Wayp>>> routes;
   dict<MutableVehicleSptr, bool> modified;

@@ -30,9 +30,6 @@
  */
 using namespace cargo;
 
-typedef std::tuple<DistInt, MutableVehicleSptr,
-  std::vector<Stop>, std::vector<Wayp>> rank_cand;
-
 class KineticTrees : public RSAlgorithm {
  public:
   KineticTrees();

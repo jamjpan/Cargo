@@ -27,7 +27,7 @@ using namespace cargo;
 
 const int BATCH = 30;                       // batch time, seconds
 
-auto cmp = [](rank_cand left, rank_cand right) {
+auto cmp = [](nn_cand left, nn_cand right) {
   return std::get<0>(left) > std::get<0>(right);
 };
 
@@ -42,11 +42,11 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
     this->grid_.within(pickup_range(cust), cust.orig()); // (functions.h, grid.h)
 
   /* Rank candidates (timeout) */
-  std::priority_queue<rank_cand, vec_t<rank_cand>, decltype(cmp)>
+  std::priority_queue<nn_cand, vec_t<nn_cand>, decltype(cmp)>
     my_q(cmp);                              // rank by nearest
   for (const MutableVehicleSptr& cand : this->candidates) {
     DistDbl cost = haversine(cand->last_visited_node(), cust.orig());
-    rank_cand rc = std::make_pair(cost, cand);
+    nn_cand rc = std::make_pair(cost, cand);
     my_q.push(rc);
     if(this->timeout(this->timeout_0))      // (rsalgorithm.h)
       break;
@@ -54,7 +54,7 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
 
   /* Accept nearest valid */
   while (!my_q.empty() && !matched) {
-    rank_cand rc = my_q.top();              // access order by nearest
+    nn_cand rc = my_q.top();              // access order by nearest
     my_q.pop();                             // remove from queue
     best_vehl = std::get<1>(rc);
     sop_insert(best_vehl, cust, sch, rte);  // (functions.h)

@@ -111,7 +111,7 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
   }
 }
 
-Solution SimulatedAnnealing::perturb(const Solution& sol,
+SASol SimulatedAnnealing::perturb(const SASol& sol,
                                      const int& temperature) {
   auto i = sol.cbegin();                    // 1. Select random vehicle
   std::advance(i, this->n(this->gen)-1);
@@ -205,7 +205,7 @@ Solution SimulatedAnnealing::perturb(const Solution& sol,
       k_new.set_rte(rte_after_add);
       k_new.reset_lvn();
       k_new_assignments.push_back(cust_to_move);
-      Solution improved_sol = sol;
+      SASol improved_sol = sol;
       improved_sol[k_old.id()] = std::make_pair(k_old, k_old_assignments);
       improved_sol[k_new.id()] = std::make_pair(k_new, k_new_assignments);
       return improved_sol;

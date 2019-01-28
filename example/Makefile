@@ -23,13 +23,13 @@ OBJECTS = \
 		nearest_neighbor.o \
 		simulated_annealing.o \
 		trip_vehicle_grouping.o \
-		run_example.o
+		launcher.o
 
-all: $(OBJECTS)
-	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) $(GLPK) $(LDL) -fopenmp -o run_example
+all: $(OBJECTS) bilateral+/bilateral+.h bilateral_arrangement\bilateral_arrangement.h grabby\grabby.h grasp\grasp.h greedy\greedy.h kinetic_tree\kinetic_tree.h kinetic_tree\include\treeTaxiPath.h nearest_neighbor\nearest_neighbor.h simulated_annealing\simulated_annealing.h trip_vehicle_grouping\trip_vehicle_grouping.h
+	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) $(GLPK) $(LDL) -fopenmp -o launcher
 
-run_example.o: $(LIBCARGO) run_example.cc
-	$(CXX) $(CFLAGS) run_example.cc
+launcher.o: $(LIBCARGO) launcher.cc
+	$(CXX) $(CFLAGS) -Ikinetic_tree/include -Itrip_vehicle_grouping/include launcher.cc
 
 bilateral+.o: $(LIBCARGO) bilateral+/bilateral+.h bilateral+/bilateral+.cc
 	$(CXX) $(CFLAGS) bilateral+/bilateral+.cc
@@ -62,5 +62,5 @@ trip_vehicle_grouping.o: $(LIBCARGO) trip_vehicle_grouping/trip_vehicle_grouping
 	$(CXX) $(CFLAGS) -Itrip_vehicle_grouping/include -fopenmp trip_vehicle_grouping/trip_vehicle_grouping.cc
 
 clean:
-	rm *.o run_example
+	rm *.o launcher
 
