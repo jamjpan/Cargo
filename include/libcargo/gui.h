@@ -30,11 +30,11 @@
 namespace cargo {
 namespace gui {
 
-void center(const NodeId& u) {
+inline void center(const NodeId& u) {
   std::cout << "gui center " << u << std::endl;
 }
 
-void route(const vec_t<Wayp>& route, const bool& current) {
+inline void route(const vec_t<Wayp>& route, const bool& current) {
   std::string route_str = "";
   for (size_t i = 0; i < route.size(); ++i) {
     route_str += (i == route.size()-1
@@ -44,12 +44,12 @@ void route(const vec_t<Wayp>& route, const bool& current) {
   std::cout << "gui route " << (current ? "cur " : "new ") << route_str << std::endl;
 }
 
-void curroute(const Route& route) { cargo::gui::route(route.data(), true); }
-void curroute(const vec_t<Wayp>& route) { cargo::gui::route(route, true); }
-void newroute(const Route& route) { cargo::gui::route(route.data(), false); }
-void newroute(const vec_t<Wayp>& route) { cargo::gui::route(route, false); }
+inline void curroute(const Route& route) { cargo::gui::route(route.data(), true); }
+inline void curroute(const vec_t<Wayp>& route) { cargo::gui::route(route, true); }
+inline void newroute(const Route& route) { cargo::gui::route(route.data(), false); }
+inline void newroute(const vec_t<Wayp>& route) { cargo::gui::route(route, false); }
 
-void schedule(const vec_t<Stop>& sched) {
+inline void schedule(const vec_t<Stop>& sched) {
   std::string sched_str = "";
   for (size_t i = 0; i < sched.size(); ++i) {
     sched_str += (i == sched.size()-1
@@ -59,23 +59,23 @@ void schedule(const vec_t<Stop>& sched) {
   std::cout << "gui schedule " << sched_str << std::endl;
 }
 
-void schedule(const Schedule& sched) {
+inline void schedule(const Schedule& sched) {
   cargo::gui::schedule(sched.data());
 }
 
-void clinev(const CustId& cid, const VehlId& vid) {
+inline void clinev(const CustId& cid, const VehlId& vid) {
   std::cout << "gui line " << cid << " " << vid << std::endl;
 }
 
-void chi(const CustId& cid) {
+inline void chi(const CustId& cid) {
   std::cout << "gui hi cust " << cid << std::endl;
 }
 
-void vhi(const VehlId& vid) {
+inline void vhi(const VehlId& vid) {
   std::cout << "gui hi vehl " << vid << std::endl;
 }
 
-void reset() {
+inline void reset() {
   std::cout << "gui reset" << std::endl;
 }
 
