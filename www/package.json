@@ -9,10 +9,11 @@
   "author": "James Pan",
   "license": "ISC",
   "dependencies": {
-    "bootstrap": "^4.1.3",
     "express": "^4.16.4",
+    "extrude-polyline": "^1.0.6",
     "socket.io": "^2.2.0",
     "strip-ansi": "^5.0.0",
-    "tail": "^2.0.2"
+    "tail": "^2.0.2",
+    "three-simplicial-complex": "^69.0.6"
   }
 }

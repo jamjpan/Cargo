@@ -12,7 +12,6 @@ class CargoWeb : public RSAlgorithm {
   virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
   virtual void match();
-  virtual void end();
 
 // YOUR CODE BELOW
   // Add additional public vars + functions here
@@ -45,7 +44,7 @@ void CargoWeb::handle_customer(const Customer& cust) {
   CustId cid = cust.id();
   NodeId oid = cust.orig();
   NodeId did = cust.dest();
-  print << "Cust " << cid << " (" << oid << ", " << did << ") appeared" << std::endl;
+  // print << "Cust " << cid << " (" << oid << ", " << did << ") appeared" << std::endl;
 }
 
 /* Called every PERIOD on every active vehicle */
@@ -53,7 +52,7 @@ void CargoWeb::handle_vehicle(const Vehicle& vehl) {
   // this->grid_.insert(vehl);
   VehlId vid = vehl.id();
   NodeId loc = vehl.last_visited_node();
-  print << "Vehl " << vid << " is at " << loc << std::endl;
+  // print << "Vehl " << vid << " is at " << loc << std::endl;
 }
 
 /* Called every PERIOD */
@@ -65,13 +64,7 @@ void CargoWeb::match() {
         << " and " << vehicles.size() << " active vehicles" << std::endl;
 }
 
-/* Called at end of simulation */
-void CargoWeb::end() {
-  this->print_statistics();
-}
-
 // BEGIN CUSTOM FUNCTIONS
 // void CargoWeb::foo() { ... }
 // END CUSTOM FUNCTIONS
 `
-

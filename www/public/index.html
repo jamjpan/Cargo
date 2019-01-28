@@ -16,6 +16,7 @@
     <div id="editor_toolbar">
       <select id="editor_selector">
         <option>**custom**</option>
+        <option>grabby</option>
         <option>nearest-neighbor</option>
       </select>
       <ul>
@@ -38,6 +39,7 @@
   </div>
   <div id="log">
     <div id="log_window">
+        <label id="log_show_hide">show/hide log</label>
         <div id="log_cargo">
           <textarea id="cargofeed" readonly noresize>cargo</textarea>
         </div>
@@ -46,85 +48,99 @@
         </div>
     </div>
   </div>
-  <footer>Welcome to CargoWeb</footer>
+  <!--<div id="info"><label>Information</label><p></p></div>-->
+  <!--<div id="resume"><button>Resume</button></div>-->
+  <footer>Welcome to CargoWeb: Demonstration Ridesharing Simulator</footer>
 </div>
 <!-- Visualization: Vertex Shader -->
-<script type="x-shader/x-vertex" id="vertexshader">
-  uniform float t;       // current time
-  uniform float zoom;    // camera zoom
-
-  attribute vec3 target0;
-  attribute vec3 target1;
-  attribute float dur0;  // time from position->target0 (weight/speed); sec
-  attribute float dur1;  // time from target0 ->target1 (weight/speed); sec
-  attribute float t0;    // time when targets received
+<script type="x-shader/x-vertex" id="vertex_vehl">
+  uniform   float t;       // current time
+  uniform   float zoom;    // camera zoom
+  varying   float vload;   // (cannot be int for some reason)
+  attribute float dur0;    // time from position->target0 (weight/speed); sec
+  attribute float dur1;    // time from target0 ->target1 (weight/speed); sec
+  attribute float t0;      // time when targets received
   attribute float load;
-
-  varying float vload;   // (cannot be int for some reason)
-
+  attribute float size;
+  attribute vec3  target0;
+  attribute vec3  target1;
   void main() {
     vload = load;
-    gl_PointSize = 3.0*zoom;
-    float progress = (t-t0)/dur0;
-    //if (progress > 1.0) progress = 1.0;  // remove me
-    if (progress > 1.0) {  // reached target0, move toward target1
-      progress = (t - t0 - dur0)/dur1;
-      vec3 v = target0 + (target1 - target0)*progress;
+    gl_PointSize = 2.0 * zoom * size;
+
+    // Compute progress toward target0, or set to 100% if no travel duration
+    float progress = dur0 > 0.0 ? (t - t0) / dur0 : 1.0;
+
+    // If progress > 1.0, we are already moving toward target1
+    if (progress > 1.0) {
+
+      // Compute progress toward target1, or set to 100% if no travel duration
+      progress = (dur1 > 0.0 ? (t - t0 - dur0) / dur1 : 1.0);
+
+      // In case progress to target1 exceeds 100%, clamp down
+      if (progress > 1.0) progress = 1.0;
+
+      // Interpolate and set position
+      vec3 v = target0 + (target1 - target0) * progress;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(v, 1.0);
-    } else {  // move toward target0
+    }
+    // If progress < 1.0, we are moving toward target0
+    else {
+      // Interpolate and set position
       vec3 v = position + (target0 - position)*progress;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(v, 1.0);
     }
+    // Comment the progress stuff above and uncomment below to disable interp
     // gl_Position = projectionMatrix * modelViewMatrix * vec4(target0, 1.0);
   }
 </script>
-<script type="x-shader/x-vertex" id="vertexshader_cust">
-  uniform float zoom;
+<script type="x-shader/x-vertex" id="vertex_cust">
+  uniform   float zoom;
   attribute float size;
   void main() {
     gl_PointSize = size*zoom;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_Position  = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 </script>
 <!-- Visualization: Fragment Shader -->
-<script type="x-shader/x-fragment" id="fragmentshader">
+<script type="x-shader/x-fragment" id="fragment_vehl">
+  const vec4 cc = vec4(0.24, 0.24, 0.32, 1.00);  // grey-ish purple
+  const vec4 c0 = vec4(1.00, 1.00, 1.00, 1.00);  // white
+  const vec4 c1 = vec4(0.27, 0.52, 0.53, 1.00);  // blue (66)
+  const vec4 c2 = vec4(0.84, 0.60, 0.13, 1.00);  // yellow (172)
+  const vec4 c3 = vec4(0.84, 0.36, 0.05, 1.00);  // orange (166)
+  const vec4 c4 = vec4(0.80, 0.14, 0.11, 1.00);  // red (124)
   varying float vload;
-  const vec4 dark = vec4(0.24, 0.24, 0.32, 1.0);
-  const vec4 grey = vec4(0.5, 0.5, 0.5, 0.7);
-  const vec4 blue = vec4(0.15, 0.55, 0.82, 1.0);
-  const vec4 yellow = vec4(0.70, 0.54, 0.0, 1.0);
-  const vec4 red = vec4(0.86, 0.20, 0.18, 1.0);
-  const vec4 magenta = vec4(0.83, 0.21, 0.51, 1.0);
-
   void main() {
-    // Color based on load
-    vec4 color = dark;
-    if (vload >= 1.0 && vload < 2.0)
-      color = blue;
-    if (vload >= 2.0 && vload < 3.0)
-      color = yellow;
-    if (vload >= 3.0)
-      color = red;
+    vec4 color = cc;  // default (vload == 0.0)
+    if      (vload >=  1.0 && vload < 2.0) color = c1;
+    else if (vload >=  2.0 && vload < 3.0) color = c2;
+    else if (vload >=  3.0 && vload < 4.0) color = c3;
+    else if (vload >=  4.0)                color = c4;
+    else if (vload == -1.0)                color = c0;  // should never reach here
 
     // Make it a circle by discarding fragments outside a radius
     // https://www.desultoryquest.com/blog/drawing-anti-aliased-circular-points-using-opengl-slash-webgl/
-    float r = 0.0;
-    //float border = 0.2;
-    vec2 cxy = 2.0 * gl_PointCoord - 1.0;
-    r = dot(cxy, cxy);
-    // Add drop shadow
-    // gl_FragColor = color;
-    // if (r > 1.0 - border) {
-    //   gl_FragColor = vec4(0,0,0,0.3);
-    // }
-    if (r > 1.0)
-      discard;
+    vec2  cxy = 2.0 * gl_PointCoord - 1.0;
+    float rad = dot(cxy, cxy);
+
+    // Delete the fragment if it falls outside the circle radius
+    if (rad > 1.0) discard;
+
     gl_FragColor = color;
   }
 </script>
-<script type="x-shader/x-fragment" id="fragmentshader_cust">
+<script type="x-shader/x-fragment" id="fragment_cust">
   void main() {
-    gl_FragColor = vec4(0.83, 0.21, 0.51, 1.0);
+    gl_FragColor = vec4(0.69, 0.38, 0.53, 1.00);  // purple (132)
+  }
+</script>
+<script type="x-shader/x-fragment" id="fragment_hi">
+  void main() {
+    vec2  cxy = 2.0 * gl_PointCoord - 1.0;
+    float rad = dot(cxy, cxy);
+    if (rad > 1.0) discard;
+    gl_FragColor = vec4(1.00, 1.00, 1.00, 1.00);
   }
 </script>
 <script src="/socket.io/socket.io.js"></script>
@@ -139,7 +155,6 @@
 <script src="/static/js/three.min.js"></script>
 <script src="/static/js/MapControls.js"></script>
 <script src="/static/js/Stats.js"></script>
-<script src="/static/js/dat.gui.min.js"></script>
 <script src="/static/js/bj5_positions.js"></script>
 <script src="/static/js/bj5_nodes.js"></script>
 <script src="/static/js/bj5_weights.js"></script>

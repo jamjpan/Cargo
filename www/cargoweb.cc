@@ -1,130 +1,97 @@
-// cargoweb.h
 #include "libcargo.h"
-// Add all includes here
-#include <iostream>  // std::endl
-// -----------------------------
-using namespace cargo;
+#include <algorithm>
 
-typedef std::pair<DistDbl, MutableVehicleSptr> rank_cand;
+using namespace cargo;
 
 class CargoWeb : public RSAlgorithm {
  public:
   CargoWeb();
+  size_t k;
   virtual void handle_customer(const Customer &);
-  virtual void handle_vehicle(const Vehicle &);
-  virtual void match();
-  virtual void end();
-
-// YOUR CODE BELOW
-  // Add additional public vars + functions here
- private:
-  // Add private vars + functions here
-  Grid grid_;
-  /* Workspace variables */
-  vec_t<Stop> sch;
-  vec_t<Wayp> rte;
-  MutableVehicleSptr best_vehl;
-  vec_t<MutableVehicleSptr> candidates;
-  bool matched;
-  tick_t timeout_0;
-
-  void reset_workspace();
 };
-// cargoweb.cc
-// Notes:
-// - No need to implement main(). It will be composed automatically.
-// - Do not include cargoweb.h. It will be squeezed with cargoweb.cc into one file.
-// - No need to put any includes here for the reason above
-// - The names "CargoWeb" and "cargoweb" cannot be changed for now, sorry!!
-const int PERIOD = 30;  // call the alg every PERIOD seconds
 
-// YOUR CODE BELOW
-auto cmp = [](rank_cand left, rank_cand right) {
-  return std::get<0>(left) > std::get<0>(right);
-};
-/* Algorithm constructor */
-CargoWeb::CargoWeb() : RSAlgorithm("cargoweb", true)
-  // Initialize other vars
-  , grid_(100)
-    {
+const int PERIOD = 3;  // T (sec)
+const int K = 10;  // top-k
+
+CargoWeb::CargoWeb() : RSAlgorithm("cargoweb", true) {
   this->batch_time() = PERIOD;
+  this->k = K;
 }
 
-/* Called every PERIOD on every waiting, non-assigned customer */
 void CargoWeb::handle_customer(const Customer& cust) {
-  // CustId cid = cust.id();
-  // NodeId oid = cust.orig();
-  // NodeId did = cust.dest();
-  // print << "Cust " << cid << " (" << oid << ", " << did << ") appeared" << std::endl;
+  print << "Handling cust " << cust.id() << std::endl;
 
-  this->reset_workspace();
-  this->candidates = this->grid_.within(pickup_range(cust), cust.orig());
+  // Move camera to center on the customer
+  gui::center(cust.orig());
 
-  std::priority_queue<rank_cand, vec_t<rank_cand>, decltype(cmp)> my_q(cmp);
-  for (const MutableVehicleSptr& cand : this->candidates) {
-    DistDbl cost = haversine(cand->last_visited_node(), cust.orig());
-    rank_cand rc = std::make_pair(cost, cand);
-    my_q.push(rc);
+  vec_t<Stop> temp_sched, greedy_sched;
+  vec_t<Wayp> temp_route, greedy_route;
+  MutableVehicleSptr greedy_cand = nullptr;
+
+  // <1. Get top-k veihcles>
+  print << "\tRanking top-k..." << std::endl;
+  // a. Initialize top-k
+  vec_t<std::pair<DistInt, size_t>> top;
+  for (size_t i = 0; i < k; i++) {
+    NodeId u = cust.orig();
+    NodeId v = this->vehicles().at(i).last_visited_node();
+    top.push_back(std::make_pair(haversine(u, v), i));
+  }
+  // b. Check remaining vehicles
+  for (size_t i = k; i < this->vehicles().size(); i++) {
+    auto kth = std::max_element(top.begin(), top.end());
+    NodeId u = cust.orig();
+    NodeId v = this->vehicles().at(i).last_visited_node();
+    DistInt dist = haversine(u, v);
+    if (dist < kth->first)
+      *kth = std::make_pair(dist, i);
   }
 
-  while (!my_q.empty() && !matched) {
-    rank_cand rc = my_q.top();
-    my_q.pop();
-    best_vehl = std::get<1>(rc);
-    sop_insert(best_vehl, cust, sch, rte);
-    if (chktw(sch, rte)
-     && chkcap(best_vehl->capacity(), sch))
-      matched = true;
+  // Visualize top-k
+  for (const auto& pair : top)
+    gui::clinev(cust.id(), this->vehicles().at(pair.second).id());
+  pause();
+
+  // <2. Select the greedy vehicle>
+  print << "\tComputing greedy..." << std::endl;
+  DistInt cost_min = InfInt;
+  for (const auto& pair : top) {
+    MutableVehicle cand(this->vehicles().at(pair.second));
+    DistInt cost_old = cand.route().cost();
+    DistInt cost_new = sop_insert(
+      cand, cust, temp_sched, temp_route);
+    DistInt cost = cost_new - cost_old;
+    if (cost < cost_min && chkcap(cand.capacity(), temp_sched)
+     && chktw(temp_sched, temp_route)) {
+      cost_min = cost;
+      greedy_cand  = std::make_shared<MutableVehicle>(cand);
+      greedy_sched = std::move(temp_sched);
+      greedy_route = std::move(temp_route);
+    }
   }
 
-  if (matched) {
-    this->assign({cust.id()}, {}, rte, sch, *best_vehl);
-  }
-}
+  if (greedy_cand) {
+    // Visualize the vehicle
+    gui::vhi(greedy_cand->id());
+    gui::curroute(greedy_cand->route());
+    gui::newroute(greedy_route);
+    pause();
 
-/* Called every PERIOD on every active vehicle */
-void CargoWeb::handle_vehicle(const Vehicle& vehl) {
-  this->grid_.insert(vehl);
-  // VehlId vid = vehl.id();
-  // NodeId loc = vehl.last_visited_node();
-  // print << "Vehl " << vid << " is at " << loc << std::endl;
-}
+    print << "\tMatched with vehl " << greedy_cand->id() << std::endl;
+    this->assign(
+      {cust.id()}, {}, greedy_route, greedy_sched, *greedy_cand);
+  } else
+    print << "\tNo suitable match" << std::endl;
 
-/* Called every PERIOD */
-void CargoWeb::match() {
-  // vec_t<Customer> customers = this->customers();
-  // vec_t<Vehicle> vehicles = this->vehicles();
-  // print << "(t=" << Cargo::now() << ")"
-  //       << " There are " << customers.size() << " custs waiting to be matched"
-  //       << " and " << vehicles.size() << " active vehicles" << std::endl;
+  // Clear lines and highlights
+  gui::reset();
 }
-
-/* Called at end of simulation */
-void CargoWeb::end() {
-  this->print_statistics();
-}
-
-// BEGIN CUSTOM FUNCTIONS
-// void CargoWeb::foo() { ... }
-void CargoWeb::reset_workspace() {
-  this->sch = {};
-  this->rte = {};
-  this->candidates = {};
-  this->matched = false;
-  this->best_vehl = nullptr;
-}
-// END CUSTOM FUNCTIONS
 
 //
         int main() {
           Options option;
-          option.path_to_roadnet    = "data/bj5.rnet";
-          option.path_to_gtree      = "data/bj5.gtree";
-          option.path_to_edges      = "data/bj5.edges";
-          option.path_to_problem    = "data/rs-bj5-m5k-c3-d6-s10-x1.0.instance";
-          option.path_to_solution   = "cargoweb.sol";
-          option.path_to_dataout    = "cargoweb.dat";
-          option.time_multiplier    = 1;
+          option.path_to_roadnet    = "/home/jpan/devel/Cargo_benchmark/road/cd1.rnet";
+          option.path_to_problem    = "/home/jpan/devel/Cargo_benchmark/problem/rs-cd1-m1k-c3-d6-s10-x1.0.instance";
           option.vehicle_speed      = 10;
           option.matching_period    = 60;
           option.strict_mode        = true;
@@ -132,6 +99,5 @@ void CargoWeb::reset_workspace() {
           Cargo cargo(option);
           CargoWeb cw;
           cargo.start(cw);
-          return 0;
         }
         
