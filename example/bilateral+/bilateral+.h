@@ -23,9 +23,9 @@ using namespace cargo;
 
 typedef std::pair<DistInt, MutableVehicleSptr> rank_cand;
 
-class BilateralArrangement : public RSAlgorithm {
+class BilateralPlus : public RSAlgorithm {
  public:
-  BilateralArrangement();
+  BilateralPlus();
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);

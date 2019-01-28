@@ -37,7 +37,6 @@ NearestNeighbor::NearestNeighbor()
 }
 
 void NearestNeighbor::handle_customer(const Customer& cust) {
-  this->beg_ht();                           // begin timing (rsalgorithm.h)
   this->reset_workspace();                  // reset workspace variables
   this->candidates =                        // collect candidates
     this->grid_.within(pickup_range(cust), cust.orig()); // (functions.h, grid.h)
@@ -66,8 +65,6 @@ void NearestNeighbor::handle_customer(const Customer& cust) {
       break;
   }
 
-  this->end_ht();                           // end timing
-
   /* Attempt commit to db */
   if (matched) {
     this->assign_or_delay(                  // (rsalgorithm.h)
@@ -81,7 +78,7 @@ void NearestNeighbor::handle_vehicle(const Vehicle& vehl) {
 }
 
 void NearestNeighbor::end() {
-  this->print_statistics();                 // (rsalgorithm.h)
+  RSAlgorithm::end();                       // (rsalgorithm.h)
 }
 
 void NearestNeighbor::listen(bool skip_assigned, bool skip_delayed) {
@@ -97,25 +94,5 @@ void NearestNeighbor::reset_workspace() {
   this->matched = false;
   this->best_vehl = nullptr;
   this->timeout_0 = hiclock::now();
-}
-
-int main() {
-  Options option;                           // (options.h)
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m45k-c1.instance";
-  option.path_to_solution = "nearest_neighbor.sol";
-  option.path_to_dataout  = "nearest_neighbor.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode = false;
-  option.static_mode = false;
-  Cargo cargo(option);                      // (cargo.h)
-  NearestNeighbor nn;
-  cargo.start(nn);
-
-  return 0;
 }
 

@@ -30,11 +30,13 @@ Grabby::Grabby() : RSAlgorithm("grabby", false) {
 }
 
 void Grabby::handle_customer(const Customer& cust) {
+  print << "Handling cust " << cust.id() << std::endl;
   vec_t<Stop> temp_sched, greedy_sched;
   vec_t<Wayp> temp_route, greedy_route;
   MutableVehicleSptr greedy_cand = nullptr;
 
   // <1. Get top-k veihcles>
+  print << "\tRanking top-k..." << std::endl;
   // a. Initialize top-k
   vec_t<std::pair<DistInt, size_t>> top;
   for (size_t i = 0; i < k; i++) {
@@ -53,6 +55,7 @@ void Grabby::handle_customer(const Customer& cust) {
   }
 
   // <2. Select the greedy vehicle>
+  print << "\tComputing greedy..." << std::endl;
   DistInt cost_min = InfInt;
   for (const auto& pair : top) {
     MutableVehicle cand(this->vehicles().at(pair.second));
@@ -69,27 +72,10 @@ void Grabby::handle_customer(const Customer& cust) {
     }
   }
 
-  if (greedy_cand)
+  if (greedy_cand) {
+    print << "\tMatched with vehl " << greedy_cand->id() << std::endl;
     this->assign(
       {cust.id()}, {}, greedy_route, greedy_sched, *greedy_cand);
-}
-
-int main() {
-  Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-bj5-m5k-c3-d6-s10-x1.0.instance";
-  option.path_to_solution = "grabby.sol";
-  option.path_to_dataout  = "grabby.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode      = false;
-  option.static_mode      = false;
-  Cargo cargo(option);
-  Grabby gr;
-  cargo.start(gr);
-  return 0;
+  }
 }
 

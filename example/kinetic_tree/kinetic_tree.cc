@@ -48,7 +48,6 @@ KineticTrees::~KineticTrees() {
 
 void KineticTrees::handle_customer(const Customer& cust) {
   DistInt range = pickup_range(cust);
-  this->beg_ht();
   this->reset_workspace();
   this->candidates = this->grid_.within(range, cust.orig());
 
@@ -98,8 +97,6 @@ void KineticTrees::handle_customer(const Customer& cust) {
   }
   if (!matched)
     this->beg_delay(cust.id());
-
-  this->end_ht();
 }
 
 void KineticTrees::handle_vehicle(const Vehicle& vehl) {
@@ -141,7 +138,7 @@ void KineticTrees::handle_vehicle(const Vehicle& vehl) {
 }
 
 void KineticTrees::end() {
-  this->print_statistics();
+  RSAlgorithm::end();
 }
 
 void KineticTrees::listen(bool skip_assigned, bool skip_delayed) {
@@ -222,25 +219,5 @@ void KineticTrees::print_kt(TreeTaxiPath* kt, bool temp) {
   for (const auto& tuple : seq)
     print << "(" << std::get<0>(tuple) << "|" << std::get<1>(tuple) << ") ";
   print << std::endl;
-}
-
-int main() {
-  Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
-  option.path_to_solution = "kinetic_tree.sol";
-  option.path_to_dataout  = "kinetic_tree.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode = false;
-  option.static_mode = false;
-  Cargo cargo(option);
-  KineticTrees kt;
-  cargo.start(kt);
-
-  return 0;
 }
 

@@ -1,5 +1,5 @@
-grabby
 *.o
 *.dat
 *.sol
+run_example
 

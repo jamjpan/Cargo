@@ -38,7 +38,6 @@ BilateralArrangement::BilateralArrangement()
 }
 
 void BilateralArrangement::match() {
-  this->beg_batch_ht();
   this->clear();
   this->prepare();
 
@@ -95,8 +94,6 @@ void BilateralArrangement::match() {
       std::advance(i, 1);
     }
   }
-
-  this->end_batch_ht();
 
   // Batch-commit the solution
   for (const auto& kv : this->modified) {
@@ -167,32 +164,11 @@ void BilateralArrangement::commit(const MutableVehicleSptr& cand) {
 
 void BilateralArrangement::end() {
   print(MessageType::Info) << "swaps: " << this->nswapped_ << std::endl;
-  this->print_statistics();
+  RSAlgorithm::end();
 }
 
 void BilateralArrangement::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
   RSAlgorithm::listen(skip_assigned, skip_delayed);
-}
-
-int main() {
-  /* Set options */
-  Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
-  option.path_to_solution = "bilateral_arrangement.sol";
-  option.path_to_dataout  = "bilateral_arrangement.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode = false;
-  option.static_mode = true;
-  Cargo cargo(option);
-  BilateralArrangement ba;
-  cargo.start(ba);
-
-  return 0;
 }
 

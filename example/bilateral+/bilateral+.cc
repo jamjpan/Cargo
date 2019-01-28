@@ -31,14 +31,13 @@ using namespace cargo;
 
 const int BATCH = 30;
 
-BilateralArrangement::BilateralArrangement()
+BilateralPlus::BilateralPlus()
     : RSAlgorithm("bilateral+", false), grid_(100) {
   this->batch_time() = BATCH;
   this->nswapped_ = 0;
 }
 
-void BilateralArrangement::match() {
-  this->beg_batch_ht();
+void BilateralPlus::match() {
   this->clear();
   this->prepare();
 
@@ -103,8 +102,6 @@ void BilateralArrangement::match() {
     }
   }
 
-  this->end_batch_ht();
-
   // Batch-commit the solution
   for (const auto& kv : this->modified) {
     if (kv.second == true) {
@@ -113,11 +110,11 @@ void BilateralArrangement::match() {
   }
 }
 
-void BilateralArrangement::handle_vehicle(const cargo::Vehicle& vehl) {
+void BilateralPlus::handle_vehicle(const cargo::Vehicle& vehl) {
   this->grid_.insert(vehl);
 }
 
-void BilateralArrangement::prepare() {
+void BilateralPlus::prepare() {
   vec_t<Stop> sch;
   vec_t<Wayp> rte;
 
@@ -152,7 +149,7 @@ void BilateralArrangement::prepare() {
     add_or_remove), this->customers().end());
 }
 
-void BilateralArrangement::clear() {
+void BilateralPlus::clear() {
   this->lookup = {};
   this->schedules = {};
   this->routes = {};
@@ -164,7 +161,7 @@ void BilateralArrangement::clear() {
   this->retry_rte = this->replace_rte = {};
 }
 
-void BilateralArrangement::commit(const MutableVehicleSptr& cand) {
+void BilateralPlus::commit(const MutableVehicleSptr& cand) {
   vec_t<CustId>& cadd = this->to_assign.at(cand);
   vec_t<CustId>& cdel = this->to_unassign.at(cand);
   this->assign_or_delay(cadd, cdel, cand->route().data(), cand->schedule().data(), *cand);
@@ -172,34 +169,13 @@ void BilateralArrangement::commit(const MutableVehicleSptr& cand) {
   for (const CustId& cid : cdel) print << "Removed " << cid << " from " << cand->id() << std::endl;
 }
 
-void BilateralArrangement::end() {
+void BilateralPlus::end() {
   print(MessageType::Info) << "swaps: " << this->nswapped_ << std::endl;
-  this->print_statistics();
+  RSAlgorithm::end();
 }
 
-void BilateralArrangement::listen(bool skip_assigned, bool skip_delayed) {
+void BilateralPlus::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
   RSAlgorithm::listen(skip_assigned, skip_delayed);
-}
-
-int main() {
-  /* Set options */
-  Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
-  option.path_to_solution = "bilateral+.sol";
-  option.path_to_dataout  = "bilateral+.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode = false;
-  option.static_mode = true;
-  Cargo cargo(option);
-  BilateralArrangement ba;
-  cargo.start(ba);
-
-  return 0;
 }
 

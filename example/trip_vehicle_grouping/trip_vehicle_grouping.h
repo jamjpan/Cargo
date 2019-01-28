@@ -38,7 +38,6 @@ class TripVehicleGrouping : public RSAlgorithm {
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
   virtual void match();
-  virtual void end();
   virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:

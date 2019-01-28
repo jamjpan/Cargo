@@ -53,7 +53,6 @@ TripVehicleGrouping::TripVehicleGrouping()
 
 void TripVehicleGrouping::match() {
   //print << "Match called." << std::endl;
-  this->beg_batch_ht();
   this->reset_workspace();
   this->timeout_rv_0 = hiclock::now();
   for (const Customer& cust : customers())
@@ -595,16 +594,10 @@ void TripVehicleGrouping::match() {
 
   glp_delete_prob(mip);
   }  // end mip (if vted_.size() > 0)
-
-  this->end_batch_ht();
 }
 
 void TripVehicleGrouping::handle_vehicle(const Vehicle& vehl) {
   this->grid_.insert(vehl);
-}
-
-void TripVehicleGrouping::end() {
-  this->print_statistics();
 }
 
 void TripVehicleGrouping::listen(bool skip_assigned, bool skip_delayed) {
@@ -715,27 +708,5 @@ void TripVehicleGrouping::reset_workspace() {
   this->stid_ = 0;
   this->trip_ = {};
   this->cted_ = {};
-}
-
-int main() {
-  Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  option.path_to_problem  = "../../data/benchmark/rs-m1k-c3.instance";
-  //option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
-  option.path_to_solution = "trip_vehicle_grouping.sol";
-  option.path_to_dataout  = "trip_vehicle_grouping.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode = false;
-  option.static_mode = true;
-  Cargo cargo(option);
-  TripVehicleGrouping tvg;
-  tvg.unassign_penalty = 10000;
-  cargo.start(tvg);
-
-  return 0;
 }
 

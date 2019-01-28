@@ -43,7 +43,6 @@ GRASP::GRASP()
 }
 
 void GRASP::match() {
-  this->beg_batch_ht();
   this->timeout_0 = hiclock::now();
 
   this->best_solution = {};
@@ -137,7 +136,6 @@ void GRASP::match() {
       //print << "kept incumbent (" << local_cost << " not better than " << this->best_cost << ")" << std::endl;
   }
   this->commit(this->best_solution);
-  this->end_batch_ht();
 }
 
 Solution GRASP::initialize(Grid& grid, vec_t<Customer>& customers) {
@@ -589,36 +587,15 @@ void GRASP::handle_vehicle(const Vehicle& vehl) {
 }
 
 void GRASP::end() {
-  this->print_statistics();
   print << "nswap: " << nswap_ << std::endl;
   print << "nreplace: " << nreplace_ << std::endl;
   print << "nrearrange: " << nrearrange_ << std::endl;
   print << "nnoimprov: " << nnoimprov_ << std::endl;
+  RSAlgorithm::end();
 }
 
 void GRASP::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
   RSAlgorithm::listen(skip_assigned, skip_delayed);
-}
-
-int main() {
-  Options option;
-  option.path_to_roadnet  = "../../data/roadnetwork/bj5.rnet";
-  option.path_to_gtree    = "../../data/roadnetwork/bj5.gtree";
-  option.path_to_edges    = "../../data/roadnetwork/bj5.edges";
-  //option.path_to_problem  = "../../data/benchmark/old/old2/rs-sm-1.instance";
-  option.path_to_problem  = "../../data/benchmark/rs-m5k-c3.instance";
-  option.path_to_solution = "grasp-4.sol";
-  option.path_to_dataout  = "grasp-4.dat";
-  option.time_multiplier  = 1;
-  option.vehicle_speed    = 10;
-  option.matching_period  = 60;
-  option.strict_mode = false;
-  option.static_mode = true;
-  Cargo cargo(option);
-  GRASP grasp;
-  cargo.start(grasp);
-
-  return 0;
 }
 

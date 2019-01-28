@@ -21,14 +21,13 @@
 
 using namespace cargo;
 
-class GreedyInsertion : public RSAlgorithm {
+class Greedy : public RSAlgorithm {
  public:
-  GreedyInsertion();
+  Greedy();
 
   /* My overrides */
   virtual void handle_customer(const Customer &);
   virtual void handle_vehicle(const Vehicle &);
-  virtual void end();
   virtual void listen(bool skip_assigned = true, bool skip_delayed = true);
 
  private:
