@@ -783,12 +783,13 @@ void Cargo::initialize(const Options& opt) {
   }
   print << "\tRead " << ntrips << " trips" << std::endl;
   print << "\t" << name() << " on " << road_network() << std::endl;
+  speed_ = parse_speed(opt.path_to_problem);
+  print << "\tSpeed set to " << speed_ << " m/s" << std::endl;
 
   tmin_ = tmax_ = 0;
   matp_ = opt.matching_period;
   sleep_interval_ = std::round((float)1000 / opt.time_multiplier);
-  speed_ = opt.vehicle_speed;
-  original_speed_ = opt.vehicle_speed; // hack
+  original_speed_ = speed_; // used to restore the speed after sim ends if "full sim" is off
   full_sim_ = opt.full_sim;
 
   print << "Creating in-memory database..." << std::endl;

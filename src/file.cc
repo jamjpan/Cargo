@@ -53,6 +53,19 @@ std::pair<std::string, std::string> parse_road_path(const std::string& fn) {
   return std::make_pair(path, road);
 }
 
+Speed parse_speed(const std::string& fn) {
+  std::string path = fn;
+  std::string speed_str;
+  const size_t s_pos = path.find("-s");
+  const size_t x_pos = path.find("-x");
+  if (std::string::npos != s_pos
+   && std::string::npos != x_pos) {
+    speed_str = path.substr(s_pos+2, x_pos-s_pos-2);
+    return std::stoi(speed_str);
+  }
+  return -1;
+}
+
 size_t read_nodes(const Filepath& path, KVNodes& N) {
   std::ifstream ifs(path);
   if (!ifs.good()) throw std::runtime_error("node path not found");

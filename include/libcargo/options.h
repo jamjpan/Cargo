@@ -36,7 +36,6 @@ struct Options {
     float time_multiplier = 1;
 
     SimlTime matching_period = 60;
-    Speed vehicle_speed = 20; // meters per second
 
     // Set to TRUE if want simulation to run until last vehicle arrives
     // (or last customer is dropped off if vehicles are taxies)

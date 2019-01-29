@@ -35,6 +35,7 @@
 namespace cargo {
 
 std::pair<std::string, std::string> parse_road_path(const std::string &);
+Speed parse_speed(const std::string &);
 
 /* These functions throw runtime_errors if the file cannot be read. */
 size_t read_nodes(const Filepath &, KVNodes &);                // return # nodes
