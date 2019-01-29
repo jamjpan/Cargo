@@ -784,6 +784,10 @@ void Cargo::initialize(const Options& opt) {
   print << "\tRead " << ntrips << " trips" << std::endl;
   print << "\t" << name() << " on " << road_network() << std::endl;
   speed_ = parse_speed(opt.path_to_problem);
+  if (speed_ == -1) {
+    print(MessageType::Error) << "Speed string not found\n";
+    throw std::runtime_error("Missing -s in instance name.");
+  }
   print << "\tSpeed set to " << speed_ << " m/s" << std::endl;
 
   tmin_ = tmax_ = 0;
