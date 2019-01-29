@@ -32,6 +32,7 @@ typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> SASol;
 class SimulatedAnnealing : public RSAlgorithm {
  public:
   SimulatedAnnealing();
+  SimulatedAnnealing(const int &);
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -41,6 +42,9 @@ class SimulatedAnnealing : public RSAlgorithm {
 
  private:
   Grid grid_;
+  int p_max;
+  int t_max;
+  float f_;
 
   int nclimbs_;
   std::mt19937 gen;
@@ -60,6 +64,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
 
+  void construct(const int &);
 
   DistInt sol_cost(const SASol& sol) {
       std::set<MutableVehicle> vehls = {};
@@ -75,7 +80,7 @@ class SimulatedAnnealing : public RSAlgorithm {
 
   bool hillclimb(const int& T) {
     float mark = this->d(this->gen);
-    float thresh = std::exp(1.00*(float)T)/100;
+    float thresh = std::exp(f_*(float)T)/100;
     return mark < thresh;
   }
 

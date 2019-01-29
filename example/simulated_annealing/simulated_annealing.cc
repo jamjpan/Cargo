@@ -31,14 +31,29 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int T_MAX = 5;
-const int P_MAX = 5000;
 const int SCHED_MAX = 10;
 
 SimulatedAnnealing::SimulatedAnnealing()
-    : RSAlgorithm("simulated_annealing", true), grid_(100), d(0,1) {
+    : RSAlgorithm("sa50", true), grid_(100), d(0,1) {
+  this->construct(50);
+}
+
+SimulatedAnnealing::SimulatedAnnealing(const int& f)
+    : RSAlgorithm("sa"+std::to_string(f), true), grid_(100), d(0,1) {
+  if (f < 1 && f > 100) {
+    print(MessageType::Warning) << "f less than 1 or greater than 100; set to default (50)" << std::endl;
+    this->construct(50);
+  } else
+    this->construct(f);
+}
+
+void SimulatedAnnealing::construct(const int& f) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
+  this->t_max = 5;
+  this->p_max = 5000;
+  this->f_ = static_cast<float>(f/100.0);
+  print << "Set f to " << this->f_ << std::endl;
   std::random_device rd;
   this->gen.seed(rd());
 }
@@ -54,7 +69,7 @@ void SimulatedAnnealing::match() {
   if (!this->sol.empty()) {
     std::uniform_int_distribution<>::param_type sol_size_range(1, this->sol.size());
     this->n.param(sol_size_range);
-    this->anneal(T_MAX, P_MAX);
+    this->anneal(t_max, p_max);
     print << "after anneal: " << this->sol_cost(this->sol) << std::endl;
     this->commit();
   }

@@ -71,11 +71,11 @@ int main(int argc, char** argv) {
       << "    2) bilateral_arrangement    5) kinetic_tree\n"
       << "    3) grabby                   6) nearest_neighbor\n"
       << "  Join Algorithms:\n"
-      << "    7) grasp\n"
-      << "    8) simulated_annealing\n"
-      << "    9) trip_vehicle_grouping\n"
+      << "    7) grasp4                  10) sa100\n"
+      << "    8) grasp16                 11) trip_vehicle_grouping\n"
+      << "    9) sa50\n"
       << "\n"
-      << "Your selection (1-9): ";
+      << "Your selection (1-11): ";
     std::cin >> selection;
     std::cout << "Path to rnet (*.rnet): ";
     std::cin >> roadnetwork;
@@ -102,10 +102,14 @@ int main(int argc, char** argv) {
   } else if (selection == "6") {
     NearestNeighbor alg; cargo.start(alg);
   } else if (selection == "7") {
-    GRASP alg; cargo.start(alg);
+    GRASP alg(4); cargo.start(alg);
   } else if (selection == "8") {
-    SimulatedAnnealing alg; cargo.start(alg);
+    GRASP alg(16); cargo.start(alg);
   } else if (selection == "9") {
+    SimulatedAnnealing alg(50); cargo.start(alg);
+  } else if (selection == "10") {
+    SimulatedAnnealing alg(100); cargo.start(alg);
+  } else if (selection == "11") {
     TripVehicleGrouping alg; cargo.start(alg);
   }
 }

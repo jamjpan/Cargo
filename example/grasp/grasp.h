@@ -32,6 +32,7 @@ Solution;
 class GRASP : public RSAlgorithm {
  public:
   GRASP();
+  GRASP(const int &);
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -41,6 +42,8 @@ class GRASP : public RSAlgorithm {
 
  private:
   Grid grid_;
+
+  int max_iter;
 
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
@@ -69,6 +72,8 @@ class GRASP : public RSAlgorithm {
   Solution rearrange(const Solution &);
   Customer roulette(const dict<Customer, DistInt> &);
   DistInt cost(const Solution &);
+
+  void construct(const int &);
 
   void print_sol(const Solution &);
 

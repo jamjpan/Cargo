@@ -30,13 +30,27 @@
 using namespace cargo;
 
 const int BATCH = 30;
-const int MAX_ITER = 4;
 const int TOP_K = 10;
 const int SCHED_MAX = 10;
 
 GRASP::GRASP()
-    : RSAlgorithm("grasp", false), grid_(100), d(0,1) {
+    : RSAlgorithm("grasp4", false), grid_(100), d(0,1) {
+  this->construct(4);
+}
+
+GRASP::GRASP(const int& i)
+    : RSAlgorithm("grasp"+std::to_string(i), false), grid_(100), d(0,1) {
+  if (i < 1) {
+    print(MessageType::Warning) << "max_iter less than 1; set to default (4)" << std::endl;
+    this->construct(4);
+  } else
+    this->construct(i);
+}
+
+void GRASP::construct(const int& i) {
   this->batch_time() = BATCH;
+  this->max_iter = i;
+  print << "Set max_iter to " << i << std::endl;
   std::random_device rd;
   this->gen.seed(rd());
   this->nswap_ = this->nreplace_ = this->nrearrange_ = this->nnoimprov_ = 0;
@@ -48,7 +62,7 @@ void GRASP::match() {
   this->best_solution = {};
   this->best_cost = InfInt;
 
-  for (int count = 0; count < MAX_ITER; ++count) {
+  for (int count = 0; count < max_iter; ++count) {
     this->reset_workspace();
     Grid local_grid(this->grid_);  // deep copy
     vec_t<Customer> local_customers = this->customers();
