@@ -40,8 +40,8 @@ void print_header() {
 
 void print_usage() {
   std::cout
-    << "Interactive:  ./run_example\n"
-    << "Command-line: ./run_example selection(1-9) *.rnet *.instance [static(0-1)] [strict(0-1)] \n"
+    << "Interactive:  ./launcher\n"
+    << "Command-line: ./launcher selection(1-9) *.rnet *.instance [static(0-1)] [strict(0-1)] \n"
     << std::endl;
 }
 

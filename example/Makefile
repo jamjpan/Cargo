@@ -25,7 +25,7 @@ OBJECTS = \
 		trip_vehicle_grouping.o \
 		launcher.o
 
-all: $(OBJECTS) bilateral+/bilateral+.h bilateral_arrangement\bilateral_arrangement.h grabby\grabby.h grasp\grasp.h greedy\greedy.h kinetic_tree\kinetic_tree.h kinetic_tree\include\treeTaxiPath.h nearest_neighbor\nearest_neighbor.h simulated_annealing\simulated_annealing.h trip_vehicle_grouping\trip_vehicle_grouping.h
+all: $(OBJECTS)
 	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) $(GLPK) $(LDL) -fopenmp -o launcher
 
 launcher.o: $(LIBCARGO) launcher.cc
