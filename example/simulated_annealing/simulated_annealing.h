@@ -47,6 +47,11 @@ class SimulatedAnnealing : public RSAlgorithm {
   float f_;
 
   int nclimbs_;
+  int ntries_;
+  int nanneals_;
+  int ntimeouts_;
+  int ncap_;
+  int ntw_;
   std::mt19937 gen;
   std::uniform_real_distribution<> d;
   std::uniform_int_distribution<> n;
@@ -80,21 +85,24 @@ class SimulatedAnnealing : public RSAlgorithm {
 
   bool hillclimb(const int& T) {
     float mark = this->d(this->gen);
-    float thresh = std::exp(f_*(float)T)/100;
+    float thresh = std::exp(this->f_*(float)T)/100;
     return mark < thresh;
   }
 
   void anneal(const int& T_MAX, const int& P_MAX) {
     for (int t = T_MAX; t > 0; t--) {
       for (int p = P_MAX; p > 0; p--) {
+        this->nanneals_++;
         this->sol = std::move(this->perturb(this->sol, t));
         if (this->timeout(this->timeout_0)) {
           print << "timed out" << std::endl;
+          this->ntimeouts_++;
           return;
         }
       }
       if (this->timeout(this->timeout_0)) {
         print << "timed out" << std::endl;
+        this->ntimeouts_++;
         return;
       }
     }

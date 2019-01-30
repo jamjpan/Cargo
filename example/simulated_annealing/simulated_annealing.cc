@@ -50,6 +50,11 @@ SimulatedAnnealing::SimulatedAnnealing(const int& f)
 void SimulatedAnnealing::construct(const int& f) {
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
+  this->ntries_ = 0;
+  this->nanneals_ = 0;
+  this->ntimeouts_ = 0;
+  this->ncap_ = 0;
+  this->ntw_ = 0;
   this->t_max = 5;
   this->p_max = 5000;
   this->f_ = static_cast<float>(f/100.0);
@@ -64,13 +69,13 @@ void SimulatedAnnealing::match() {
   Grid local_grid(this->grid_);  // make a deep copy
 
   this->initialize(local_grid);
-  print << "initial cost: " << this->sol_cost(this->sol) << std::endl;
+  // print << "initial cost: " << this->sol_cost(this->sol) << std::endl;
 
   if (!this->sol.empty()) {
     std::uniform_int_distribution<>::param_type sol_size_range(1, this->sol.size());
     this->n.param(sol_size_range);
     this->anneal(t_max, p_max);
-    print << "after anneal: " << this->sol_cost(this->sol) << std::endl;
+    // print << "after anneal: " << this->sol_cost(this->sol) << std::endl;
     this->commit();
   }
 }
@@ -185,48 +190,50 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
   print << "  move " << cust_to_move.id() << " from " << k_old.id() << " to " << k_new.id() << std::endl;
 
   //   b. Accept or reject
-  if (chkcap(k_new.capacity(), this->sch_after_add)
-   && chktw(this->sch_after_add, this->rte_after_add)) {
-    //   c. Remove cust from k_old
-    this->sch_after_rem = k_old.schedule().data();
-    opdel(this->sch_after_rem, cust_to_move.id());
-    route_through(this->sch_after_rem, this->rte_after_rem);
+  if (chkcap(k_new.capacity(), this->sch_after_add)) {
+    this->ncap_++;
+    if (chktw(this->sch_after_add, this->rte_after_add)) {
+      this->ntw_++;
+      //   c. Remove cust from k_old
+      this->sch_after_rem = k_old.schedule().data();
+      opdel(this->sch_after_rem, cust_to_move.id());
+      route_through(this->sch_after_rem, this->rte_after_rem);
 
-    //   d. Compare costs
-    DistInt new_cost = this->rte_after_add.back().first + rte_after_rem.back().first;
-    bool climb = false;
-    print << "    is " << new_cost << " < " << current_cost << "?" << std::endl;
-    // Quality heuristic: don't do any climbs on the last temperature
-    if (new_cost >= current_cost && temperature != 1) {
-      climb = hillclimb(temperature);
-      if (climb) this->nclimbs_++;
-    }
-    if (new_cost < current_cost || climb) {
-      print << (new_cost < current_cost ? "  accept" : " accept due to climb") << std::endl;
-      // Update grid
-      vehicle_lookup.at(k_old.id())->set_sch(sch_after_rem);
-      vehicle_lookup.at(k_old.id())->set_rte(rte_after_rem);
-      vehicle_lookup.at(k_old.id())->reset_lvn();
-      vehicle_lookup.at(k_new.id())->set_sch(sch_after_add);
-      vehicle_lookup.at(k_new.id())->set_rte(rte_after_add);
-      vehicle_lookup.at(k_new.id())->reset_lvn();
+      //   d. Compare costs
+      DistInt new_cost = this->rte_after_add.back().first + rte_after_rem.back().first;
+      bool climb = false;
+      print << "    is " << new_cost << " < " << current_cost << "?" << std::endl;
+      this->ntries_++;
+      // Quality heuristic: don't do any climbs on the last temperature
+      if (new_cost >= current_cost && temperature != 1) {
+        climb = hillclimb(temperature);
+        if (climb) this->nclimbs_++;
+      }
+      if (new_cost < current_cost || climb) {
+        print << (new_cost < current_cost ? "  accept" : " accept due to climb") << std::endl;
+        // Update grid
+        vehicle_lookup.at(k_old.id())->set_sch(sch_after_rem);
+        vehicle_lookup.at(k_old.id())->set_rte(rte_after_rem);
+        vehicle_lookup.at(k_old.id())->reset_lvn();
+        vehicle_lookup.at(k_new.id())->set_sch(sch_after_add);
+        vehicle_lookup.at(k_new.id())->set_rte(rte_after_add);
+        vehicle_lookup.at(k_new.id())->reset_lvn();
 
-      // Update solution
-      k_old.set_sch(sch_after_rem);
-      k_old.set_rte(rte_after_rem);
-      k_old.reset_lvn();
-      k_old_assignments.erase(j);
-      k_new.set_sch(sch_after_add);
-      k_new.set_rte(rte_after_add);
-      k_new.reset_lvn();
-      k_new_assignments.push_back(cust_to_move);
-      SASol improved_sol = sol;
-      improved_sol[k_old.id()] = std::make_pair(k_old, k_old_assignments);
-      improved_sol[k_new.id()] = std::make_pair(k_new, k_new_assignments);
-      return improved_sol;
+        // Update solution
+        k_old.set_sch(sch_after_rem);
+        k_old.set_rte(rte_after_rem);
+        k_old.reset_lvn();
+        k_old_assignments.erase(j);
+        k_new.set_sch(sch_after_add);
+        k_new.set_rte(rte_after_add);
+        k_new.reset_lvn();
+        k_new_assignments.push_back(cust_to_move);
+        SASol improved_sol = sol;
+        improved_sol[k_old.id()] = std::make_pair(k_old, k_old_assignments);
+        improved_sol[k_new.id()] = std::make_pair(k_new, k_new_assignments);
+        return improved_sol;
+      }
     }
-  } else {
-    print << "    not valid" << std::endl;
   }
   return sol;
 }
@@ -247,7 +254,11 @@ void SimulatedAnnealing::handle_vehicle(const Vehicle& vehl) {
 }
 
 void SimulatedAnnealing::end() {
-  print(MessageType::Info) << "climbs: " << nclimbs_ << std::endl;
+  print(MessageType::Info) << "climbs/tries: " << nclimbs_ << "/" << ntries_ << std::endl;
+  print(MessageType::Info) << "anneals: " << nanneals_ << std::endl;
+  print(MessageType::Info) << "timeouts: " << ntimeouts_ << std::endl;
+  print(MessageType::Info) << "ncap: " << ncap_ << std::endl;
+  print(MessageType::Info) << "ntw: " << ntw_ << std::endl;
   RSAlgorithm::end();
 }
 
