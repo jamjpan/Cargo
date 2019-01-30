@@ -74,6 +74,7 @@ Speed Cargo::speed_ = 0;
 SimlTime Cargo::t_ = 0;
 
 bool Cargo::paused_ = false;
+int Cargo::count_sp_ = 0;
 
 /* Global mutexes */
 std::mutex Cargo::dbmx;
@@ -89,9 +90,10 @@ bool Cargo::strict_mode = false;
 cache::lru_cache<std::string, vec_t<NodeId>> Cargo::spcache_(LRU_SP_CACHE_SIZE);
 cache::lru_cache<std::string, DistInt>       Cargo::sccache_(LRU_SC_CACHE_SIZE);
 
-/* Cargo class constructor:
- * Set options, initialize Message; prepare the db */
-Cargo::Cargo(const Options& opt) : print("cargo") {
+/* Cargo class constructor */
+Cargo::Cargo() { Options _; this->construct(_); }
+Cargo::Cargo(const Options& opt) : print("cargo") { this->construct(opt); }
+void Cargo::construct(const Options& opt) {
   print << "Initializing Cargo" << std::endl;
   rng.seed(std::random_device()());  // used for random_node
   this->initialize(opt);  // loads data into the db
@@ -278,7 +280,7 @@ int Cargo::step(int& ndeact) {
           Stop b(vid, stop.loc(), StopType::VehlDest, stop.early(), -1);
           vec_t<Stop> sch{a, b};
           vec_t<Wayp> new_rte;
-          route_through(sch, new_rte);
+          route_through(sch, new_rte, false);
           // int new_nnd = new_rte.at(1).first;
           int new_nnd = 0;
           /* Add traveled distance to the waypoints in the new route */
@@ -699,9 +701,8 @@ void Cargo::start(RSAlgorithm& rsalg) {
 
       t1 = std::chrono::high_resolution_clock::now();
       dur = std::round(dur_milli(t1 - t0).count());
-      // TODO: Add skip_ending option
-      // if (t_ > tmin_ && option is enabled)
-      //   sleep_interval_ = dur;
+      if (t_ > tmin_ && full_sim_ == false)
+         sleep_interval_ = dur;
       if (dur > sleep_interval_)
         print(MessageType::Warning)
           << "step() (" << dur << " ms) exceeds interval (" << sleep_interval_ << " ms)\n";
@@ -743,7 +744,8 @@ void Cargo::start(RSAlgorithm& rsalg) {
          << "Avg. match             (ms) " << rsalg.avg_match_dur()           << '\n'
          << "Avg. listen            (ms) " << rsalg.avg_listen_dur()          << '\n'
          << "Avg. number cust. per batch " << rsalg.avg_num_cust_per_batch()  << '\n'
-         << "Avg. number vehl. per batch " << rsalg.avg_num_vehl_per_batch()
+         << "Avg. number vehl. per batch " << rsalg.avg_num_vehl_per_batch()  << '\n'
+         << "Count shortest-path comps   " << count_sp_
          << std::endl;
   f_sol_.close();
   print << "Finished Cargo" << std::endl;
@@ -884,7 +886,7 @@ void Cargo::initialize(const Options& opt) {
         Stop a(trip.id(), trip.orig(), StopType::VehlOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip_dest  , StopType::VehlDest, trip.early(), trip.late());
         vec_t<Wayp> rte;
-        DistInt cost = route_through({a,b}, rte);
+        DistInt cost = route_through({a,b}, rte, false);
 
         /* Initialize vehicle schedule */
         vec_t<Stop> sch;
@@ -940,7 +942,7 @@ void Cargo::initialize(const Options& opt) {
         Stop a(trip.id(), trip.orig(), StopType::CustOrig, trip.early(), trip.late(), trip.early());
         Stop b(trip.id(), trip.dest(), StopType::CustDest, trip.early(), trip.late());
         vec_t<Wayp> rte;
-        DistInt cost = route_through({a, b}, rte);
+        DistInt cost = route_through({a, b}, rte, false);
 
         /* Record base cost */
         base_cost_ += cost;

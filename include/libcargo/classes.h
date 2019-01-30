@@ -23,6 +23,7 @@
 #define CARGO_INCLUDE_LIBCARGO_CLASSES_H_
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,7 @@
  *   - Vehicle
  *   - MutableVehicle
  *   - ProblemSet
+ * At the bottom are hash functions and << overloads
  */
 
 namespace cargo {
@@ -282,6 +284,10 @@ class ProblemSet {
   std::string road_network_;
   dict<SimlTime, vec_t<Trip>> trips_;
 };
+
+std::ostream& operator<<(std::ostream& os, const Wayp &);
+std::ostream& operator<<(std::ostream& os, const vec_t<Wayp> &);
+std::ostream& operator<<(std::ostream& os, const Route &);
 
 }  // namespace cargo
 

@@ -42,6 +42,7 @@ namespace cargo {
 
 class Cargo {
  public:
+  Cargo();
   Cargo(const Options &);
   ~Cargo();
 
@@ -59,6 +60,7 @@ class Cargo {
   static GTree::G_Tree & gtree()                   { return gtree_; }
   static sqlite3       * db()                      { return db_; }
   static bool          & paused()                  { return paused_; }
+  static int           & count_sp()                { return count_sp_; }
 
   void start();                             // start simulation
   void start(RSAlgorithm &);                // start simulation
@@ -133,6 +135,7 @@ class Cargo {
   static dict<TripId, DistInt> trip_costs_;
   static cache::lru_cache<std::string, vec_t<NodeId>> spcache_;
   static cache::lru_cache<std::string, DistInt>       sccache_;
+  static int count_sp_;                     // number of sp computations
 
   Speed original_speed_; // hack
 
@@ -170,6 +173,7 @@ class Cargo {
   sqlite3_stmt* usc_stmt;                   // update schedule, lvn, nnd
   sqlite3_stmt* cwc_stmt;                   // count waiting customers
 
+  void construct(const Options &);
   void initialize(const Options &);
 
   std::mt19937 rng;

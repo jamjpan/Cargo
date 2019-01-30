@@ -47,15 +47,9 @@ DistInt pickup_range(const Customer &);
 
 
 /* Route operations ----------------------------------------------------------*/
-DistInt route_through(  // use specific g-tree
-  const vec_t<Stop> &,
-        vec_t<Wayp> &,
-        GTree::G_Tree &
-);
-DistInt route_through(  // use global g-tree
-  const vec_t<Stop> &,
-        vec_t<Wayp> &
-);
+DistInt route_through(const vec_t<Stop> &, vec_t<Wayp> &, GTree::G_Tree &, const bool & count = true);
+DistInt route_through(const vec_t<Stop> &, vec_t<Wayp> &, const bool &);
+DistInt route_through(const vec_t<Stop> &, vec_t<Wayp> &);
 bool chkpc(const Schedule &);
 bool chkpc(const vec_t<Stop> &);
 bool chktw(const vec_t<Stop> &, const vec_t<Wayp> &);

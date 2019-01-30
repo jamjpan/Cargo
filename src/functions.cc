@@ -75,53 +75,47 @@ DistInt pickup_range(const Customer& cust) {
 
 
 /* Route operations ----------------------------------------------------------*/
-DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout,
-                      GTree::G_Tree& gtree) {
-  DistInt cst = 0;
+DistInt route_through(
+    const vec_t<Stop>   & sch,
+          vec_t<Wayp>   & rteout,
+          GTree::G_Tree & gtree,
+    const bool          & count)
+{
+  DistInt cost = 0;
+  DistInt traveled = 0;
   rteout.clear();
-  rteout.push_back({0, sch.front().loc()});
+  Wayp wp = std::make_pair(cost, sch.front().loc());
+  // std::cout << "route_through push_back " << wp << std::endl;
+  rteout.push_back(wp);
 
-  vec_t<NodeId> seg {};
-  for (auto i = sch.cbegin(); i != sch.cend()-1; ++i) {
+  vec_t<Wayp> path = {};
+  for (auto i = sch.cbegin(); i != sch.cend() - 1; ++i) {
     const NodeId& from = i->loc();
     const NodeId& to = (std::next(i,1))->loc();
-
-    if (from != to) {
-      if (!Cargo::spexist(from, to)) {  // <-- spexist is thread safe
-        try {
-          //DistInt seg_cost = gtree.find_path(from, to, seg);
-          //if (!Cargo::scexist(from, to)) {
-          //  std::lock_guard<std::mutex> sclock(Cargo::scmx); // Lock acquired
-          //  Cargo::scput(from, to, seg_cost);
-          //}
-          gtree.find_path(from, to, seg);
-        }
-        catch (...) {
-          std::cout << "gtree.find_path(" << from << "," << to << ") failed" << std::endl;
-          print_sch(sch);
-          //std::cout << "index: " << i << std::endl;
-          throw;
-        }
-        std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-        Cargo::spput(from, to, seg);
-      } else {
-        std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-        seg = Cargo::spget(from, to);
+    path = {};
+    // std::cout << from << ">" << to << std::endl;
+    //if (from != to) {
+      cost = get_shortest_path(from, to, path, gtree, count);
+      for (size_t i = 1; i < path.size(); ++i) {
+        wp = std::make_pair(path.at(i).first + traveled, path.at(i).second);
+        // std::cout << "route_through push_back " << wp << std::endl;
+        rteout.push_back(wp);
       }
-
-      for (auto i = seg.cbegin()+1; i != seg.cend(); ++i) {
-        cst += Cargo::edgew(*(std::prev(i, 1)), *i);
-        rteout.push_back({cst, *i});
-      }
-    } else
-      rteout.push_back({cst, to});
+      traveled += cost;
+    //} else {
+      // wp = std::make_pair(cost, to);
+      // std::cout << "route_through push_back " << wp << std::endl;
+      // rteout.push_back(wp);
+    //}
   }
-
-  return cst;
+  return traveled;
 }
 
-DistInt route_through(const vec_t<Stop> & sch,
-                            vec_t<Wayp> & rteout) {
+DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout, const bool& count) {
+  return route_through(sch, rteout, Cargo::gtree(), count);
+}
+
+DistInt route_through(const vec_t<Stop>& sch, vec_t<Wayp>& rteout) {
   return route_through(sch, rteout, Cargo::gtree());
 }
 

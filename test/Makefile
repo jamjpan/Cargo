@@ -1,53 +1,25 @@
+INCLUDE = /home/jpan/devel/Cargo/include
+METISDIR = /usr/local/lib
+CARGODIR = /home/jpan/devel/Cargo/lib
+# ------------------------------------------------------------------------------
 CXX = g++
-CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -I../include -o $@
+CFLAGS = -Wall -Wextra -std=c++11 -O3 -g -c -I$(INCLUDE) -o $@
 LFLAGS = -Wall
 PTHREAD = -lpthread
 LDL = -ldl
-METIS = -L/usr/local/lib -lmetis
-CARGO = -L../lib -lcargo
+METIS = -L$(METISDIR) -lmetis
+CARGO = -L$(CARGODIR) -lcargo
 #-------------------------------------------------------------------------------
-OBJECTS = \
-		  build/main.o \
-		  build/functions_test.o \
-		  build/message_test.o \
-		  build/cargo_test.o \
-		  build/rsalgorithm_test.o
+OBJECTS = test-1.o main.o
 all: $(OBJECTS)
-	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -fopenmp -o run_tests
+	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(LDL) $(METIS) -fopenmp -o run
 #-------------------------------------------------------------------------------
-$(OBJECTS): | build
+test-1.o: src/test-1.cc
+	$(CXX) $(CFLAGS) src/test-1.cc
 
-build/main.o: \
-	src/main.cc
+main.o: src/main.cc
 	$(CXX) $(CFLAGS) src/main.cc
 
-build/cargo_test.o: \
-	../lib/libcargo.a \
-	../include/libcargo.h \
-	src/cargo_test.cc
-	$(CXX) $(CFLAGS) -fopenmp src/cargo_test.cc
-
-build/rsalgorithm_test.o: \
-	../lib/libcargo.a \
-	../include/libcargo.h \
-	src/rsalgorithm_test.cc
-	$(CXX) $(CFLAGS) src/rsalgorithm_test.cc
-
-build/message_test.o: \
-	../lib/libcargo.a \
-	../include/libcargo.h \
-	src/message_test.cc
-	$(CXX) $(CFLAGS) src/message_test.cc
-
-build/functions_test.o: \
-	../lib/libcargo.a \
-	../include/libcargo.h \
-	src/functions_test.cc
-	$(CXX) $(CFLAGS) src/functions_test.cc
-
-build:
-	mkdir -p build
-
 clean:
-	rm -rf build/ run_tests
+	rm -rf *.o run
 

@@ -298,5 +298,22 @@ const std::unordered_map<ErlyTime,vec_t<Trip>> & ProblemSet::trips() const {
   return trips_;
 }
 
+
+/*****************************************************************************/
+std::ostream& operator<<(std::ostream& os, const Wayp& wp) {
+  return os << "(" << wp.first << "," << wp.second << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const vec_t<Wayp>& route) {
+  std::ostringstream oss;
+  for (size_t i = 0; i < route.size(); ++i)
+    oss << route.at(i) << (i == route.size() - 1 ? "" : " ");
+  return os << oss.str();
+}
+
+std::ostream& operator<<(std::ostream& os, const Route& route) {
+  return os << route.data();
+}
+
 } // namespace cargo
 

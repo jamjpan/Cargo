@@ -397,6 +397,7 @@ void RSAlgorithm::print_statistics() {
     << "Avg. listen          dur (ms): " << this->avg_listen_dur_          << '\n'
     << "Avg. num. customers per batch: " << this->avg_num_cust_per_batch_  << '\n'
     << "Avg. num. vehicles  per batch: " << this->avg_num_vehl_per_batch_  << '\n'
+    << "Count shortest-path comps: " << Cargo::count_sp()
     << std::endl;
 }
 

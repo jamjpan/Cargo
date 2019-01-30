@@ -45,45 +45,93 @@ inline DistDbl haversine(const Point& u, const Point& v) {
   return r * (2 * std::asin(std::sqrt(a)));  // meters
 }
 
-inline DistDbl haversine(NodeId u, NodeId v) {
+inline DistDbl haversine(const NodeId& u, const NodeId& v) {
   return haversine(Cargo::node2pt(u), Cargo::node2pt(v));
 }
 
-// (Maybe combine with route_through (functions.h))
-inline DistInt shortest_path_dist( // use specific gtree
-        const NodeId& u,
-        const NodeId& v,
-        GTree::G_Tree& gtree) {
+inline DistInt get_shortest_path(
+    const NodeId        & u,
+    const NodeId        & v,
+          vec_t<Wayp>   & path,
+          GTree::G_Tree & gtree,
+    const int           & count = true)
+{
+  if (count) Cargo::count_sp() += 1;
   vec_t<NodeId> seg = {};
-  bool in_cache = false;
-  { std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-  in_cache = Cargo::spexist(u, v);
-  if (in_cache)
-    seg = Cargo::spget(u, v);
-  } // Lock released
-  if (!in_cache) {
-    try { gtree.find_path(u,v,seg); }
+  path = {};
+
+  // Do not change this part, used by Cargo::step()
+  if (u == v) {
+    Wayp wp = std::make_pair(0, u);
+    path.push_back(wp);
+    path.push_back(wp);
+    return 0;
+  }
+  //------------------------
+
+  if (!Cargo::spexist(u, v)) {
+    // gtree seems to directly cause SIGSEGV if u or v is out of bounds so the
+    // try-catch is useless
+    try { gtree.find_path(u, v, seg); }
     catch (...) {
       std::cout << "gtree.find_path(" << u << "," << v << ") failed" << std::endl;
-      throw;
+      throw std::runtime_error("find_path error");
     }
-    std::lock_guard<std::mutex> splock(Cargo::spmx); // Lock acquired
-    Cargo::spput(u,v,seg);
-  } // Lock released
-  DistInt cst = 0;
-  for (size_t i = 1; i < seg.size(); ++i)
-    cst += Cargo::edgew(seg.at(i-1), seg.at(i));
-  return cst;
+    // Acquire lock
+    std::lock_guard<std::mutex> splock(Cargo::spmx);
+    Cargo::spput(u, v, seg);
+  }
+  // Lock released (out-of-scope)
+  else {
+    // Acquire lock
+    std::lock_guard<std::mutex> splock(Cargo::spmx);
+    seg = Cargo::spget(u, v);
+  }
+  // Lock released (out-of-scope)
+
+  DistInt cost = 0;
+  Wayp wp = std::make_pair(cost, seg.at(0));
+  // std::cout << "get_shortest_path push_back " << wp << std::endl;
+  path.push_back(wp);
+  for (size_t i = 1; i < seg.size(); ++i) {
+    cost += Cargo::edgew(seg.at(i-1), seg.at(i));
+    wp = std::make_pair(cost, seg.at(i));
+    // std::cout << "get_shortest_path push_back " << wp << std::endl;
+    path.push_back(wp);
+  }
+  return cost;
 }
 
-inline DistInt shortest_path_dist( // use global gtree
-        const NodeId& u,
-        const NodeId& v) {
-    return shortest_path_dist(u, v, Cargo::gtree());
+inline DistInt get_shortest_path( const NodeId& u, const NodeId& v) {
+  vec_t<Wayp> _ = {};
+  return get_shortest_path(u, v, _, Cargo::gtree());
+}
+
+inline DistInt get_shortest_path( const NodeId& u, const NodeId& v, vec_t<Wayp>& path) {
+  return get_shortest_path(u, v, path, Cargo::gtree());
+}
+
+inline DistInt get_shortest_path( const NodeId& u, const NodeId& v, GTree::G_Tree& gtree) {
+  vec_t<Wayp> _ = {};
+  return get_shortest_path(u, v, _, gtree);
+}
+
+inline DistInt get_shortest_path( const NodeId& u, const NodeId& v, const bool& count) {
+  vec_t<Wayp> _ = {};
+  return get_shortest_path(u, v, _, Cargo::gtree(), count);
+}
+
+inline DistInt get_shortest_path( const NodeId& u, const NodeId& v, vec_t<Wayp>& path, const bool& count) {
+  return get_shortest_path(u, v, path, Cargo::gtree(), count);
+}
+
+inline DistInt get_shortest_path( const NodeId& u, const NodeId& v, GTree::G_Tree& gtree, const bool& count) {
+  vec_t<Wayp> _ = {};
+  return get_shortest_path(u, v, _, gtree, count);
 }
 
 // Convert meters to number of longitude degrees
-// Really messes up at the poles
+// TODO Compensate near the poles
 // https://stackoverflow.com/a/1253545
 inline double metersTolngdegs(const DistDbl& meters, const Lat& lat) {
   return meters / (111320 * std::cos(lat * MathPI / 180));
