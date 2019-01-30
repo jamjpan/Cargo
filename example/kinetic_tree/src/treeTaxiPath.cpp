@@ -62,7 +62,7 @@ TreeNode::TreeNode(TreeNode *parent, NodeId loc, NodeId owner, bool start, long 
 
   if (this->parent != nullptr) {
     //time = shortestPath->shortestDistance(parent->vert, vert);
-    time = shortest_path_dist(this->parent->loc, loc)/Cargo::vspeed(); // <-- libcargo/distance.h
+    time = get_shortest_path(this->parent->loc, loc)/Cargo::vspeed(); // <-- libcargo/distance.h
     absoluteTime = this->parent->absoluteTime + time;
 
     // Really hacky...
@@ -137,7 +137,7 @@ TreeNode *TreeNode::safeConstructNode(TreeNode *parent, NodeId loc, NodeId owner
                                       bool pickupRemoved,
                                       double totalSlackTime) {
   //double time = shortestPath->shortestDistance(parent->vert, vert);
-  double time = shortest_path_dist(parent->loc, loc)/Cargo::vspeed();
+  double time = get_shortest_path(parent->loc, loc)/Cargo::vspeed();
 
   if (start || pickupRemoved) {
     if (parent->rootTime + time > limit) {
@@ -230,7 +230,7 @@ double TreeNode ::bestTime() {
     if (this->dest == -1)
       return 0;
     else
-      return shortest_path_dist(this->loc, this->dest)/Cargo::vspeed();
+      return get_shortest_path(this->loc, this->dest)/Cargo::vspeed();
 
   }
 }
@@ -396,8 +396,8 @@ bool TreeNode ::checkSlack(TreeNode *newNode) {
     //        shortestPath->shortestDistance(newNode->vert, children[i]->vert) -
     //        children[i]->time) {
     if (children[i]->totalSlackTime >
-        shortest_path_dist(loc, newNode->loc)/Cargo::vspeed() +
-        shortest_path_dist(newNode->loc, children[i]->loc)/Cargo::vspeed() -
+        get_shortest_path(loc, newNode->loc)/Cargo::vspeed() +
+        get_shortest_path(newNode->loc, children[i]->loc)/Cargo::vspeed() -
         children[i]->time) {
       return true;
     }
