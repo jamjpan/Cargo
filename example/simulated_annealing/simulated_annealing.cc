@@ -33,21 +33,14 @@ using namespace cargo;
 const int BATCH = 30;
 const int SCHED_MAX = 10;
 
-SimulatedAnnealing::SimulatedAnnealing()
-    : RSAlgorithm("sa50", true), grid_(100), d(0,1) {
-  this->construct(50);
-}
-
-SimulatedAnnealing::SimulatedAnnealing(const int& f)
-    : RSAlgorithm("sa"+std::to_string(f), true), grid_(100), d(0,1) {
-  if (f < 1 && f > 100) {
+SimulatedAnnealing::SimulatedAnnealing(const int& f, const int& tmax, const int& pmax)
+    : RSAlgorithm("sa"+std::to_string(f)+"_t"+std::to_string(tmax)+"_p"+std::to_string(pmax), true), grid_(100), d(0,1) {
+  if (f < 1 && f > 100)
     print(MessageType::Warning) << "f less than 1 or greater than 100; set to default (50)" << std::endl;
-    this->construct(50);
-  } else
-    this->construct(f);
-}
-
-void SimulatedAnnealing::construct(const int& f) {
+  if (tmax < 0)
+    print(MessageType::Warning) << "tmax less than 0; set to default (5)" << std::endl;
+  if (pmax < 0)
+    print(MessageType::Warning) << "pmax less than 0; set to default (5000)" << std::endl;
   this->batch_time() = BATCH;
   this->nclimbs_ = 0;
   this->ntries_ = 0;
@@ -55,10 +48,12 @@ void SimulatedAnnealing::construct(const int& f) {
   this->ntimeouts_ = 0;
   this->ncap_ = 0;
   this->ntw_ = 0;
-  this->t_max = 5;
-  this->p_max = 5000;
+  this->t_max = tmax;
+  this->p_max = pmax;
   this->f_ = static_cast<float>(f/100.0);
   print << "Set f to " << this->f_ << std::endl;
+  print << "Set tmax to " << this->t_max << std::endl;
+  print << "Set pmax to " << this->p_max << std::endl;
   std::random_device rd;
   this->gen.seed(rd());
 }

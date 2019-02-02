@@ -31,8 +31,7 @@ typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> SASol;
 
 class SimulatedAnnealing : public RSAlgorithm {
  public:
-  SimulatedAnnealing();
-  SimulatedAnnealing(const int &);
+  SimulatedAnnealing(const int& f = 50, const int& tmax = 5, const int& pmax = 5000);
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -68,8 +67,6 @@ class SimulatedAnnealing : public RSAlgorithm {
   std::unordered_map<VehlId, std::vector<Customer>> commit_cadd;
   std::unordered_map<VehlId, std::vector<Wayp>> commit_rte;
   std::unordered_map<VehlId, std::vector<Stop>> commit_sch;
-
-  void construct(const int &);
 
   DistInt sol_cost(const SASol& sol) {
       std::set<MutableVehicle> vehls = {};
