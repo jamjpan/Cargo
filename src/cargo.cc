@@ -1021,6 +1021,9 @@ void Cargo::initialize(const Options& opt) {
   static_mode = opt.static_mode;
   strict_mode = opt.strict_mode;
 
+  if (static_mode) print(MessageType::Warning) << "Using static mode" << std::endl;
+  if (strict_mode) print(MessageType::Warning) << "Using strict mode" << std::endl;
+
   sqlite3_finalize(insert_vehicle_stmt);
   sqlite3_finalize(insert_customer_stmt);
   sqlite3_finalize(insert_stop_stmt);
