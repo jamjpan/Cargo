@@ -315,5 +315,21 @@ std::ostream& operator<<(std::ostream& os, const Route& route) {
   return os << route.data();
 }
 
+std::ostream& operator<<(std::ostream& os, const Stop& sp) {
+  return os << "(" << sp.owner() << "," << sp.loc() << "," << (int)sp.type() << ","
+            << sp.early() << "," << sp.late() << "," << sp.visitedAt() << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const vec_t<Stop>& sched) {
+  std::ostringstream oss;
+  for (size_t i = 0; i < sched.size(); ++i)
+    oss << sched.at(i) << (i == sched.size() - 1 ? "" : " ");
+  return os << oss.str();
+}
+
+std::ostream& operator<<(std::ostream& os, const Schedule& sched) {
+  return os << sched.data();
+}
+
 } // namespace cargo
 

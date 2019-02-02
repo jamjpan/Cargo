@@ -288,6 +288,9 @@ class ProblemSet {
 std::ostream& operator<<(std::ostream& os, const Wayp &);
 std::ostream& operator<<(std::ostream& os, const vec_t<Wayp> &);
 std::ostream& operator<<(std::ostream& os, const Route &);
+std::ostream& operator<<(std::ostream& os, const Stop &);
+std::ostream& operator<<(std::ostream& os, const vec_t<Stop> &);
+std::ostream& operator<<(std::ostream& os, const Schedule &);
 
 }  // namespace cargo
 
