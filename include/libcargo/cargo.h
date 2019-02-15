@@ -140,7 +140,9 @@ class Cargo {
   Speed original_speed_; // hack
 
   /* Solution file */
-  long int total_route_cost();
+  void total_solution_cost();
+  long int total_traveled_;
+  long int total_penalty_;
   SimlDur avg_pickup_delay();               // (time-to-pickup) - cust.early()
   SimlDur avg_trip_delay();                 // (dropoff - pickup) - base cost
 
