@@ -33,8 +33,9 @@ using namespace cargo;
 const int BATCH = 30;
 const int SCHED_MAX = 10;
 
-SimulatedAnnealing::SimulatedAnnealing(const int& f, const int& tmax, const int& pmax)
-    : RSAlgorithm("sa"+std::to_string(f)+"_t"+std::to_string(tmax)+"_p"+std::to_string(pmax), true), grid_(100), d(0,1) {
+SimulatedAnnealing::SimulatedAnnealing(const std::string& name,
+    const int& f, const int& tmax, const int& pmax)
+    : RSAlgorithm(name, true), grid_(100), d(0,1) {
   if (f < 1 && f > 100)
     print(MessageType::Warning) << "f less than 1 or greater than 100; set to default (50)" << std::endl;
   if (tmax < 0)
@@ -64,14 +65,15 @@ void SimulatedAnnealing::match() {
   Grid local_grid(this->grid_);  // make a deep copy
 
   this->initialize(local_grid);
-  // print << "initial cost: " << this->sol_cost(this->sol) << std::endl;
+  print_sol(this->sol);
+  print(MessageType::Info) << "initial cost: " << this->sol_cost(this->sol) << std::endl;
 
   if (!this->sol.empty()) {
-    std::uniform_int_distribution<>::param_type sol_size_range(1, this->sol.size());
-    this->n.param(sol_size_range);
     this->anneal(t_max, p_max);
-    // print << "after anneal: " << this->sol_cost(this->sol) << std::endl;
+    print(MessageType::Info) << "after anneal: " << this->sol_cost(this->sol) << std::endl;
     this->commit();
+  } else {
+    print(MessageType::Warning) << "empty initial solution" << std::endl;
   }
 }
 
@@ -89,10 +91,11 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
     for (const MutableVehicleSptr cand : candidates)
       this->vehicle_lookup[cand->id()] = cand;
 
+    print << "  got " << candidates.size() << " cands" << std::endl;
+
     // Randomize the candidates order
     //std::shuffle(candidates.begin(), candidates.end(), this->gen);
 
-    print << "  got " << candidates.size() << " cands" << std::endl;
     // Try until got a valid one
     while (!candidates.empty() && initial == false) {
       auto k = candidates.begin();
@@ -102,6 +105,9 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
       candidates.erase(k);
       //MutableVehicleSptr cand = candidates.back();
       //candidates.pop_back();
+
+      print << "    trying vehl " << cand->id() << std::endl;
+
       // Speed-up heuristic!
       // Try only if vehicle's current schedule len < 8 customer stops
       if (cand->schedule().data().size() < SCHED_MAX) {
@@ -119,8 +125,13 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
           print << "    initialized cust " << cust.id() << " to cand " << cand->id() << "; assignments=";
           for (const auto& c : this->sol.at(cand->id()).second) print << c.id() << ", ";
           print << std::endl;
+          print << "    sched: " << cand->schedule() << std::endl;
           initial = true;
+        } else {
+          print << "      skipping due to infeasible" << std::endl;
         }
+      } else {
+        print << "      skipping due to sched_max" << std::endl;
       }
     }
   }
@@ -128,9 +139,21 @@ void SimulatedAnnealing::initialize(Grid& local_grid) {
 
 SASol SimulatedAnnealing::perturb(const SASol& sol,
                                      const int& temperature) {
+  // Due to structure of SASol, when we "randomly select a customer" we
+  // actually randomly select a vehicle, then choose a customer assigned to
+  // that vehicle. We then need to make sure our solution never has "empty"
+  // vehicles with no assignments, otherwise some perturbs will be wasted.
+
+  std::uniform_int_distribution<>::param_type sol_size_range(1, sol.size());
+  this->n.param(sol_size_range);
   auto i = sol.cbegin();                    // 1. Select random vehicle
   std::advance(i, this->n(this->gen)-1);
-  if (i->second.second.empty()) return sol;
+  if (i->second.second.empty()) {  // this should never happen
+    print << "perturb got vehicle " << i->second.first.id() << " with no assignments; returning" << std::endl;
+    print_sol(sol);
+    pause();
+    return sol;
+  }
   MutableVehicle  k_old = i->second.first;
   vec_t<Customer> k_old_assignments = i->second.second;
   print << "perturb got vehl " << k_old.id() << std::endl;
@@ -139,7 +162,7 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
   std::uniform_int_distribution<> m(1, k_old_assignments.size());
   std::advance(j, m(this->gen)-1);
   Customer cust_to_move = *j;
-  print << "perturb got cust " << cust_to_move.id() << std::endl;
+  print << "  perturb got cust " << cust_to_move.id() << std::endl;
 
   vec_t<MutableVehicleSptr> candidates = this->candidates_list.at(cust_to_move.id());
   if (candidates.empty()) {
@@ -150,7 +173,7 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
   auto k = candidates.cbegin();             // 3. Select new candidate
   std::uniform_int_distribution<> p(1, candidates.size());
   std::advance(k, p(this->gen)-1);
-  print << " perturb got new cand " << (*k)->id() << std::endl;
+  print << "  perturb got new cand " << (*k)->id() << std::endl;
 
   //while (((*k)->id() == k_old.id() || this->tried.at(cust_to_move.id()).count((*k)->id()) == 1)
   //    && !candidates.empty()) {
@@ -192,7 +215,11 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
       //   c. Remove cust from k_old
       this->sch_after_rem = k_old.schedule().data();
       opdel(this->sch_after_rem, cust_to_move.id());
-      route_through(this->sch_after_rem, this->rte_after_rem);
+      route_through(this->sch_after_rem, this->rte_after_rem);  // bug maybe HERE?? existing distance is not added to rte_after_rem TODO
+
+      // Add the traveled distance to rte_after_rem
+      for (Wayp& wp : this->rte_after_rem)
+        wp.first += k_old.route().dist_at(k_old.idx_last_visited_node());
 
       //   d. Compare costs
       DistInt new_cost = this->rte_after_add.back().first + rte_after_rem.back().first;
@@ -206,6 +233,8 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
       }
       if (new_cost < current_cost || climb) {
         print << (new_cost < current_cost ? "  accept" : " accept due to climb") << std::endl;
+        print << "  sched for " << k_old.id() << ": " << sch_after_rem << std::endl;
+        print << "  sched for " << k_new.id() << ": " << sch_after_add << std::endl;
         // Update grid
         vehicle_lookup.at(k_old.id())->set_sch(sch_after_rem);
         vehicle_lookup.at(k_old.id())->set_rte(rte_after_rem);
@@ -224,11 +253,20 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
         k_new.reset_lvn();
         k_new_assignments.push_back(cust_to_move);
         SASol improved_sol = sol;
-        improved_sol[k_old.id()] = std::make_pair(k_old, k_old_assignments);
         improved_sol[k_new.id()] = std::make_pair(k_new, k_new_assignments);
+        if (k_old_assignments.empty())
+          improved_sol.erase(k_old.id());  // erase by key
+        else
+          improved_sol[k_old.id()] = std::make_pair(k_old, k_old_assignments);
         return improved_sol;
+      } else {
+        print << "    reject (greater cost)" << std::endl;
       }
+    } else {
+      print << "    reject (failed chktw)" << std::endl;
     }
+  } else {
+    print << "    reject (failed chkcap)" << std::endl;
   }
   return sol;
 }
@@ -239,8 +277,13 @@ void SimulatedAnnealing::commit() {
     vec_t<CustId> cadd = {};
     vec_t<CustId> cdel = {};
     for (const Customer& cust : kv.second.second) cadd.push_back(cust.id());
-    if (this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand))
-      for (const CustId& cid : cadd) print << "Matched " << cid << " with " << cand.id() << std::endl;
+    if (this->assign(cadd, cdel, cand.route().data(), cand.schedule().data(), cand)) {
+      for (const CustId& cid : cadd)
+        print << "Matched " << cid << " with " << cand.id() << std::endl;
+    } else {
+      for (const CustId& cid : cadd)
+        print(MessageType::Warning) << "Rejected due to sync " << cid << " with " << cand.id() << std::endl;
+    }
   }
 }
 
@@ -260,6 +303,16 @@ void SimulatedAnnealing::end() {
 void SimulatedAnnealing::listen(bool skip_assigned, bool skip_delayed) {
   this->grid_.clear();
   RSAlgorithm::listen(skip_assigned, skip_delayed);
+}
+
+void SimulatedAnnealing::print_sol(const SASol& sol) {
+  for (const auto& kv : sol) {
+    print << "Vehl " << kv.first << " | ";
+    for (const auto& cust : kv.second.second) {
+      print << cust.id() << " ";
+    }
+    print << std::endl;
+  }
 }
 
 void SimulatedAnnealing::reset_workspace() {

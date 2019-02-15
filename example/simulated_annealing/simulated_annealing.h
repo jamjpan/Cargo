@@ -31,7 +31,8 @@ typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> SASol;
 
 class SimulatedAnnealing : public RSAlgorithm {
  public:
-  SimulatedAnnealing(const int& f = 50, const int& tmax = 5, const int& pmax = 5000);
+  SimulatedAnnealing(const std::string &,
+    const int& f = 50, const int& tmax = 5, const int& pmax = 5000);
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
@@ -106,5 +107,7 @@ class SimulatedAnnealing : public RSAlgorithm {
   }
 
   void reset_workspace();
+
+  void print_sol(const SASol &);
 };
 
