@@ -130,7 +130,6 @@ io.on('connection', (socket) => {
           Options option;
           option.path_to_roadnet    = "${ROAD_PATH}${data.road}.rnet";
           option.path_to_problem    = "${PROB_PATH}${data.problem}.instance";
-          option.vehicle_speed      = ${data.speed};
           option.matching_period    = ${data.mat};
           option.strict_mode        = ${routing_mode};
           option.static_mode        = ${static_mode};
