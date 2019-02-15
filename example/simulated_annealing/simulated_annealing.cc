@@ -148,12 +148,14 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
   this->n.param(sol_size_range);
   auto i = sol.cbegin();                    // 1. Select random vehicle
   std::advance(i, this->n(this->gen)-1);
-  if (i->second.second.empty()) {  // this should never happen
-    print << "perturb got vehicle " << i->second.first.id() << " with no assignments; returning" << std::endl;
-    print_sol(sol);
-    pause();
-    return sol;
-  }
+
+  // if (i->second.second.empty()) {  // this should never happen
+  //   print << "perturb got vehicle " << i->second.first.id() << " with no assignments; returning" << std::endl;
+  //   print_sol(sol);
+  //   pause();
+  //   return sol;
+  // }
+
   MutableVehicle  k_old = i->second.first;
   vec_t<Customer> k_old_assignments = i->second.second;
   print << "perturb got vehl " << k_old.id() << std::endl;
@@ -215,7 +217,7 @@ SASol SimulatedAnnealing::perturb(const SASol& sol,
       //   c. Remove cust from k_old
       this->sch_after_rem = k_old.schedule().data();
       opdel(this->sch_after_rem, cust_to_move.id());
-      route_through(this->sch_after_rem, this->rte_after_rem);  // bug maybe HERE?? existing distance is not added to rte_after_rem TODO
+      route_through(this->sch_after_rem, this->rte_after_rem);
 
       // Add the traveled distance to rte_after_rem
       for (Wayp& wp : this->rte_after_rem)
