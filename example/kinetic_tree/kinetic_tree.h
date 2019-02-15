@@ -32,7 +32,7 @@ using namespace cargo;
 
 class KineticTrees : public RSAlgorithm {
  public:
-  KineticTrees();
+  KineticTrees(const std::string &);
   ~KineticTrees();
 
   /* My overrides */

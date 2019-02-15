@@ -31,7 +31,7 @@ typedef std::vector<Customer> SharedTrip;
 
 class TripVehicleGrouping : public RSAlgorithm {
  public:
-  TripVehicleGrouping();
+  TripVehicleGrouping(const std::string &);
 
   int unassign_penalty = -1;
 

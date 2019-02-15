@@ -90,27 +90,27 @@ int main(int argc, char** argv) {
   Cargo cargo(op);
 
   if (selection == "1") {
-    BilateralPlus alg; cargo.start(alg);
+    BilateralPlus alg("bp_"+cargo.name()); cargo.start(alg);
   } else if (selection == "2") {
-    BilateralArrangement alg; cargo.start(alg);
+    BilateralArrangement alg("ba_"+cargo.name()); cargo.start(alg);
   } else if (selection == "3") {
-    Grabby alg; cargo.start(alg);
+    Grabby alg("gb_"+cargo.name()); cargo.start(alg);
   } else if (selection == "4") {
-    Greedy alg; cargo.start(alg);
+    Greedy alg("gr_"+cargo.name()); cargo.start(alg);
   } else if (selection == "5") {
-    KineticTrees alg; cargo.start(alg);
+    KineticTrees alg("kt_"+cargo.name()); cargo.start(alg);
   } else if (selection == "6") {
-    NearestNeighbor alg; cargo.start(alg);
+    NearestNeighbor alg("nn_"+cargo.name()); cargo.start(alg);
   } else if (selection == "7") {
-    GRASP alg(4); cargo.start(alg);
+    GRASP alg("gp4_"+cargo.name(), 4); cargo.start(alg);
   } else if (selection == "8") {
-    GRASP alg(16); cargo.start(alg);
+    GRASP alg("gp16_"+cargo.name(), 16); cargo.start(alg);
   } else if (selection == "9") {
-    SimulatedAnnealing alg(50); cargo.start(alg);
+    SimulatedAnnealing alg("sa50_"+cargo.name(), 50); cargo.start(alg);
   } else if (selection == "10") {
-    SimulatedAnnealing alg(100); cargo.start(alg);
+    SimulatedAnnealing alg("sa100_"+cargo.name(), 100); cargo.start(alg);
   } else if (selection == "11") {
-    TripVehicleGrouping alg; cargo.start(alg);
+    TripVehicleGrouping alg("tg_"+cargo.name()); cargo.start(alg);
   }
 }
 

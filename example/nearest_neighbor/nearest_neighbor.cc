@@ -31,8 +31,8 @@ auto cmp = [](nn_cand left, nn_cand right) {
   return std::get<0>(left) > std::get<0>(right);
 };
 
-NearestNeighbor::NearestNeighbor()
-    : RSAlgorithm("nearest_neighbor", false), grid_(100) {
+NearestNeighbor::NearestNeighbor(const std::string& name)
+    : RSAlgorithm(name, false), grid_(100) {
   this->batch_time() = BATCH;               // (rsalgorithm.h)
 }
 

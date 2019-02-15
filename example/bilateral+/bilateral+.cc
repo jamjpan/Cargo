@@ -31,8 +31,8 @@ using namespace cargo;
 
 const int BATCH = 30;
 
-BilateralPlus::BilateralPlus()
-    : RSAlgorithm("bilateral+", false), grid_(100) {
+BilateralPlus::BilateralPlus(const std::string& name)
+    : RSAlgorithm(name, false), grid_(100) {
   this->batch_time() = BATCH;
   this->nswapped_ = 0;
 }

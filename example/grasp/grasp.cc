@@ -33,13 +33,13 @@ const int BATCH = 30;
 const int TOP_K = 10;
 const int SCHED_MAX = 10;
 
-GRASP::GRASP()
-    : RSAlgorithm("grasp4", false), grid_(100), d(0,1) {
+GRASP::GRASP(const std::string& name)
+    : RSAlgorithm(name, false), grid_(100), d(0,1) {
   this->construct(4);
 }
 
-GRASP::GRASP(const int& i)
-    : RSAlgorithm("grasp"+std::to_string(i), false), grid_(100), d(0,1) {
+GRASP::GRASP(const std::string& name, const int& i)
+    : RSAlgorithm(name, false), grid_(100), d(0,1) {
   if (i < 1) {
     print(MessageType::Warning) << "max_iter less than 1; set to default (4)" << std::endl;
     this->construct(4);

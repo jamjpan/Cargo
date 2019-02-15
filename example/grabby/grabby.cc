@@ -24,7 +24,7 @@
 
 using namespace cargo;
 
-Grabby::Grabby() : RSAlgorithm("grabby", false) {
+Grabby::Grabby(const std::string& name) : RSAlgorithm(name, false) {
   this->batch_time() = 30;
   this->k = 10;
 }

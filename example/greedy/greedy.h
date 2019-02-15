@@ -23,7 +23,7 @@ using namespace cargo;
 
 class Greedy : public RSAlgorithm {
  public:
-  Greedy();
+  Greedy(const std::string &);
 
   /* My overrides */
   virtual void handle_customer(const Customer &);

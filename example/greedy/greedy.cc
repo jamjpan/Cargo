@@ -27,7 +27,7 @@
 
 using namespace cargo;
 
-Greedy::Greedy() : RSAlgorithm("greedy", false), grid_(100) {
+Greedy::Greedy(const std::string& name) : RSAlgorithm(name, false), grid_(100) {
   this->batch_time() = 30;
 }
 

@@ -36,8 +36,8 @@ using namespace cargo;
 
 const int BATCH = 30;
 
-KineticTrees::KineticTrees()
-    : RSAlgorithm("kinetic_tree", false), grid_(100) {
+KineticTrees::KineticTrees(const std::string& name)
+    : RSAlgorithm(name, false), grid_(100) {
   this->batch_time() = BATCH;
 }
 

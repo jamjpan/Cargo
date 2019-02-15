@@ -25,8 +25,11 @@ OBJECTS = \
 		trip_vehicle_grouping.o \
 		launcher.o
 
+# all: $(OBJECTS)
+# 	$(CXX) $(LFLAGS) -o launcher $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) $(GLPK) $(LDL) -lltdl -lz -lamd -lcolamd -fopenmp
+
 all: $(OBJECTS)
-	$(CXX) $(LFLAGS) $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) $(GLPK) $(LDL) -fopenmp -o launcher
+	$(CXX) $(LFLAGS) -o launcher $(OBJECTS) $(CARGO) $(PTHREAD) $(METIS) $(GLPK) $(LDL) -fopenmp
 
 launcher.o: $(LIBCARGO) launcher.cc
 	$(CXX) $(CFLAGS) -Ikinetic_tree/include -Itrip_vehicle_grouping/include launcher.cc

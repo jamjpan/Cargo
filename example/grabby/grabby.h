@@ -22,7 +22,7 @@
 using namespace cargo;
 
 class Grabby : public RSAlgorithm {
- public: Grabby();
+ public: Grabby(const std::string &);
          size_t k;
          virtual void handle_customer(const Customer &);
 };

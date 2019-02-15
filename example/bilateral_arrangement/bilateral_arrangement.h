@@ -25,7 +25,7 @@ typedef std::pair<DistInt, MutableVehicleSptr> ba_cand;
 
 class BilateralArrangement : public RSAlgorithm {
  public:
-  BilateralArrangement();
+  BilateralArrangement(const std::string &);
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);

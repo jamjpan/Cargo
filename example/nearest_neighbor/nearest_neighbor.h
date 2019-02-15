@@ -25,7 +25,7 @@ typedef std::pair<DistDbl, MutableVehicleSptr> nn_cand;
 
 class NearestNeighbor : public RSAlgorithm {
  public:
-  NearestNeighbor();
+  NearestNeighbor(const std::string &);
 
   /* My overrides */
   virtual void handle_customer(const Customer &);

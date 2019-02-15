@@ -39,8 +39,8 @@ const int TOP_CUST = 30;  // customers per vehicle for rv-graph
  const int TRIP_MAX = 12000;  // maximum number of trips per batch
 const int MAX_THREADS = 4;
 
-TripVehicleGrouping::TripVehicleGrouping()
-    : RSAlgorithm("trip_vehicle_grouping", true), grid_(100) {
+TripVehicleGrouping::TripVehicleGrouping(const std::string& name)
+    : RSAlgorithm(name, true), grid_(100) {
   batch_time() = BATCH;
   if (!omp_get_cancellation()) {
     print(MessageType::Error) << "OMP_CANCELLATION not set"

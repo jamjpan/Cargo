@@ -31,8 +31,8 @@ Solution;
 
 class GRASP : public RSAlgorithm {
  public:
-  GRASP();
-  GRASP(const int &);
+  GRASP(const std::string &);
+  GRASP(const std::string &, const int &);
 
   /* My overrides */
   virtual void handle_vehicle(const Vehicle &);
