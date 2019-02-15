@@ -3,10 +3,10 @@
 
 using namespace cargo;
 
-SCENARIO("print intro") {
+SCENARIO("print test-1 intro") {
   std::cout
     << "-----------------------------------------------------------\n"
-    << " C A R G O -- Tests \n"
+    << " C A R G O -- Distance and Route Tests \n"
     << "-----------------------------------------------------------"
     << std::endl;
 }
