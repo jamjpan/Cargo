@@ -483,16 +483,18 @@ int Cargo::step(int& ndeact) {
 
   return nrows;  // return number of stepped vehicles
 }   // dblock exits scope and is released
+
 /* Returns cost of all vehicle routes, plus the base cost for each
  * unassigned customer trip */
-long int Cargo::total_route_cost() {
-  long int cst = 0;
+void Cargo::total_solution_cost() {
+  this->total_traveled_ = 0;
+  this->total_penalty_  = 0;
 
   /* Get all vehicle route costs */
   while ((rc = sqlite3_step(sar_stmt)) == SQLITE_ROW) {
     const Wayp* rtebuf = static_cast<const Wayp*>(sqlite3_column_blob(sar_stmt, 0));
     const vec_t<Wayp> route(rtebuf, rtebuf + sqlite3_column_bytes(sar_stmt, 0) / sizeof(Wayp));
-    cst += route.back().first;
+    this->total_traveled_ += route.back().first;
   }
   if (rc != SQLITE_DONE) {
     print(MessageType::Error) << "Failure in select all routes. Reason:\n";
@@ -505,11 +507,9 @@ long int Cargo::total_route_cost() {
     const CustId cust_id = sqlite3_column_int(sac_stmt, 0);
     const VehlId assigned_to = sqlite3_column_int(sac_stmt, 7);
     if (assigned_to == 0) {
-      cst += trip_costs_.at(cust_id);
+      this->total_penalty_ += trip_costs_.at(cust_id);
     }
   }
-
-  return cst;
 }
 
 SimlDur Cargo::avg_pickup_delay() {
@@ -728,13 +728,17 @@ void Cargo::start(RSAlgorithm& rsalg) {
   logger_thread.join();
   print << "Stopped logger" << std::endl;
 
+  total_solution_cost();
+
   std::ofstream f_sol_(rsalg.name()+".sol", std::ios::out);
   f_sol_ << name()         << '\n'
          << road_network() << '\n'
          << "Tot. number of vehicles     " << total_vehicles_                 << '\n'
          << "Tot. number of customers    " << total_customers_                << '\n'
          << "Base distance      (meters) " << base_cost_                      << '\n'
-         << "Solution distance  (meters) " << total_route_cost()              << '\n'
+         << "Solution distance  (meters) " << total_traveled_+total_penalty_  << '\n'
+         << "  Total traveled   (meters) " << total_traveled_                 << '\n'
+         << "  Penalty          (meters) " << total_penalty_                  << '\n'
          << "Solution matches            " << rsalg.matches()                 << '\n'
          << "Rejected                    " << rsalg.rejected()                << '\n'
          << "Avg. pickup delay     (sec) " << avg_pickup_delay()              << '\n'
