@@ -441,14 +441,13 @@ DistInt sop_insert(const vec_t<Stop>& sch, const Stop& orig,
 DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
                        vec_t<Stop>& schout, vec_t<Wayp>& rteout,
                        GTree::G_Tree& gtree) {
+  DistInt head = 0;
   // The distances to the nodes in the routes found by route_through need
-  // to be corrected.  veh.schedule() passed here contains only un-visited
-  // stops. The first stop in the schedule is the vehicle's next node
-  // (because of step()).  route_through will give this stop a distance of 0.
-  // The distances to other stops in the augmented schedule passed to
-  // route_through will be relative to this first stop. The already-traveled
-  // distance TO THIS FIRST STOP (the next node) should be added.
-  const DistInt& head = vehl.route().data().at(vehl.idx_last_visited_node()+1).first;
+  // to be corrected.
+  head = vehl.route().data().at(vehl.idx_last_visited_node()+1).first;
+  DEBUG(3, {
+    std::cout << "set head=" << head << std::endl;
+  });
 
   const Stop cust_o(cust.id(), cust.orig(), StopType::CustOrig, cust.early(), cust.late());
   const Stop cust_d(cust.id(), cust.dest(), StopType::CustDest, cust.early(), cust.late());
@@ -470,7 +469,6 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
     print_rte(vehl.route().data());
     std::cout << "After insert " << cust.id() << " into " << vehl.id() << ":" << std::endl;
     print_rte(rteout);
-    std::cout << "head: " << head << std::endl;
   });
 
   // Add head to the new nodes in the route
@@ -481,11 +479,12 @@ DistInt sop_insert(const Vehicle& vehl, const Customer& cust,
     print_rte(rteout);
   });
 
-  // rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
+  // Why did I remove this?
+  rteout.insert(rteout.begin(), vehl.route().at(vehl.idx_last_visited_node()));
 
   DEBUG(3, {
-    // std::cout << "After adding curloc:" << std::endl;
-    // print_rte(rteout);
+    std::cout << "After adding curloc:" << std::endl;
+    print_rte(rteout);
     std::cout << "Returning cost: " << mincst+head << std::endl;
   });
 
