@@ -96,6 +96,7 @@ class Schedule {
   const vec_t<Stop>  & data()     const;  // return raw sequence of Stops
   const Stop         & at(SchIdx) const;  // return particular Stop
   const Stop         & front()    const;  // return first Stop
+  const Stop         & back()     const;  // return last Stop
         size_t         size()     const;  // return Schedule size
         void           print()    const;  // print to standard out
 

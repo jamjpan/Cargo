@@ -72,6 +72,7 @@ const VehlId            & Schedule::owner()      const { return owner_; }
 const vec_t<Stop>       & Schedule::data()       const { return data_; }
 const Stop              & Schedule::at(SchIdx i) const { return data_.at(i); }
 const Stop              & Schedule::front()      const { return data_.front(); }
+const Stop              & Schedule::back()       const { return data_.back(); }
       size_t              Schedule::size()       const { return data_.size(); }
 
 void Schedule::print() const {
