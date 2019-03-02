@@ -41,25 +41,26 @@ SCENARIO("route must pass integrity check before commit", "[rsalgorithm.h]") {
       REQUIRE(alg.assign({}, {}, good_route, schedule, copy) == true);
     }
 
-    THEN("RSAlgorithm::assign rejects new route with incorrect distances") {
-      vec_t<Wayp> bad_route = {};
-      // 10 meters have been added to the route.
-      Wayp a = std::make_pair(10,      0);
-      Wayp b = std::make_pair(18,      1);
-      Wayp c = std::make_pair(25, 194917);
-      Wayp d = std::make_pair(32, 114843);
-      Wayp e = std::make_pair(37, 114844);
-      bad_route = { a, b, c, d, e };
+    // TODO
+    // THEN("RSAlgorithm::assign rejects new route with incorrect distances") {
+    //   vec_t<Wayp> bad_route = {};
+    //   // 10 meters have been added to the route.
+    //   Wayp a = std::make_pair(10,      0);
+    //   Wayp b = std::make_pair(18,      1);
+    //   Wayp c = std::make_pair(25, 194917);
+    //   Wayp d = std::make_pair(32, 114843);
+    //   Wayp e = std::make_pair(37, 114844);
+    //   bad_route = { a, b, c, d, e };
 
-      vec_t<Stop> schedule = {};
-      Stop A(1,      0, StopType::VehlOrig, 0, 500);
-      Stop B(1, 114844, StopType::VehlDest, 0, 500);
-      schedule = { A, B };
+    //   vec_t<Stop> schedule = {};
+    //   Stop A(1,      0, StopType::VehlOrig, 0, 500);
+    //   Stop B(1, 114844, StopType::VehlDest, 0, 500);
+    //   schedule = { A, B };
 
-      MutableVehicle copy(VehlA);
-      RSAlgorithm alg("", false);  // empty alg
-      REQUIRE(alg.assign({}, {}, bad_route, schedule, copy) == false);
-    }
+    //   MutableVehicle copy(VehlA);
+    //   RSAlgorithm alg("", false);  // empty alg
+    //   REQUIRE(alg.assign({}, {}, bad_route, schedule, copy) == false);
+    // }
   }
 }
 
