@@ -176,31 +176,31 @@ SCENARIO("sop_insert returns correctly distanced routes", "[functions.h]") {
         REQUIRE(route.at(1).first == 60);
       }
 
-      // AND_THEN("t=5, first sop_insert head=103") {
-      //   int count_moved = 0;
-      //   cargo.step(count_moved);  // t=1
-      //   cargo.step(count_moved);  // t=2
-      //   cargo.step(count_moved);  // t=3
-      //   cargo.step(count_moved);  // t=4
-      //   cargo.step(count_moved);  // t=5  moved to 42832
-      //   vehicles = alg.get_all_vehicles();  // TODO Cargo::get_vehicle(id)
-      //   for (Vehicle& vehl : vehicles)
-      //     if (vehl.id() == 1) Vehl1 = &vehl;
-      //   CHECK(Vehl1->next_node_distance() == 53);
-      //   CHECK(Vehl1->idx_last_visited_node() == 1);
-      //   CHECK(Vehl1->last_visited_node() == 42832);
-      //   sop_insert(*Vehl1, *Cust3, schedule, route, Cargo::gtree());
-      //   REQUIRE(route.at(1).first == 103);
+      AND_THEN("t=238, first sop_insert head=2387") {
+        int count_moved = 0;
+        for (int i = 0; i < 238; ++i)
+          cargo.step(count_moved);
+        vehicles = alg.get_all_vehicles();  // TODO Cargo::get_vehicle(id)
+        for (Vehicle& vehl : vehicles)
+          if (vehl.id() == 1) Vehl1 = &vehl;
+        // Checking against the DB
+        CHECK(Vehl1->next_node_distance() == 7);
+        sop_insert(*Vehl1, *Cust4, schedule, route, Cargo::gtree());
+        REQUIRE(route.at(1).first == 2387);
+      }
 
-      //   AND_THEN("t=5, second sop_insert head=103") {
-      //     MutableVehicle mutVehl1(*Vehl1);
-      //     mutVehl1.set_rte(route);
-      //     mutVehl1.set_sch(schedule);
-      //     mutVehl1.reset_lvn();
-      //     sop_insert(mutVehl1, *Cust4, schedule, route, Cargo::gtree());
-      //     REQUIRE(route.at(1).first == 103);
-      //   }
-      // }
+      AND_THEN("t=239, first sop_insert head=2387") {
+        int count_moved = 0;
+        for (int i = 0; i < 239; ++i)
+          cargo.step(count_moved);
+        vehicles = alg.get_all_vehicles();  // TODO Cargo::get_vehicle(id)
+        for (Vehicle& vehl : vehicles)
+          if (vehl.id() == 1) Vehl1 = &vehl;
+        // Checking against the DB
+        CHECK(Vehl1->next_node_distance() == 0);
+        sop_insert(*Vehl1, *Cust4, schedule, route, Cargo::gtree());
+        REQUIRE(route.at(1).first == 2387);
+      }
     }
   }
 }
