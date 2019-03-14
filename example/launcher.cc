@@ -27,6 +27,7 @@
 #include "greedy/greedy.h"
 #include "kinetic_tree/kinetic_tree.h"
 #include "nearest_neighbor/nearest_neighbor.h"
+#include "nearest_road/nearest_road.h"
 #include "simulated_annealing/simulated_annealing.h"
 #include "trip_vehicle_grouping/trip_vehicle_grouping.h"
 
@@ -41,7 +42,7 @@ void print_header() {
 void print_usage() {
   std::cout
     << "Interactive:  ./launcher\n"
-    << "Command-line: ./launcher selection(1-9) *.rnet *.instance [static(0-1)] [strict(0-1)] \n"
+    << "Command-line: ./launcher selection(1-12) *.rnet *.instance [static(0-1)] [strict(0-1)] \n"
     << std::endl;
 }
 
@@ -74,8 +75,10 @@ int main(int argc, char** argv) {
       << "    7) grasp4                  10) sa100\n"
       << "    8) grasp16                 11) trip_vehicle_grouping\n"
       << "    9) sa50\n"
+      << "  Other:\n"
+      << "    12) nearest_road\n"
       << "\n"
-      << "Your selection (1-11): ";
+      << "Your selection (1-12): ";
     std::cin >> selection;
     std::cout << "Path to rnet (*.rnet): ";
     std::cin >> roadnetwork;
@@ -111,6 +114,8 @@ int main(int argc, char** argv) {
     SimulatedAnnealing alg("sa100_"+cargo.name(), 100); cargo.start(alg);
   } else if (selection == "11") {
     TripVehicleGrouping alg("tg_"+cargo.name()); cargo.start(alg);
+  } else if (selection == "12") {
+    NearestRoad alg("nr_"+cargo.name()); cargo.start(alg);
   }
 }
 

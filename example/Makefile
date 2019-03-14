@@ -21,6 +21,7 @@ OBJECTS = \
 		kinetic_tree.o \
 		treeTaxiPath.o \
 		nearest_neighbor.o \
+		nearest_road.o \
 		simulated_annealing.o \
 		trip_vehicle_grouping.o \
 		launcher.o
@@ -57,6 +58,9 @@ treeTaxiPath.o: kinetic_tree/include/treeTaxiPath.h kinetic_tree/src/treeTaxiPat
 
 nearest_neighbor.o: $(LIBCARGO) nearest_neighbor/nearest_neighbor.h nearest_neighbor/nearest_neighbor.cc
 	$(CXX) $(CFLAGS) nearest_neighbor/nearest_neighbor.cc
+
+nearest_road.o: $(LIBCARGO) nearest_road/nearest_road.h nearest_road/nearest_road.cc
+	$(CXX) $(CFLAGS) nearest_road/nearest_road.cc
 
 simulated_annealing.o: $(LIBCARGO) simulated_annealing/simulated_annealing.h simulated_annealing/simulated_annealing.cc
 	$(CXX) $(CFLAGS) simulated_annealing/simulated_annealing.cc
