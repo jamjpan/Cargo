@@ -6,7 +6,8 @@
 
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\deq}{\ensuremath{:=}}
-\newcommand{\hi}[1]{{\vspace{4mm}}\noindent {#1}}
+\newcommand{\hi}[1]{{\vspace{4mm}}\noindent \textbf{#1}}
+\newcommand{\todo}[1]{\textbf{(TODO: #1)}\PackageWarning{TODO:}{#1!}}
 
 \setlist{itemsep=-1mm}
 
@@ -21,11 +22,12 @@
 
 \tableofcontents
 
-\input{src/introduction}
-\input{src/prerequisites}
-\input{src/getting_started}
-\input{src/tutorial}
-\input{src/reference}
+%\input{src/introduction}
+%\input{src/prerequisites}
+%\input{src/getting_started}
+%\input{src/tutorial}
+%\input{src/reference}
+\input{src/cargoweb}
 
 \end{document}
 

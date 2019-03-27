@@ -1,0 +1,94 @@
+%!TEX root=cargo.tex
+\section{CargoWeb}
+
+\subsection{Prerequisites}
+CargoWeb has been tested with \code{node v11.7.0}, \code{npm 6.5.0},
+and \code{g++ 7.3.1}.
+
+\subsection{Getting Started}
+\hi{Configuration.}
+CargoWeb is completing self-contained. To get started, navigate to
+\code{www} and type \code{npm install} \todo{verify the command}.
+The command will automatically download the dependencies into
+\code{www/node\_modules}. Then, open \code{cargo.js} and
+\textbf{edit the following variables} to point to your local directories.
+\begin{verbatim}
+const PROB_PATH      = "/home/jpan/devel/Cargo_benchmark/problem/"
+const ROAD_PATH      = "/home/jpan/devel/Cargo_benchmark/road/"
+const LIBCARGO_PATH  = "/home/jpan/devel/Cargo/lib"
+const LIBMETIS_PATH  = "/usr/local/lib"
+const INCLUDE_PATH   = "/home/jpan/devel/Cargo/include"
+\end{verbatim}
+
+\hi{Start the server.}
+Use \code{node} to launch the server.
+\begin{verbatim}
+> node cargo.js
+Cargo listening on port 3000!
+\end{verbatim}
+
+\hi{Code Editor.}
+Launch a browser and navigate to \code{http://localhost:3000}. The
+CargoWeb interface will appear \todo{add screenshot}. From the
+Control Pane, click on the \textit{rsalgorithm} item to toggle the dropdown.
+Click on \textit{show/hide editor}. The left panel of the code editor
+contains implementation for methods in an \code{RSAlgorithm}. The
+right panel is the definitions file. For now, the class must be
+named \code{CargoWeb}.
+
+Some examples are provided. From the dropdown, select \code{nearest-neighbor}.
+After the code appears in the code editor, hide the editor by clicking
+\textit{show/hide editor} from the Control Pane.
+
+\hi{Simulation.}
+Prepare the simulation by toggling \textit{simulation settings}. \textbf{A
+corresponding problem instance and road network must exist in \code{PROB\_PATH}
+and \code{ROAD\_PATH}.} For the road network, three files must exist in \code{ROAD\_PATH}:
+\begin{verbatim}
+    {road}.rnet
+    {road}.gtree
+    {road}.edges
+\end{verbatim}
+Three additional files must exist in \code{www/public/js}:
+\begin{verbatim}
+    {road}_nodes.js
+    {road}_positions.js
+    {road}_weights.js
+\end{verbatim}
+Replace \code{\{road\}} with the value in the \code{road} dropdown (\code{bj5},
+\code{mny}, \code{cd1}).
+
+Then, for the select combination of the other parameters, the problem instance
+with the following filename must exist in \code{PROB\_PATH}:
+\begin{verbatim}
+    rs-{road}-m{m}-c{c}-d{d}-s{s}-x{x}.instance
+\end{verbatim}
+Replace \code{m} with the value in \textit{vehicles}; \code{c} with the value
+in \textit{vehicle capacity}; \code{d} with the value in \textit{delay tolerance},
+not including "min"; \code{s} with the value in \textit{vehicle speed}, not including
+"m/sec"; \code{x} with the value in \textit{customers scale}, not including
+the text in parentheses. For example, for the values "mny", "5k", "3", "10
+m/sec", "1.0x (~9.7/sec)", "6 min" in the Control Pane, the corresponding
+problem instance is
+\begin{verbatim}
+    rs-mny-m5k-c3-d6-s10-x1.0.instance
+\end{verbatim}
+
+To start the simulation click \textit{compile + run}.
+
+The simulation will proceed in real-time. Use the scrollwheel to zoom.  A green
+spot is a moving vehicle. Grey spots are idle vehicles.  Pink squares are
+customer requests.
+
+\todo{Add screenshot}
+
+\subsection{Under the hood}
+When the \textit{compile} button is clicked,
+\code{public/index.js} builds a string of the definition and implementation
+and sends it via WebSocket to \code{cargo.js}. There, the string is
+saved onto disk as \code{cargoweb.cc} and the server spawns \code{g++} to
+compile the code. When \textit{compile + run} is clicked, the server
+executes the compiled binary and begins to read its \code{stdout} and
+the generated \code{cargoweb.dat} file. The contents of these two
+streams are used to update the client visuals.
+
