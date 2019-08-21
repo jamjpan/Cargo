@@ -37,7 +37,7 @@ A researcher can extend `RSAlgorithm` and implement `handle_vehicle`,
 ridesharing algorithm.
 
 ## Screenshot
-![Grabby](./grabby.svg)
+<p><img src='https://jamjpan.github.io/Cargo/grabby.svg'></p>
 
 Here is `example/grabby` running in real time inside `tmux`.  (ignore the
 jumbled text, that is an artifact of terminal capture).  The top pane shows
