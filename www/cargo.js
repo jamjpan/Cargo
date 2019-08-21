@@ -1,10 +1,10 @@
 /** Dec 19, 2018 **/
 const PORT           = 3000
-const PROB_PATH      = "/home/jpan/devel/Cargo_benchmark/problem/"
-const ROAD_PATH      = "/home/jpan/devel/Cargo_benchmark/road/"
-const LIBCARGO_PATH  = "/home/jpan/devel/Cargo/lib"
+const PROB_PATH      = "/home/jpan/Projects/PhD/Datasets/3-Problem-Instances/"
+const ROAD_PATH      = "/home/jpan/Projects/PhD/Datasets/1-Road-Networks/"
+const LIBCARGO_PATH  = "/home/jpan/Projects/PhD/Software/Cargo/lib"
+const INCLUDE_PATH   = "/home/jpan/Projects/PhD/Software/Cargo/include"
 const LIBMETIS_PATH  = "/usr/local/lib"
-const INCLUDE_PATH   = "/home/jpan/devel/Cargo/include"
 // -----------------------------------------------------------------------------
 const express        = require('express')
 const cargo          = express()
@@ -148,7 +148,9 @@ io.on('connection', (socket) => {
           '-pthread',
           '-lrt',
           '-ldl',
+          '-l:libglpk.a',
           '-I'+INCLUDE_PATH,
+          '-Iglpk',
           '-o', 'cargoweb'], {
       })
       /*socket*/io.emit('server msg', stripAnsi(compile.stdout.toString()))
@@ -236,7 +238,8 @@ io.on('connection', (socket) => {
 function parse_cargo_log(line) {
   if (line.length > 0) {
     line = stripAnsi(line)
-           if (line.lastIndexOf("gui line"      , 0) == 0) { io.emit('server cmd gui line'  , line.slice(9).split(' '))
+           if (line.lastIndexOf("gui clinev"    , 0) == 0) { io.emit('server cmd gui clinev', line.slice(11).split(' '))
+    } else if (line.lastIndexOf("gui clinec"    , 0) == 0) { io.emit('server cmd gui clinec', line.slice(11).split(' '))
     } else if (line.lastIndexOf("gui hi cust"   , 0) == 0) { io.emit('server cmd gui hi'    , [line.slice(12), true])
     } else if (line.lastIndexOf("gui hi vehl"   , 0) == 0) { io.emit('server cmd gui hi'    , [line.slice(12), false])
     } else if (line.lastIndexOf("gui center"    , 0) == 0) { io.emit('server cmd gui center', line.slice(11))

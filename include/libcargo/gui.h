@@ -64,7 +64,11 @@ inline void schedule(const Schedule& sched) {
 }
 
 inline void clinev(const CustId& cid, const VehlId& vid) {
-  std::cout << "gui line " << cid << " " << vid << std::endl;
+  std::cout << "gui clinev " << cid << " " << vid << std::endl;
+}
+
+inline void clinec(const CustId& cid1, const CustId& cid2) {
+  std::cout << "gui clinec " << cid1 << " " << cid2 << std::endl;
 }
 
 inline void chi(const CustId& cid) {
