@@ -3,12 +3,26 @@
 #include <unordered_map>
 #include <utility>
 #include <random>
+#include <algorithm> /* std::shuffle */
+#include <chrono>
+#include <cmath> /* std::exp */
+#include <iostream> /* std::endl */
+#include <random>
+#include <unordered_map>
+#include <vector>
+
 
 #include "libcargo.h"
 
 using namespace cargo;
 
 typedef dict<VehlId, std::pair<MutableVehicle, vec_t<Customer>>> SASol;
+
+const int f = 50;
+const int tmax = 5;
+const int pmax = 5000;
+const int BATCH = 30;
+const int SCHED_MAX = 10;
 
 class CargoWeb : public RSAlgorithm {
  public:
@@ -83,6 +97,17 @@ class CargoWeb : public RSAlgorithm {
         this->ntimeouts_++;
         return;
       }
+
+      // Visualize initial assignments
+      gui::reset();
+      for (const auto& kv1 : this->sol) {
+        for (const Customer& cust : kv1.second.second) {
+          gui::chi(cust.orig());
+          gui::clinev(cust.id(), kv1.first);
+          // gui::newroute(kv1.second.first.route());
+        }
+      }
+      pause();
     }
   }
 

@@ -16,9 +16,13 @@
     <div id="editor_toolbar">
       <select id="editor_selector">
         <option>**custom**</option>
+        <option>bilateral</option>
         <option>grabby</option>
+        <option>grasp</option>
+        <option>greedy</option>
         <option>nearest-neighbor</option>
         <option>simulated-annealing</option>
+        <option>trip-vehicle</option>
       </select>
       <ul>
         <li id="editor_toolbar_reset">reset</li>
@@ -105,7 +109,8 @@
 </script>
 <!-- Visualization: Fragment Shader -->
 <script type="x-shader/x-fragment" id="fragment_vehl">
-  const vec4 cc = vec4(0.24, 0.24, 0.32, 1.00);  // grey-ish purple
+  // const vec4 cc = vec4(0.24, 0.24, 0.32, 1.00);  // grey-ish purple
+  const vec4 cc = vec4(0.85, 0.85, 0.85, 1.00);  // grey
   const vec4 c0 = vec4(1.00, 1.00, 1.00, 1.00);  // white
   const vec4 c1 = vec4(0.27, 0.52, 0.53, 1.00);  // blue (66)
   const vec4 c2 = vec4(0.84, 0.60, 0.13, 1.00);  // yellow (172)
@@ -141,7 +146,7 @@
     vec2  cxy = 2.0 * gl_PointCoord - 1.0;
     float rad = dot(cxy, cxy);
     if (rad > 1.0) discard;
-    gl_FragColor = vec4(1.00, 1.00, 1.00, 1.00);
+    gl_FragColor = vec4(0.00, 0.00, 1.00, 1.00);
   }
 </script>
 <script src="/socket.io/socket.io.js"></script>

@@ -1,15 +1,19 @@
 const DEBUG             = false
 // Style -----------------------------------------------------------------------
 // https://github.com/morhetz/gruvbox
-const bg_color          = 0x1d2021  // bg0_h
-const rn_color          = 0x32302f  // bg0_s
-// const bg_color          = 0xeeeeee
-// const rn_color          = 0xffffff
+// const bg_color          = 0x1d2021  // bg0_h
+// const rn_color          = 0x32302f  // bg0_s
+const bg_color          = 0xffffff
+const rn_color          = 0xeeeeee
 const rn_linewidth      = 2
 const rn_linewidth_modulate = true  // set false to disable thicker lines at high zoom
-const line_color0       = 0xfb4934  // red (167)
-const line_color1       = 0x83a598  // blue (109)
-const line_color2       = 0xfabd2f  // yellow (214)
+// const line_color0       = 0xfb4934  // red (167)
+// const line_color1       = 0x83a598  // blue (109)
+// const line_color2       = 0xfabd2f  // yellow (214)
+const line_color0       = 0xff0000  // red
+const line_color1       = 0x6f688e  // purple grey-ish
+const line_color2       = 0x00ff00  // green
+const line_color3       = 0x0000ff  // blue
 // const hi_color          = (locate in index.html > fragment_hi)
 // const cust_color        = (locate in index.html > fragment_cust)
 // const vehl_color        = (locate in index.html > fragment_vehl)
@@ -293,13 +297,24 @@ var Simulation = {
   },
 
   // Return a line geometry for gui line command
-  line_geometry(id_1, id_2) {
+  clinev_geometry(id_1, id_2) {
     var temp_geom = new THREE.BufferGeometry()
     var i_cust = 3*(Number(id_1) - this.nvehl - 1)
     var i_vehl = 3*(Number(id_2) - 1)
     var pos = [this.customer_position[i_cust], this.customer_position[i_cust+1], 0,
                this.vehicle_position [i_vehl], this.vehicle_position [i_vehl+1], 0]
     // console.log(`id_1: ${id_1}, i_cust: ${i_cust}, id_2: ${id_2}, i_vehl: ${i_vehl}, pos: ${pos}`)
+    temp_geom.addAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    return temp_geom
+  },
+
+  clinec_geometry(id_1, id_2) {
+    var temp_geom = new THREE.BufferGeometry()
+    var i_cust1 = 3*(Number(id_1) - this.nvehl - 1)
+    var i_cust2 = 3*(Number(id_2) - this.nvehl - 1)
+    var pos = [this.customer_position[i_cust1], this.customer_position[i_cust1+1], 0,
+               this.customer_position[i_cust2], this.customer_position[i_cust2+1], 0]
+    console.log(`id_1: ${id_1}, i_cust1: ${i_cust1}, id_2: ${id_2}, i_cust2: ${i_cust2}, pos: ${pos}`)
     temp_geom.addAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     return temp_geom
   },
@@ -618,11 +633,27 @@ socket.on('server msg load_example', (data) => {
   editor_h  .setValue(data[1])
 })
 
-socket.on('server cmd gui line', (data) => {
+socket.on('server cmd gui clinev', (data) => {
   // console.log(data)
-  var geometry = Simulation.line_geometry(data[0], data[1])
+  var geometry = Simulation.clinev_geometry(data[0], data[1])
   var material = new THREE.LineDashedMaterial({
     color    : line_color0,
+    linewidth: 6,
+    dashSize : 0.00006,
+    gapSize  : 0.00006 })
+  var line = new THREE.Line(geometry, material)
+  line.computeLineDistances()
+  Simulation.scene.add(line)
+  workspace.lines.push(line)
+})
+
+socket.on('server cmd gui clinec', (data) => {
+  // console.log(data)
+  console.log("Got clinec");
+  var geometry = Simulation.clinec_geometry(data[0], data[1])
+  var material = new THREE.LineDashedMaterial({
+    color    : line_color3,
+    linewidth: 6,
     dashSize : 0.00006,
     gapSize  : 0.00006 })
   var line = new THREE.Line(geometry, material)
@@ -636,8 +667,9 @@ socket.on('server cmd gui route', (data) => {
   var geometry = Simulation.route_geometry(data[1])
   var material = new THREE.LineDashedMaterial({
     color    : (data[0] == true ? line_color1 : line_color2),
+    linewidth: 6,
     dashSize : (data[0] == true ? 0 : 0.00040),
-    gapSize  : (data[0] == true ? 0 : 0.00010) })
+    gapSize  : (data[0] == true ? 0 : 0.00040) })
   var route = new THREE.Line(geometry, material)
   if (data[0] == false) route.computeLineDistances()
   Simulation.scene.add(route)
