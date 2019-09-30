@@ -7,5 +7,5 @@ node_modules/
 package-lock.json
 *.dat
 *.sol
-*.cc
+cargoweb.cc
 
